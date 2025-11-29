@@ -8,7 +8,7 @@
             "cpu_cores": 1,
             "memory_mb": 1024,
             "disk_gb": 20,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": false,
             "networks": [
                 {
@@ -41,7 +41,7 @@
             "cpu_cores": 2,
             "memory_mb": 4096,
             "disk_gb": 80,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": true,
             "networks": [
                 {
@@ -76,7 +76,7 @@
             "cpu_cores": 2,
             "memory_mb": 6144,
             "disk_gb": 64,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": true,
             "networks": [
                 {
@@ -105,7 +105,7 @@
             "cpu_cores": 4,
             "memory_mb": 8192,
             "disk_gb": 150,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": true,
             "networks": [
                 {
@@ -151,7 +151,7 @@
             "cpu_cores": 2,
             "memory_mb": 2048,
             "disk_gb": 40,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": true,
             "networks": [
                 {
@@ -184,7 +184,7 @@
             "cpu_cores": 2,
             "memory_mb": 4096,
             "disk_gb": 40,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": true,
             "networks": [
                 {
@@ -228,7 +228,7 @@
             "cpu_cores": 1,
             "memory_mb": 4096,
             "disk_gb": 40,
-            "storage_pool": "local-lvm",
+            "storage_pool": "Internal",
             "agent_enabled": true,
             "networks": [
                 {
