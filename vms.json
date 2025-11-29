@@ -1,0 +1,65 @@
+[
+    {
+        "vm_name": "PF-01-RTR",
+        "template": "pfsense-template",
+        "vmbr0": "10.10.10.220",
+        "vmbr1": "172.16.10.1",
+        "cpu_cores": 1,
+        "ram_gb": 1,
+        "storage_gb": 20
+    },
+    {
+        "vm_name": "DC-01-SRV",
+        "template": "win-2022-dc-template",
+        "vmbr0": null,
+        "vmbr1": "172.16.10.100",
+        "cpu_cores": 2,
+        "ram_gb": 4,
+        "storage_gb": 80
+    },
+    {
+        "vm_name": "WIN-01-WS",
+        "template": "win11-template",
+        "vmbr0": null,
+        "vmbr1": null,
+        "cpu_cores": 2,
+        "ram_gb": 6,
+        "storage_gb": 64
+    },
+    {
+        "vm_name": "SIEM-01-SRV",
+        "template": "ubuntu-server-template",
+        "vmbr0": null,
+        "vmbr1": "172.16.10.210",
+        "cpu_cores": 4,
+        "ram_gb": 8,
+        "storage_gb": 150
+    },
+    {
+        "vm_name": "LIN-01-WS",
+        "template": "ubuntu-desktop-template",
+        "vmbr0": null,
+        "vmbr1": null,
+        "cpu_cores": 2,
+        "ram_gb": 2,
+        "storage_gb": 40
+    },
+    {
+        "vm_name": "FLEET-01-SRV",
+        "template": "ubuntu-server-template",
+        "vmbr0": null,
+        "vmbr1": "172.16.10.220",
+        "cpu_cores": 2,
+        "ram_gb": 4,
+        "storage_gb": 40
+    },
+    {
+        "vm_name": "XDR-01-SRV",
+        "template": "ubuntu-server-template",
+        "vmbr0": null,
+        "vmbr1": "172.16.10.200",
+        "cpu_cores": 1,
+        "ram_gb": 4,
+        "storage_gb": 40
+    }
+]
