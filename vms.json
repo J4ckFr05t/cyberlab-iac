@@ -1,65 +1,268 @@
-[
-    {
-        "vm_name": "PF-01-RTR",
-        "template": "pfsense-template",
-        "vmbr0": "10.10.10.220",
-        "vmbr1": "172.16.10.1",
-        "cpu_cores": 1,
-        "ram_gb": 1,
-        "storage_gb": 20
-    },
-    {
-        "vm_name": "DC-01-SRV",
-        "template": "win-2022-dc-template",
-        "vmbr0": null,
-        "vmbr1": "172.16.10.100",
-        "cpu_cores": 2,
-        "ram_gb": 4,
-        "storage_gb": 80
-    },
-    {
-        "vm_name": "WIN-01-WS",
-        "template": "win11-template",
-        "vmbr0": null,
-        "vmbr1": null,
-        "cpu_cores": 2,
-        "ram_gb": 6,
-        "storage_gb": 64
-    },
-    {
-        "vm_name": "SIEM-01-SRV",
-        "template": "ubuntu-server-template",
-        "vmbr0": null,
-        "vmbr1": "172.16.10.210",
-        "cpu_cores": 4,
-        "ram_gb": 8,
-        "storage_gb": 150
-    },
-    {
-        "vm_name": "LIN-01-WS",
-        "template": "ubuntu-desktop-template",
-        "vmbr0": null,
-        "vmbr1": null,
-        "cpu_cores": 2,
-        "ram_gb": 2,
-        "storage_gb": 40
-    },
-    {
-        "vm_name": "FLEET-01-SRV",
-        "template": "ubuntu-server-template",
-        "vmbr0": null,
-        "vmbr1": "172.16.10.220",
-        "cpu_cores": 2,
-        "ram_gb": 4,
-        "storage_gb": 40
-    },
-    {
-        "vm_name": "XDR-01-SRV",
-        "template": "ubuntu-server-template",
-        "vmbr0": null,
-        "vmbr1": "172.16.10.200",
-        "cpu_cores": 1,
-        "ram_gb": 4,
-        "storage_gb": 40
-    }
-]
+{
+    "vms": [
+        {
+            "vmid": 201,
+            "name": "PF-01-RTR",
+            "template": "pfsense-template",
+            "os_type": "bsd",
+            "cpu_cores": 1,
+            "memory_mb": 1024,
+            "disk_gb": 20,
+            "storage_pool": "local-lvm",
+            "agent_enabled": false,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": "10.10.10.220/24",
+                    "gateway": null,
+                    "model": "e1000"
+                },
+                {
+                    "bridge": "vmbr1",
+                    "ip": "172.16.10.1/24",
+                    "gateway": null,
+                    "model": "e1000"
+                }
+            ],
+            "cloud_init": {
+                "enabled": false,
+                "notes": "pfSense uses templates/sysprep, cloud-init not applied"
+            },
+            "tags": [
+                "edge",
+                "router"
+            ]
+        },
+        {
+            "vmid": 202,
+            "name": "DC-01-SRV",
+            "template": "win-2022-dc-template",
+            "os_type": "windows",
+            "cpu_cores": 2,
+            "memory_mb": 4096,
+            "disk_gb": 80,
+            "storage_pool": "local-lvm",
+            "agent_enabled": true,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": null,
+                    "gateway": null,
+                    "model": "e1000"
+                },
+                {
+                    "bridge": "vmbr1",
+                    "ip": "172.16.10.100/24",
+                    "gateway": null,
+                    "model": "e1000"
+                }
+            ],
+            "cloud_init": {
+                "enabled": true,
+                "user": "Administrator",
+                "admin_password_key": "dc_admin_password",
+                "ssh_keys": [],
+                "notes": "Use cloudbase-init / sysprep compatible image; password injected from secret store/TF variable"
+            },
+            "tags": [
+                "domain-controller"
+            ]
+        },
+        {
+            "vmid": 203,
+            "name": "WIN-01-WS",
+            "template": "win11-template",
+            "os_type": "windows",
+            "cpu_cores": 2,
+            "memory_mb": 6144,
+            "disk_gb": 64,
+            "storage_pool": "local-lvm",
+            "agent_enabled": true,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": null,
+                    "gateway": null,
+                    "model": "e1000"
+                }
+            ],
+            "cloud_init": {
+                "enabled": true,
+                "user": "Administrator",
+                "admin_password_key": "win01_admin_password",
+                "ssh_keys": [],
+                "notes": "Inject Administrator password via secrets"
+            },
+            "tags": [
+                "workstation"
+            ]
+        },
+        {
+            "vmid": 204,
+            "name": "SIEM-01-SRV",
+            "template": "ubuntu-server-template",
+            "os_type": "linux",
+            "cpu_cores": 4,
+            "memory_mb": 8192,
+            "disk_gb": 150,
+            "storage_pool": "local-lvm",
+            "agent_enabled": true,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": null,
+                    "gateway": null,
+                    "model": "virtio"
+                },
+                {
+                    "bridge": "vmbr1",
+                    "ip": "172.16.10.210/24",
+                    "gateway": null,
+                    "model": "virtio"
+                }
+            ],
+            "cloud_init": {
+                "enabled": true,
+                "user": "ubuntu",
+                "ssh_keys": [
+                    "ssh-rsa AAAA... user@example.com"
+                ],
+                "ipconfigs": [
+                    {
+                        "nic": 0,
+                        "cidr": null
+                    },
+                    {
+                        "nic": 1,
+                        "cidr": "172.16.10.210/24",
+                        "gateway": null
+                    }
+                ]
+            },
+            "tags": [
+                "siem"
+            ]
+        },
+        {
+            "vmid": 205,
+            "name": "LIN-01-WS",
+            "template": "ubuntu-desktop-template",
+            "os_type": "linux",
+            "cpu_cores": 2,
+            "memory_mb": 2048,
+            "disk_gb": 40,
+            "storage_pool": "local-lvm",
+            "agent_enabled": true,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": null,
+                    "gateway": null,
+                    "model": "virtio"
+                }
+            ],
+            "cloud_init": {
+                "enabled": true,
+                "user": "ubuntu",
+                "ssh_keys": [],
+                "ipconfigs": [
+                    {
+                        "nic": 0,
+                        "cidr": null
+                    }
+                ]
+            },
+            "tags": [
+                "dev-workstation"
+            ]
+        },
+        {
+            "vmid": 206,
+            "name": "FLEET-01-SRV",
+            "template": "ubuntu-server-template",
+            "os_type": "linux",
+            "cpu_cores": 2,
+            "memory_mb": 4096,
+            "disk_gb": 40,
+            "storage_pool": "local-lvm",
+            "agent_enabled": true,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": null,
+                    "gateway": null,
+                    "model": "virtio"
+                },
+                {
+                    "bridge": "vmbr1",
+                    "ip": "172.16.10.220/24",
+                    "gateway": null,
+                    "model": "virtio"
+                }
+            ],
+            "cloud_init": {
+                "enabled": true,
+                "user": "ubuntu",
+                "ssh_keys": [],
+                "ipconfigs": [
+                    {
+                        "nic": 0,
+                        "cidr": null
+                    },
+                    {
+                        "nic": 1,
+                        "cidr": "172.16.10.220/24",
+                        "gateway": null
+                    }
+                ]
+            },
+            "tags": [
+                "fleet"
+            ]
+        },
+        {
+            "vmid": 207,
+            "name": "XDR-01-SRV",
+            "template": "ubuntu-server-template",
+            "os_type": "linux",
+            "cpu_cores": 1,
+            "memory_mb": 4096,
+            "disk_gb": 40,
+            "storage_pool": "local-lvm",
+            "agent_enabled": true,
+            "networks": [
+                {
+                    "bridge": "vmbr0",
+                    "ip": null,
+                    "gateway": null,
+                    "model": "virtio"
+                },
+                {
+                    "bridge": "vmbr1",
+                    "ip": "172.16.10.200/24",
+                    "gateway": null,
+                    "model": "virtio"
+                }
+            ],
+            "cloud_init": {
+                "enabled": true,
+                "user": "ubuntu",
+                "ssh_keys": [],
+                "ipconfigs": [
+                    {
+                        "nic": 0,
+                        "cidr": null
+                    },
+                    {
+                        "nic": 1,
+                        "cidr": "172.16.10.200/24",
+                        "gateway": null
+                    }
+                ]
+            },
+            "tags": [
+                "xdr"
+            ]
+        }
+    ]
+}
