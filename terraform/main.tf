@@ -94,6 +94,7 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
   ciuser     = try(each.value.cloudinit.enabled, false) ? each.value.cloudinit.username : null
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.vm_passwords[each.value.name], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? urlencode(each.value.cloudinit.sshkeys) : null
 
   # Lifecycle block to ignore network changes
   lifecycle {
@@ -184,5 +185,6 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
   ciuser     = try(each.value.cloudinit.enabled, false) ? each.value.cloudinit.username : null
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.vm_passwords[each.value.name], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? urlencode(each.value.cloudinit.sshkeys) : null
 }
 
