@@ -15,3 +15,10 @@ variable "proxmox_api_token_secret" {
   sensitive   = true
 }
 
+variable "vm_passwords" {
+  type        = map(string)
+  description = "Map of VM names to their cloudinit passwords"
+  sensitive   = true
+  default     = {}
+}
+

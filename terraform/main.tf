@@ -18,6 +18,7 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
   target_node = each.value.target_node
   clone       = each.value.clone
   full_clone  = each.value.full_clone
+  onboot      = try(each.value.onboot, false)
 
   # CPU configuration
   cpu {
@@ -29,6 +30,8 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
   memory   = each.value.memory
   scsihw   = each.value.scsihw
   bootdisk = each.value.bootdisk
+  agent    = try(each.value.agent, 0)
+  os_type  = try(each.value.os_type, null)
 
   # Dynamic disk configuration
   dynamic "disk" {
@@ -52,6 +55,26 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
       firewall = network.value.firewall
     }
   }
+
+  # CloudInit configuration - ipconfig as string attributes (ipconfig0, ipconfig1, etc.)
+  ipconfig0 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 0 ? (
+    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ? 
+      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" : 
+      "ip=${each.value.cloudinit.ipconfig[0].ip}"
+  ) : null
+
+  ipconfig1 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 1 ? (
+    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ? 
+      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" : 
+      "ip=${each.value.cloudinit.ipconfig[1].ip}"
+  ) : null
+
+  # CloudInit user credentials and DNS
+  # Password is read from sensitive variable instead of JSON
+  # Setting cloudinit parameters automatically creates the cloudinit drive
+  ciuser     = try(each.value.cloudinit.enabled, false) ? each.value.cloudinit.username : null
+  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.vm_passwords[each.value.name], null) : null
+  nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
 
   # Lifecycle block to ignore network changes
   lifecycle {
@@ -66,6 +89,7 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
   target_node = each.value.target_node
   clone       = each.value.clone
   full_clone  = each.value.full_clone
+  onboot      = try(each.value.onboot, false)
 
   # CPU configuration
   cpu {
@@ -77,6 +101,8 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
   memory   = each.value.memory
   scsihw   = each.value.scsihw
   bootdisk = each.value.bootdisk
+  agent    = try(each.value.agent, 0)
+  os_type  = try(each.value.os_type, null)
 
   # Dynamic disk configuration
   dynamic "disk" {
@@ -100,5 +126,25 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
       firewall = network.value.firewall
     }
   }
+
+  # CloudInit configuration - ipconfig as string attributes (ipconfig0, ipconfig1, etc.)
+  ipconfig0 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 0 ? (
+    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ? 
+      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" : 
+      "ip=${each.value.cloudinit.ipconfig[0].ip}"
+  ) : null
+
+  ipconfig1 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 1 ? (
+    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ? 
+      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" : 
+      "ip=${each.value.cloudinit.ipconfig[1].ip}"
+  ) : null
+
+  # CloudInit user credentials and DNS
+  # Password is read from sensitive variable instead of JSON
+  # Setting cloudinit parameters automatically creates the cloudinit drive
+  ciuser     = try(each.value.cloudinit.enabled, false) ? each.value.cloudinit.username : null
+  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.vm_passwords[each.value.name], null) : null
+  nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
 }
 

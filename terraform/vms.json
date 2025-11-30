@@ -1,22 +1,23 @@
 {
   "vms": [
     {
-      "name": "pf-01-rtr-test",
+      "name": "win11-01-desktop",
       "target_node": "proxmox",
-      "clone": "pfsense-template",
+      "clone": "win11-template",
       "full_clone": true,
+      "onboot": true,
       "cpu": {
-        "cores": 1,
+        "cores": 2,
         "sockets": 1,
         "type": "host"
       },
-      "memory": 2048,
+      "memory": 4096,
       "scsihw": "virtio-scsi-pci",
       "bootdisk": "scsi0",
       "disks": [
         {
           "slot": "scsi0",
-          "size": "32G",
+          "size": "128G",
           "type": "disk",
           "storage": "Internal",
           "iothread": true
@@ -26,17 +27,25 @@
         {
           "id": 0,
           "model": "virtio",
-          "bridge": "vmbr0",
-          "firewall": true
-        },
-        {
-          "id": 1,
-          "model": "virtio",
           "bridge": "vmbr1",
           "firewall": true
         }
       ],
-      "ignore_network_changes": true
+      "cloudinit": {
+        "enabled": true,
+        "username": "Administrator",
+        "ipconfig": [
+          {
+            "interface": "net0",
+            "ip": "172.16.10.50/24",
+            "gateway": "172.16.10.1"
+          }
+        ],
+        "nameserver": "8.8.8.8"
+      },
+      "os_type": "win11",
+      "agent": 1,
+      "ignore_network_changes": false
     }
   ]
 }

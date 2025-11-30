@@ -2,3 +2,11 @@ proxmox_api_url          = "https://192.168.1.100:8006/api2/json"
 proxmox_api_token_id     = "root@pam!terraform"
 proxmox_api_token_secret = "your-api-token-secret"
 
+# VM passwords - map VM names to their cloudinit passwords
+# This file should be gitignored. Copy this to terraform.tfvars and set your passwords.
+vm_passwords = {
+  "win11-01-desktop" = "YourSecurePassword123!"
+  # Add more VM passwords as needed
+  # "ubuntu-01-server" = "AnotherSecurePassword123!"
+}
+
