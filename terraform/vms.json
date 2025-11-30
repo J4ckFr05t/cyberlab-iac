@@ -1,48 +1,9 @@
 {
   "vms": [
     {
-      "name": "pf-01-rtr-test",
+      "name": "ubuntu-01-server",
       "target_node": "proxmox",
-      "clone": "pfsense-template",
-      "full_clone": true,
-      "onboot": false,
-      "cpu": {
-        "cores": 1,
-        "sockets": 1,
-        "type": "host"
-      },
-      "memory": 2048,
-      "scsihw": "virtio-scsi-single",
-      "bootdisk": "scsi0",
-      "disks": [
-        {
-          "slot": "scsi0",
-          "size": "32G",
-          "type": "disk",
-          "storage": "Internal",
-          "iothread": true
-        }
-      ],
-      "networks": [
-        {
-          "id": 0,
-          "model": "virtio",
-          "bridge": "vmbr0",
-          "firewall": true
-        },
-        {
-          "id": 1,
-          "model": "virtio",
-          "bridge": "vmbr1",
-          "firewall": true
-        }
-      ],
-      "ignore_network_changes": true
-    },
-    {
-      "name": "win11-01-desktop",
-      "target_node": "proxmox",
-      "clone": "win11-template",
+      "clone": "ubuntu-server-template",
       "full_clone": true,
       "onboot": true,
       "cpu": {
@@ -50,24 +11,24 @@
         "sockets": 1,
         "type": "host"
       },
-      "bios": "ovmf",
-      "machine": "q35",
-      "efi_storage": "local",
       "memory": 4096,
-      "scsihw": "virtio-scsi-single",
+      "serial": {
+        "id": 0,
+        "type": "socket"
+      },
+      "scsihw": "virtio-scsi-pci",
       "bootdisk": "scsi0",
       "disks": [
         {
           "slot": "scsi0",
-          "size": "128G",
+          "size": "3584M",
           "type": "disk",
-          "storage": "Internal",
-          "iothread": true
+          "storage": "Internal"
         },
         {
-          "slot": "ide1",
+          "slot": "ide2",
           "type": "cloudinit",
-          "storage": "Internal"
+          "storage": "local"
         }
       ],
       "networks": [
@@ -80,11 +41,11 @@
       ],
       "cloudinit": {
         "enabled": true,
-        "username": "Administrator",
+        "username": "ubuntu",
         "ipconfig": [
           {
             "interface": "net0",
-            "ip": "172.16.10.50/24",
+            "ip": "172.16.10.51/24",
             "gateway": "172.16.10.1"
           }
         ],

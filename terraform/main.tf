@@ -44,6 +44,14 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
     }
   }
 
+  dynamic "serial" {
+    for_each = try(each.value.serial, null) != null ? [each.value.serial] : []
+    content {
+      id   = serial.value.id
+      type = serial.value.type
+    }
+  }
+
   # Dynamic disk configuration
   dynamic "disk" {
     for_each = each.value.disks
@@ -123,6 +131,14 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
       storage           = try(each.value.efi_storage, "local-lvm")
       efitype           = "4m"
       pre_enrolled_keys = true
+    }
+  }
+
+  dynamic "serial" {
+    for_each = try(each.value.serial, null) != null ? [each.value.serial] : []
+    content {
+      id   = serial.value.id
+      type = serial.value.type
     }
   }
 
