@@ -7,6 +7,6 @@ proxmox_api_token_secret = "your-api-token-secret"
 vm_passwords = {
   "win11-01-desktop" = "YourSecurePassword123!"
   # Add more VM passwords as needed
-  # "ubuntu-01-server" = "AnotherSecurePassword123!"
+  "ubuntu-01-server" = "AnotherSecurePassword123!"
 }
 
