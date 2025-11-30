@@ -32,16 +32,27 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
   bootdisk = each.value.bootdisk
   agent    = try(each.value.agent, 0)
   os_type  = try(each.value.os_type, null)
+  bios     = try(each.value.bios, "seabios")
+  machine  = try(each.value.machine, "pc")
+
+  dynamic "efidisk" {
+    for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
+    content {
+      storage           = try(each.value.efi_storage, "local-lvm")
+      efitype           = "4m"
+      pre_enrolled_keys = true
+    }
+  }
 
   # Dynamic disk configuration
   dynamic "disk" {
     for_each = each.value.disks
     content {
       slot     = disk.value.slot
-      size     = disk.value.size
+      size     = try(disk.value.size, null)
       type     = disk.value.type
       storage  = disk.value.storage
-      iothread = disk.value.iothread
+      iothread = try(disk.value.iothread, false)
     }
   }
 
@@ -103,16 +114,27 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
   bootdisk = each.value.bootdisk
   agent    = try(each.value.agent, 0)
   os_type  = try(each.value.os_type, null)
+  bios     = try(each.value.bios, "seabios")
+  machine  = try(each.value.machine, "pc")
+
+  dynamic "efidisk" {
+    for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
+    content {
+      storage           = try(each.value.efi_storage, "local-lvm")
+      efitype           = "4m"
+      pre_enrolled_keys = true
+    }
+  }
 
   # Dynamic disk configuration
   dynamic "disk" {
     for_each = each.value.disks
     content {
       slot     = disk.value.slot
-      size     = disk.value.size
+      size     = try(disk.value.size, null)
       type     = disk.value.type
       storage  = disk.value.storage
-      iothread = disk.value.iothread
+      iothread = try(disk.value.iothread, false)
     }
   }
 

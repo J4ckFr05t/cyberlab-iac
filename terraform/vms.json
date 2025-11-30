@@ -1,6 +1,45 @@
 {
   "vms": [
     {
+      "name": "pf-01-rtr-test",
+      "target_node": "proxmox",
+      "clone": "pfsense-template",
+      "full_clone": true,
+      "onboot": false,
+      "cpu": {
+        "cores": 1,
+        "sockets": 1,
+        "type": "host"
+      },
+      "memory": 2048,
+      "scsihw": "virtio-scsi-single",
+      "bootdisk": "scsi0",
+      "disks": [
+        {
+          "slot": "scsi0",
+          "size": "32G",
+          "type": "disk",
+          "storage": "Internal",
+          "iothread": true
+        }
+      ],
+      "networks": [
+        {
+          "id": 0,
+          "model": "virtio",
+          "bridge": "vmbr0",
+          "firewall": true
+        },
+        {
+          "id": 1,
+          "model": "virtio",
+          "bridge": "vmbr1",
+          "firewall": true
+        }
+      ],
+      "ignore_network_changes": true
+    },
+    {
       "name": "win11-01-desktop",
       "target_node": "proxmox",
       "clone": "win11-template",
@@ -11,8 +50,11 @@
         "sockets": 1,
         "type": "host"
       },
+      "bios": "ovmf",
+      "machine": "q35",
+      "efi_storage": "local",
       "memory": 4096,
-      "scsihw": "virtio-scsi-pci",
+      "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
         {
@@ -21,6 +63,11 @@
           "type": "disk",
           "storage": "Internal",
           "iothread": true
+        },
+        {
+          "slot": "ide1",
+          "type": "cloudinit",
+          "storage": "Internal"
         }
       ],
       "networks": [
@@ -43,10 +90,8 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "os_type": "win11",
       "agent": 1,
       "ignore_network_changes": false
     }
   ]
 }
-
