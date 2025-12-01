@@ -135,7 +135,7 @@
       "cloudinit": {
         "enabled": true,
         "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC33thqUyOxGEnryhx4Om5AAY9hgvJz3VpStF3srIJJCmU2yfEIGI6m3YSQX0Sk69/adwnTlgKFb63zv8QNcjTv1OCj+PKETncWYSyqIIM5mwNo/qmZHmzf7YlWScBswrgdjPCmOuma+Cwt6ONuuKfEV+3A22ErxdROCShNDbTcBM8+2P1C5Hu/7vKHtwh7f0TOeA5oBFsiw8Xr7Qt7oO5X17ry5UFz6p64eDT++UGso4UFo3mI7u5e4tzea6xUFi2h3i8SwIXZw4aYdTeZlmtyhxy6wFCwogUjZ3HJiQjXjr69cOgRXtBFxuZZWeCDaH3yWamAHKLEdrb+K6G3GM5IUsvQy7sQkCJBvcsDqd9chHDACKs1kUqVnBvUTTNtQ/eL3kWmiDYmvqJVUMK+oMJfNdIBGuzORrxFCqlm0Sg/PvfVxLe28vTlU4SSTnjnRHBj/H2xBrwQHhD6qJW7Z2Sjj1FN3d3K5ct3VzgLfWxOgoWuZEZGU5OlZmQEpnAequLCGCS/97KHpIW5cifK0efG7GLiLkTjlG+ywZhLlapD3LC2z0BHfkX0EI/RCUTJls9TklpNuQgco3eD/FbFpm9a7DdG9edkSVsr9T4vEI0tx9psfFQzVyfnb5qNleW7fth1kb30dkp9DV0yiTeYqphXdxGUhGjryP8cUHP1hOQ1vQ== jibingeorge@Jibins-MacBook-Pro.local",
-        "username": "ubuntu",
+        "username": "sysadmin",
         "ipconfig": [
           {
             "interface": "net0",
@@ -187,7 +187,7 @@
       "cloudinit": {
         "enabled": true,
         "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC33thqUyOxGEnryhx4Om5AAY9hgvJz3VpStF3srIJJCmU2yfEIGI6m3YSQX0Sk69/adwnTlgKFb63zv8QNcjTv1OCj+PKETncWYSyqIIM5mwNo/qmZHmzf7YlWScBswrgdjPCmOuma+Cwt6ONuuKfEV+3A22ErxdROCShNDbTcBM8+2P1C5Hu/7vKHtwh7f0TOeA5oBFsiw8Xr7Qt7oO5X17ry5UFz6p64eDT++UGso4UFo3mI7u5e4tzea6xUFi2h3i8SwIXZw4aYdTeZlmtyhxy6wFCwogUjZ3HJiQjXjr69cOgRXtBFxuZZWeCDaH3yWamAHKLEdrb+K6G3GM5IUsvQy7sQkCJBvcsDqd9chHDACKs1kUqVnBvUTTNtQ/eL3kWmiDYmvqJVUMK+oMJfNdIBGuzORrxFCqlm0Sg/PvfVxLe28vTlU4SSTnjnRHBj/H2xBrwQHhD6qJW7Z2Sjj1FN3d3K5ct3VzgLfWxOgoWuZEZGU5OlZmQEpnAequLCGCS/97KHpIW5cifK0efG7GLiLkTjlG+ywZhLlapD3LC2z0BHfkX0EI/RCUTJls9TklpNuQgco3eD/FbFpm9a7DdG9edkSVsr9T4vEI0tx9psfFQzVyfnb5qNleW7fth1kb30dkp9DV0yiTeYqphXdxGUhGjryP8cUHP1hOQ1vQ== jibingeorge@Jibins-MacBook-Pro.local",
-        "username": "ubuntu",
+        "username": "sysadmin",
         "ipconfig": [
           {
             "interface": "net0",
