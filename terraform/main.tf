@@ -2,6 +2,14 @@
 locals {
   vm_config = jsondecode(file("${path.module}/vms.json"))
   vms       = { for vm in local.vm_config.vms : vm.name => vm }
+  
+  # Map templates to their default usernames
+  template_usernames = {
+    "ubuntu-server-template"  = "sysadmin"
+    "ubuntu-desktop-template" = "sysadmin"
+    "win11-template"          = "Administrator"
+    "win-dc-2022-template"    = "Administrator"
+  }
 }
 
 # Create VMs
@@ -83,11 +91,10 @@ resource "proxmox_vm_qemu" "vms" {
   ) : null
 
   # CloudInit user credentials and DNS
-  # Password is read from sensitive variable instead of JSON
-  # Setting cloudinit parameters automatically creates the cloudinit drive
-  ciuser     = try(each.value.cloudinit.enabled, false) ? each.value.cloudinit.username : null
-  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.vm_passwords[each.value.name], null) : null
+  # Username and password are based on the template, not individual VMs
+  ciuser     = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
+  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? urlencode(each.value.cloudinit.sshkeys) : null
+  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? "${each.value.cloudinit.sshkeys}\n" : null
 }
 
