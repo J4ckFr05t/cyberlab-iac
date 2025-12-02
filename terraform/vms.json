@@ -93,7 +93,10 @@
           }
         ]
       },
-      "agent": 1
+      "agent": 1,
+      "depends_on": [
+        "PF-01-RTR"
+      ]
     },
     {
       "name": "SIEM-01-SRV",
@@ -147,7 +150,10 @@
         ],
         "nameserver": "172.16.10.100"
       },
-      "agent": 1
+      "agent": 1,
+      "depends_on": [
+        "PF-01-RTR"
+      ]
     },
     {
       "name": "FLEET-01-SRV",
@@ -201,7 +207,10 @@
         ],
         "nameserver": "172.16.10.100"
       },
-      "agent": 1
+      "agent": 1,
+      "depends_on": [
+        "PF-01-RTR"
+      ]
     },
     {
       "name": "XDR-01-SRV",
@@ -255,7 +264,10 @@
         ],
         "nameserver": "172.16.10.100"
       },
-      "agent": 1
+      "agent": 1,
+      "depends_on": [
+        "PF-01-RTR"
+      ]
     },
     {
       "name": "LIN-01-WS",
@@ -306,7 +318,10 @@
         ],
         "nameserver": "172.16.10.100"
       },
-      "agent": 1
+      "agent": 1,
+      "depends_on": [
+        "PF-01-RTR"
+      ]
     },
     {
       "name": "WIN-01-WS",
@@ -359,7 +374,10 @@
         ],
         "nameserver": "172.16.10.100"
       },
-      "agent": 1
+      "agent": 1,
+      "depends_on": [
+        "PF-01-RTR"
+      ]
     }
   ]
 }
