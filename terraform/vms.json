@@ -1,7 +1,8 @@
 {
   "vms": [
     {
-      "name": "pf-01-rtr-test",
+      "name": "PF-01-RTR",
+      "vmid": 200,
       "target_node": "proxmox",
       "clone": "pfsense-template",
       "full_clone": true,
@@ -40,9 +41,10 @@
       "ignore_network_changes": true
     },
     {
-      "name": "win11-01-desktop",
+      "name": "DC-01-SRV",
+      "vmid": 201,
       "target_node": "proxmox",
-      "clone": "win11-template",
+      "clone": "win-dc-2022-template",
       "full_clone": true,
       "onboot": true,
       "cpu": {
@@ -53,13 +55,17 @@
       "bios": "ovmf",
       "machine": "q35",
       "efi_storage": "Internal",
-      "memory": 4096,
+      "memory": 2048,
+      "serial": {
+        "id": 0,
+        "type": "socket"
+      },
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
         {
           "slot": "scsi0",
-          "size": "128G",
+          "size": "64G",
           "type": "disk",
           "storage": "Internal",
           "iothread": true
@@ -67,7 +73,7 @@
         {
           "slot": "ide1",
           "type": "cloudinit",
-          "storage": "Internal"
+          "storage": "local"
         }
       ],
       "networks": [
@@ -84,7 +90,7 @@
         "ipconfig": [
           {
             "interface": "net0",
-            "ip": "172.16.10.50/24",
+            "ip": "172.16.10.100/24",
             "gateway": "172.16.10.1"
           }
         ],
@@ -94,7 +100,8 @@
       "ignore_network_changes": false
     },
     {
-      "name": "ubuntu-01-server",
+      "name": "SIEM-01-SRV",
+      "vmid": 202,
       "target_node": "proxmox",
       "clone": "ubuntu-server-template",
       "full_clone": true,
@@ -149,7 +156,120 @@
       "ignore_network_changes": false
     },
     {
-      "name": "ubuntu-01-desktop",
+      "name": "FLEET-01-SRV",
+      "vmid": 203,
+      "target_node": "proxmox",
+      "clone": "ubuntu-server-template",
+      "full_clone": true,
+      "onboot": true,
+      "cpu": {
+        "cores": 2,
+        "sockets": 1,
+        "type": "host"
+      },
+      "memory": 4096,
+      "serial": {
+        "id": 0,
+        "type": "socket"
+      },
+      "scsihw": "virtio-scsi-pci",
+      "bootdisk": "scsi0",
+      "disks": [
+        {
+          "slot": "scsi0",
+          "size": "3584M",
+          "type": "disk",
+          "storage": "Internal"
+        },
+        {
+          "slot": "ide2",
+          "type": "cloudinit",
+          "storage": "local"
+        }
+      ],
+      "networks": [
+        {
+          "id": 0,
+          "model": "virtio",
+          "bridge": "vmbr1",
+          "firewall": true
+        }
+      ],
+      "cloudinit": {
+        "enabled": true,
+        "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC33thqUyOxGEnryhx4Om5AAY9hgvJz3VpStF3srIJJCmU2yfEIGI6m3YSQX0Sk69/adwnTlgKFb63zv8QNcjTv1OCj+PKETncWYSyqIIM5mwNo/qmZHmzf7YlWScBswrgdjPCmOuma+Cwt6ONuuKfEV+3A22ErxdROCShNDbTcBM8+2P1C5Hu/7vKHtwh7f0TOeA5oBFsiw8Xr7Qt7oO5X17ry5UFz6p64eDT++UGso4UFo3mI7u5e4tzea6xUFi2h3i8SwIXZw4aYdTeZlmtyhxy6wFCwogUjZ3HJiQjXjr69cOgRXtBFxuZZWeCDaH3yWamAHKLEdrb+K6G3GM5IUsvQy7sQkCJBvcsDqd9chHDACKs1kUqVnBvUTTNtQ/eL3kWmiDYmvqJVUMK+oMJfNdIBGuzORrxFCqlm0Sg/PvfVxLe28vTlU4SSTnjnRHBj/H2xBrwQHhD6qJW7Z2Sjj1FN3d3K5ct3VzgLfWxOgoWuZEZGU5OlZmQEpnAequLCGCS/97KHpIW5cifK0efG7GLiLkTjlG+ywZhLlapD3LC2z0BHfkX0EI/RCUTJls9TklpNuQgco3eD/FbFpm9a7DdG9edkSVsr9T4vEI0tx9psfFQzVyfnb5qNleW7fth1kb30dkp9DV0yiTeYqphXdxGUhGjryP8cUHP1hOQ1vQ== jibingeorge@Jibins-MacBook-Pro.local",
+        "username": "sysadmin",
+        "ipconfig": [
+          {
+            "interface": "net0",
+            "ip": "172.16.10.51/24",
+            "gateway": "172.16.10.1"
+          }
+        ],
+        "nameserver": "8.8.8.8"
+      },
+      "agent": 1,
+      "ignore_network_changes": false
+    },
+    {
+      "name": "XDR-01-SRV",
+      "vmid": 204,
+      "target_node": "proxmox",
+      "clone": "ubuntu-server-template",
+      "full_clone": true,
+      "onboot": true,
+      "cpu": {
+        "cores": 2,
+        "sockets": 1,
+        "type": "host"
+      },
+      "memory": 4096,
+      "serial": {
+        "id": 0,
+        "type": "socket"
+      },
+      "scsihw": "virtio-scsi-pci",
+      "bootdisk": "scsi0",
+      "disks": [
+        {
+          "slot": "scsi0",
+          "size": "3584M",
+          "type": "disk",
+          "storage": "Internal"
+        },
+        {
+          "slot": "ide2",
+          "type": "cloudinit",
+          "storage": "local"
+        }
+      ],
+      "networks": [
+        {
+          "id": 0,
+          "model": "virtio",
+          "bridge": "vmbr1",
+          "firewall": true
+        }
+      ],
+      "cloudinit": {
+        "enabled": true,
+        "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQC33thqUyOxGEnryhx4Om5AAY9hgvJz3VpStF3srIJJCmU2yfEIGI6m3YSQX0Sk69/adwnTlgKFb63zv8QNcjTv1OCj+PKETncWYSyqIIM5mwNo/qmZHmzf7YlWScBswrgdjPCmOuma+Cwt6ONuuKfEV+3A22ErxdROCShNDbTcBM8+2P1C5Hu/7vKHtwh7f0TOeA5oBFsiw8Xr7Qt7oO5X17ry5UFz6p64eDT++UGso4UFo3mI7u5e4tzea6xUFi2h3i8SwIXZw4aYdTeZlmtyhxy6wFCwogUjZ3HJiQjXjr69cOgRXtBFxuZZWeCDaH3yWamAHKLEdrb+K6G3GM5IUsvQy7sQkCJBvcsDqd9chHDACKs1kUqVnBvUTTNtQ/eL3kWmiDYmvqJVUMK+oMJfNdIBGuzORrxFCqlm0Sg/PvfVxLe28vTlU4SSTnjnRHBj/H2xBrwQHhD6qJW7Z2Sjj1FN3d3K5ct3VzgLfWxOgoWuZEZGU5OlZmQEpnAequLCGCS/97KHpIW5cifK0efG7GLiLkTjlG+ywZhLlapD3LC2z0BHfkX0EI/RCUTJls9TklpNuQgco3eD/FbFpm9a7DdG9edkSVsr9T4vEI0tx9psfFQzVyfnb5qNleW7fth1kb30dkp9DV0yiTeYqphXdxGUhGjryP8cUHP1hOQ1vQ== jibingeorge@Jibins-MacBook-Pro.local",
+        "username": "sysadmin",
+        "ipconfig": [
+          {
+            "interface": "net0",
+            "ip": "172.16.10.51/24",
+            "gateway": "172.16.10.1"
+          }
+        ],
+        "nameserver": "8.8.8.8"
+      },
+      "agent": 1,
+      "ignore_network_changes": false
+    },
+    {
+      "name": "LIN-01-WS",
+      "vmid": 205,
       "target_node": "proxmox",
       "clone": "ubuntu-desktop-template",
       "full_clone": true,
@@ -201,9 +321,10 @@
       "ignore_network_changes": false
     },
     {
-      "name": "win22-01-dc",
+      "name": "WIN-01-WS",
+      "vmid": 206,
       "target_node": "proxmox",
-      "clone": "win-dc-2022-template",
+      "clone": "win11-template",
       "full_clone": true,
       "onboot": true,
       "cpu": {
@@ -214,17 +335,13 @@
       "bios": "ovmf",
       "machine": "q35",
       "efi_storage": "Internal",
-      "memory": 2048,
-      "serial": {
-        "id": 0,
-        "type": "socket"
-      },
+      "memory": 4096,
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
         {
           "slot": "scsi0",
-          "size": "64G",
+          "size": "128G",
           "type": "disk",
           "storage": "Internal",
           "iothread": true
@@ -232,7 +349,7 @@
         {
           "slot": "ide1",
           "type": "cloudinit",
-          "storage": "local"
+          "storage": "Internal"
         }
       ],
       "networks": [
@@ -249,7 +366,7 @@
         "ipconfig": [
           {
             "interface": "net0",
-            "ip": "172.16.10.100/24",
+            "ip": "172.16.10.50/24",
             "gateway": "172.16.10.1"
           }
         ],

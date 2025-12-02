@@ -16,6 +16,7 @@ resource "proxmox_vm_qemu" "vms_with_lifecycle" {
   for_each    = local.vms_with_lifecycle
   name        = each.value.name
   target_node = each.value.target_node
+  vmid        = each.value.vmid
   clone       = each.value.clone
   full_clone  = each.value.full_clone
   onboot      = try(each.value.onboot, false)
@@ -107,6 +108,7 @@ resource "proxmox_vm_qemu" "vms_without_lifecycle" {
   for_each    = local.vms_without_lifecycle
   name        = each.value.name
   target_node = each.value.target_node
+  vmid        = each.value.vmid
   clone       = each.value.clone
   full_clone  = each.value.full_clone
   onboot      = try(each.value.onboot, false)
