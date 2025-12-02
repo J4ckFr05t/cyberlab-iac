@@ -37,8 +37,7 @@
           "bridge": "vmbr1",
           "firewall": true
         }
-      ],
-      "ignore_network_changes": true
+      ]
     },
     {
       "name": "DC-01-SRV",
@@ -96,8 +95,7 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "agent": 1,
-      "ignore_network_changes": false
+      "agent": 1
     },
     {
       "name": "SIEM-01-SRV",
@@ -152,8 +150,7 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "agent": 1,
-      "ignore_network_changes": false
+      "agent": 1
     },
     {
       "name": "FLEET-01-SRV",
@@ -208,8 +205,7 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "agent": 1,
-      "ignore_network_changes": false
+      "agent": 1
     },
     {
       "name": "XDR-01-SRV",
@@ -264,8 +260,7 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "agent": 1,
-      "ignore_network_changes": false
+      "agent": 1
     },
     {
       "name": "LIN-01-WS",
@@ -317,8 +312,7 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "agent": 1,
-      "ignore_network_changes": false
+      "agent": 1
     },
     {
       "name": "WIN-01-WS",
@@ -372,8 +366,7 @@
         ],
         "nameserver": "8.8.8.8"
       },
-      "agent": 1,
-      "ignore_network_changes": false
+      "agent": 1
     }
   ]
 }
