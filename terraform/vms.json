@@ -275,7 +275,6 @@
       "target_node": "proxmox",
       "clone": "ubuntu-desktop-template",
       "full_clone": true,
-      "onboot": true,
       "cpu": {
         "cores": 2,
         "sockets": 1,
@@ -329,7 +328,6 @@
       "target_node": "proxmox",
       "clone": "win11-template",
       "full_clone": true,
-      "onboot": true,
       "cpu": {
         "cores": 2,
         "sockets": 1,
