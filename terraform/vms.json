@@ -7,6 +7,9 @@
       "clone": "pfsense-template",
       "full_clone": true,
       "onboot": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 1,
         "sockets": 1,
@@ -46,6 +49,9 @@
       "clone": "win-dc-2022-template",
       "full_clone": true,
       "onboot": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 2,
         "sockets": 1,
@@ -105,6 +111,9 @@
       "clone": "ubuntu-server-template",
       "full_clone": true,
       "onboot": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 2,
         "sockets": 1,
@@ -161,6 +170,9 @@
       "clone": "ubuntu-server-template",
       "full_clone": true,
       "onboot": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 2,
         "sockets": 1,
@@ -217,6 +229,9 @@
       "clone": "ubuntu-server-template",
       "full_clone": true,
       "onboot": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 2,
         "sockets": 1,
@@ -272,6 +287,9 @@
       "target_node": "proxmox",
       "clone": "ubuntu-desktop-template",
       "full_clone": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 2,
         "sockets": 1,
@@ -324,6 +342,9 @@
       "target_node": "proxmox",
       "clone": "win11-template",
       "full_clone": true,
+      "tags": [
+        "Lab"
+      ],
       "cpu": {
         "cores": 2,
         "sockets": 1,

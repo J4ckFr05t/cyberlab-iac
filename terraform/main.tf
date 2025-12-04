@@ -44,6 +44,7 @@ resource "proxmox_vm_qemu" "vms_independent" {
   os_type  = try(each.value.os_type, null)
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
+  tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
 
   dynamic "efidisk" {
     for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
@@ -130,6 +131,7 @@ resource "proxmox_vm_qemu" "vms_dependent" {
   os_type  = try(each.value.os_type, null)
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
+  tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
 
   dynamic "efidisk" {
     for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
