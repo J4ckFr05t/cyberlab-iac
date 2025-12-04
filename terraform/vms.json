@@ -6,7 +6,7 @@
       "target_node": "proxmox",
       "clone": "pfsense-template",
       "full_clone": true,
-      "onboot": false,
+      "onboot": true,
       "cpu": {
         "cores": 1,
         "sockets": 1,
