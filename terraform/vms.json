@@ -24,7 +24,10 @@
           "size": "32G",
           "type": "disk",
           "storage": "Internal",
-          "iothread": true
+          "iothread": true,
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         }
       ],
       "networks": [
@@ -73,7 +76,10 @@
           "size": "64G",
           "type": "disk",
           "storage": "Internal",
-          "iothread": true
+          "iothread": true,
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         },
         {
           "slot": "ide1",
@@ -131,7 +137,10 @@
           "slot": "scsi0",
           "size": "150G",
           "type": "disk",
-          "storage": "Internal"
+          "storage": "Internal",
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         },
         {
           "slot": "ide2",
@@ -190,7 +199,10 @@
           "slot": "scsi0",
           "size": "64G",
           "type": "disk",
-          "storage": "Internal"
+          "storage": "Internal",
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         },
         {
           "slot": "ide2",
@@ -249,7 +261,10 @@
           "slot": "scsi0",
           "size": "64G",
           "type": "disk",
-          "storage": "Internal"
+          "storage": "Internal",
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         },
         {
           "slot": "ide2",
@@ -304,7 +319,10 @@
           "size": "64G",
           "type": "disk",
           "storage": "Internal",
-          "iothread": true
+          "iothread": true,
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         },
         {
           "slot": "ide0",
@@ -362,7 +380,10 @@
           "size": "128G",
           "type": "disk",
           "storage": "Internal",
-          "iothread": true
+          "iothread": true,
+          "format": "qcow2",
+          "discard": true,
+          "cache": "writeback"
         },
         {
           "slot": "ide1",
