@@ -13,7 +13,8 @@ ansible/
 │       └── tasks/
 │           └── main.yml       # Domain controller setup tasks
 ├── playbooks/
-│   └── dc_setup.yml           # Domain controller setup playbook
+│   ├── dc_setup.yml           # Domain controller setup playbook
+│   └── configure_dns.yml      # DNS configuration playbook
 └── README.md                  # This file
 ```
 
@@ -153,3 +154,132 @@ ansible-playbook ... --tags ou
 # Skip reboot
 ansible-playbook ... --skip-tags reboot
 ```
+
+---
+
+## DNS Configuration
+
+### Overview
+
+The DNS configuration playbook (`configure_dns.yml`) sets up all hosts (except pfSense and DC) to use the Domain Controller as their primary DNS server.
+
+### Features
+
+- ✅ Automatically retrieves DC IP from inventory
+- ✅ Supports Windows hosts (using `win_dns_client`)
+- ✅ Supports Linux hosts with both systemd-resolved and traditional `/etc/resolv.conf`
+- ✅ Excludes pfSense and DC hosts automatically
+- ✅ Idempotent - safe to run multiple times
+- ✅ Includes DNS verification tests
+
+### Prerequisites
+
+**Windows Hosts:**
+- WinRM configured and accessible
+- PowerShell 3.0 or higher
+- Administrator privileges
+
+**Linux Hosts:**
+- SSH access configured
+- sudo privileges
+- Python installed
+
+**Ansible Collections:**
+```bash
+ansible-galaxy collection install -r requirements.yml
+```
+
+### Usage
+
+**Run the playbook:**
+```bash
+ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml
+```
+
+**Run for specific host groups:**
+```bash
+# Only Windows hosts
+ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --limit windows
+
+# Only Linux hosts
+ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --limit linux,infra
+
+# Specific host
+ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --limit win-01-ws
+```
+
+**Dry run (check mode):**
+```bash
+ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --check
+```
+
+### What It Does
+
+**For Windows hosts:**
+1. Retrieves the DC IP address from inventory (`172.16.10.100`)
+2. Identifies the active network adapter
+3. Configures the DNS server using `win_dns_client` module
+4. Reports success/failure
+
+**For Linux hosts:**
+
+The playbook automatically detects the DNS management method:
+
+- **If systemd-resolved is active** (Ubuntu 18.04+, Debian 10+):
+  - Creates `/etc/systemd/resolved.conf.d/dns.conf`
+  - Sets DNS to DC IP
+  - Configures search domain as `frostsec.corp`
+  - Restarts systemd-resolved service
+  - Ensures `/etc/resolv.conf` is properly symlinked
+
+- **If traditional resolv.conf is used:**
+  - Backs up existing `/etc/resolv.conf` to `/etc/resolv.conf.backup`
+  - Creates new `/etc/resolv.conf` with DC DNS
+  - Sets search domain as `frostsec.corp`
+  - Makes file immutable to prevent NetworkManager from overwriting
+
+### Excluded Hosts
+
+The following hosts are **automatically excluded** by targeting specific groups:
+- **pfSense** - Not in any targeted group
+- **DC (dc-01-srv)** - In `[dc]` group which is not targeted
+
+### Verification
+
+Test DNS resolution manually:
+
+**Windows:**
+```powershell
+nslookup dc-01-srv.frostsec.corp
+Get-DnsClientServerAddress
+```
+
+**Linux:**
+```bash
+nslookup dc-01-srv.frostsec.corp
+cat /etc/resolv.conf
+systemd-resolve --status  # For systemd-resolved systems
+```
+
+### Troubleshooting
+
+**Windows Issues:**
+- **WinRM connection failed**: Ensure WinRM is configured and firewall allows ports 5985/5986
+- **Access denied**: Verify the Ansible user has Administrator privileges
+
+**Linux Issues:**
+- **Permission denied**: Ensure `ansible_become=true` is set and user has sudo privileges
+- **DNS not persisting**: Check if NetworkManager is overwriting settings. Consider configuring NetworkManager directly:
+  ```bash
+  nmcli connection modify <connection-name> ipv4.dns "172.16.10.100"
+  nmcli connection modify <connection-name> ipv4.ignore-auto-dns yes
+  ```
+
+---
+
+## Typical Workflow
+
+1. **Deploy VMs** using Terraform (see `../terraform/`)
+2. **Setup Domain Controller** using `dc_setup.yml`
+3. **Configure DNS** on all hosts using `configure_dns.yml`
+4. **Join hosts to domain** (future playbook)

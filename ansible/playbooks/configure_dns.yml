@@ -1,0 +1,130 @@
+---
+# Playbook to configure DNS settings on all hosts except pfSense and DC
+# This playbook sets the DNS server to the DC (dc-01-srv) IP address
+# Supports both Windows and Linux hosts
+
+- name: Configure DNS on Windows hosts
+  hosts: windows
+  gather_facts: yes
+  tasks:
+    - name: Get DC IP address from inventory
+      set_fact:
+        dc_ip: "{{ hostvars['dc-01-srv']['ansible_host'] }}"
+      run_once: yes
+      delegate_to: localhost
+
+    - name: Display DC IP being configured
+      debug:
+        msg: "Configuring DNS to use DC at {{ dc_ip }}"
+
+    - name: Get network adapter information
+      win_shell: |
+        Get-NetAdapter | Where-Object {$_.Status -eq "Up"} | Select-Object -First 1 -ExpandProperty Name
+      register: network_adapter
+      changed_when: false
+
+    - name: Set DNS server on Windows hosts
+      win_dns_client:
+        adapter_names: "{{ network_adapter.stdout | trim }}"
+        dns_servers:
+          - "{{ dc_ip }}"
+      register: dns_result
+
+    - name: Display DNS configuration result
+      debug:
+        msg: "DNS configured successfully on {{ inventory_hostname }}"
+      when: dns_result is changed
+
+- name: Configure DNS on Linux hosts (excluding DC)
+  hosts: linux,infra
+  gather_facts: yes
+  tasks:
+    - name: Get DC IP address from inventory
+      set_fact:
+        dc_ip: "{{ hostvars['dc-01-srv']['ansible_host'] }}"
+      run_once: yes
+      delegate_to: localhost
+
+    - name: Display DC IP being configured
+      debug:
+        msg: "Configuring DNS to use DC at {{ dc_ip }}"
+
+    - name: Check if systemd-resolved is active
+      systemd:
+        name: systemd-resolved
+      register: systemd_resolved_status
+      failed_when: false
+
+    - name: Configure DNS via systemd-resolved (Ubuntu/Debian with systemd-resolved)
+      block:
+        - name: Create resolved.conf.d directory
+          file:
+            path: /etc/systemd/resolved.conf.d
+            state: directory
+            mode: '0755'
+
+        - name: Configure DNS in systemd-resolved
+          copy:
+            dest: /etc/systemd/resolved.conf.d/dns.conf
+            content: |
+              [Resolve]
+              DNS={{ dc_ip }}
+              FallbackDNS=
+              Domains=frostsec.corp
+            mode: '0644'
+          register: resolved_config
+
+        - name: Restart systemd-resolved
+          systemd:
+            name: systemd-resolved
+            state: restarted
+          when: resolved_config is changed
+
+        - name: Ensure /etc/resolv.conf is symlinked to systemd-resolved
+          file:
+            src: /run/systemd/resolve/stub-resolv.conf
+            dest: /etc/resolv.conf
+            state: link
+            force: yes
+      when: systemd_resolved_status.status is defined and systemd_resolved_status.status.ActiveState == "active"
+      become: yes
+
+    - name: Configure DNS via /etc/resolv.conf (Traditional method)
+      block:
+        - name: Backup existing resolv.conf
+          copy:
+            src: /etc/resolv.conf
+            dest: /etc/resolv.conf.backup
+            remote_src: yes
+            force: no
+          failed_when: false
+
+        - name: Configure /etc/resolv.conf
+          copy:
+            dest: /etc/resolv.conf
+            content: |
+              # DNS Configuration - Managed by Ansible
+              # Points to Domain Controller (dc-01-srv)
+              nameserver {{ dc_ip }}
+              search frostsec.corp
+            mode: '0644'
+          register: resolv_config
+
+        - name: Make resolv.conf immutable (prevent NetworkManager from overwriting)
+          file:
+            path: /etc/resolv.conf
+            attributes: +i
+          failed_when: false
+          when: resolv_config is changed
+      when: systemd_resolved_status.status is not defined or systemd_resolved_status.status.ActiveState != "active"
+      become: yes
+
+    - name: Verify DNS resolution
+      command: nslookup dc-01-srv.frostsec.corp
+      register: dns_test
+      changed_when: false
+      failed_when: false
+
+    - name: Display DNS test result
+      debug:
+        msg: "DNS resolution test: {{ 'SUCCESS' if dns_test.rc == 0 else 'FAILED - May need time to propagate' }}"
