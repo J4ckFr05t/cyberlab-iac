@@ -133,68 +133,88 @@
       debug:
         msg: "Configuring DNS for connection: {{ active_connection.stdout }} on interface {{ ansible_default_ipv4.interface }}"
 
-    - name: Get NetworkManager connection file path
+    - name: Check if connection is managed by netplan
       shell: |
-        grep -l "{{ active_connection.stdout }}" /etc/NetworkManager/system-connections/* 2>/dev/null | head -1
-      register: nm_file
+        if [[ "{{ active_connection.stdout }}" == netplan-* ]]; then
+          echo "netplan"
+        else
+          echo "networkmanager"
+        fi
+      register: network_manager_type
       changed_when: false
-      become: yes
-      when: active_connection.stdout != ""
 
-    - name: Configure DNS by editing NetworkManager connection file directly
-      lineinfile:
-        path: "{{ nm_file.stdout }}"
-        regexp: '^dns='
-        line: "dns={{ dc_ip }};"
-        state: present
-      become: yes
-      when: nm_file.stdout != ""
-      register: dns_file_edit
+    - name: Configure DNS via netplan (for netplan-managed connections)
+      block:
+        - name: Find the active netplan configuration file
+          shell: |
+            ls -t /etc/netplan/*.yaml | head -1
+          register: netplan_file
+          changed_when: false
 
-    - name: Configure DNS search domain in connection file
-      lineinfile:
-        path: "{{ nm_file.stdout }}"
-        regexp: '^dns-search='
-        line: "dns-search={{ domain_name }};"
-        state: present
-      become: yes
-      when: nm_file.stdout != ""
+        - name: Update netplan configuration with DC DNS
+          blockinfile:
+            path: "{{ netplan_file.stdout }}"
+            marker: "# {mark} ANSIBLE MANAGED DNS CONFIGURATION"
+            block: |
+              network:
+                version: 2
+                ethernets:
+                  {{ ansible_default_ipv4.interface }}:
+                    nameservers:
+                      addresses:
+                        - {{ dc_ip }}
+                      search:
+                        - {{ domain_name }}
+            create: no
+          register: netplan_config
 
-    - name: Disable auto-DNS in connection file
-      lineinfile:
-        path: "{{ nm_file.stdout }}"
-        regexp: '^ignore-auto-dns='
-        line: "ignore-auto-dns=true"
-        state: present
-      become: yes
-      when: nm_file.stdout != ""
-      register: nm_config
+        - name: Apply netplan configuration
+          command: netplan apply
+          when: netplan_config is changed
+          register: netplan_apply
 
-    - name: Reload NetworkManager to apply changes
-      systemd:
-        name: NetworkManager
-        state: reloaded
-      become: yes
-      when: nm_config is changed or dns_file_edit is changed
+        - name: Wait for network to stabilize
+          wait_for:
+            timeout: 5
+          when: netplan_apply is changed
 
-    - name: Restart network connection to apply DNS changes
-      shell: |
-        nmcli connection down "{{ active_connection.stdout }}" && nmcli connection up "{{ active_connection.stdout }}"
-      register: nm_restart
       become: yes
-      when: nm_config is changed
-      async: 30
-      poll: 0
+      when: network_manager_type.stdout == "netplan"
 
-    - name: Wait for network to come back up
-      wait_for:
-        timeout: 5
-      when: nm_restart is changed
+    - name: Configure DNS via NetworkManager (for non-netplan connections)
+      block:
+        - name: Configure DNS using nmcli
+          shell: |
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
+          register: nm_direct_config
+
+        - name: Restart network connection
+          shell: |
+            nmcli connection down "{{ active_connection.stdout }}" && nmcli connection up "{{ active_connection.stdout }}"
+          when: nm_direct_config is changed
+          async: 30
+          poll: 0
+
+        - name: Wait for network to come back up
+          wait_for:
+            timeout: 5
+          when: nm_direct_config is changed
+
+      become: yes
+      when: network_manager_type.stdout == "networkmanager"
+
+    - name: Set config changed flag
+      set_fact:
+        nm_config:
+          changed: "{{ (netplan_config is defined and netplan_config is changed) or (nm_direct_config is defined and nm_direct_config is changed) }}"
 
     - name: Display DNS configuration result
       debug:
         msg: "DNS configured successfully for interface {{ ansible_default_ipv4.interface }}"
-      when: nm_config is changed
+      when: nm_config.changed
 
     - name: Wait for DNS to propagate
       pause:
