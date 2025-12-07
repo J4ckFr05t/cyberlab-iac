@@ -1,0 +1,6 @@
+---
+# Linux Hosts Variables
+# These variables are used for all Linux hosts
+
+# SSH Connection
+ansible_connection: ssh
