@@ -103,7 +103,7 @@
           - "External DNS (google.com): {{ 'PASS ✓' if external_dns_validation.rc == 0 else 'FAIL ✗' }}"
           - "========================================="
 
-- name: Configure DNS on Linux hosts (excluding DC)
+- name: Configure DNS on Linux hosts
   hosts: linux,infra
   gather_facts: yes
   
@@ -111,13 +111,14 @@
     # Force SSH connection for Linux hosts
     ansible_connection: ssh
     ansible_port: 22
-    # Clear any Windows-specific variables
-    ansible_winrm_transport: null
-    ansible_winrm_server_cert_validation: null
   
-  vars_files:
-    - ../group_vars/dc.yml
   tasks:
+    - name: Load domain name from DC group vars
+      set_fact:
+        domain_name: "{{ hostvars[groups['dc'][0]].domain_name }}"
+      run_once: yes
+      delegate_to: localhost
+    
     - name: Get DC hostname and IP from inventory
       set_fact:
         dc_hostname: "{{ groups['dc'][0] }}"
