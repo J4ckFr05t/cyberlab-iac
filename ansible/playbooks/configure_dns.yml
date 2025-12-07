@@ -107,8 +107,8 @@
   hosts: linux,infra
   gather_facts: yes
   
-  vars:
-    domain_name: frostsec.corp
+  vars_files:
+    - ../group_vars/all.yml
   
   tasks:
     - name: Get DC hostname and IP from inventory
