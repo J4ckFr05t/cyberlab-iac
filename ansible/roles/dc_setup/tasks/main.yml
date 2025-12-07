@@ -129,6 +129,28 @@
   tags:
     - dns
 
+# Task 6c: Configure network adapter to use DC as DNS server
+- name: Set DNS server to DC IP address
+  ansible.windows.win_powershell:
+    script: |
+      $dcIP = '{{ ansible_host }}'
+      
+      $adapters = Get-NetAdapter | Where-Object { $_.Status -eq 'Up' }
+      
+      foreach ($adapter in $adapters) {
+        $currentDNS = Get-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -AddressFamily IPv4 | Select-Object -ExpandProperty ServerAddresses
+        
+        if ($currentDNS -contains '127.0.0.1' -or $currentDNS -notcontains $dcIP) {
+          Set-DnsClientServerAddress -InterfaceIndex $adapter.ifIndex -ServerAddresses $dcIP
+          $Ansible.Changed = $true
+          break
+        } else {
+          $Ansible.Changed = $false
+        }
+      }
+  tags:
+    - dns
+    - network
 
 # Task 7: Create Organizational Units
 - name: Create Organizational Units
