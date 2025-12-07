@@ -6,6 +6,12 @@
 - name: Configure DNS on Windows hosts
   hosts: windows
   gather_facts: yes
+  
+  vars:
+    # Connection variables - use provided credentials
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+  
   vars_files:
     - ../group_vars/dc.yml
     - ../group_vars/windows_vault.yml

@@ -159,7 +159,7 @@ ansible-playbook ... --skip-tags reboot
 
 ## Windows Hosts Credentials Setup
 
-For playbooks that interact with Windows hosts (like DNS configuration), you need to set up credentials.
+For playbooks that interact with Windows hosts (like DNS configuration), you need to set up credentials using the same pattern as the DC setup.
 
 ### Step 1: Create Windows Vault File
 
@@ -168,7 +168,7 @@ cd ansible
 ansible-vault create group_vars/windows_vault.yml
 ```
 
-You'll be prompted to create a vault password. Then add your Windows credentials:
+You'll be prompted to create a vault password (use the same one as your DC vault). Then add your Windows credentials:
 
 ```yaml
 ---
@@ -197,6 +197,14 @@ ansible-vault edit group_vars/windows_vault.yml
 ```bash
 ansible-vault view group_vars/windows_vault.yml
 ```
+
+### File Structure
+
+Similar to DC setup:
+- `group_vars/windows.yml` - WinRM configuration (plain text)
+- `group_vars/windows_vault.yml` - Credentials (encrypted)
+
+The playbook loads both files and uses `{{ win_username }}` and `{{ win_password }}` from the vault.
 
 ---
 

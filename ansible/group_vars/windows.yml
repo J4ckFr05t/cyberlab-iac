@@ -8,10 +8,6 @@ ansible_winrm_transport: ntlm
 ansible_winrm_server_cert_validation: ignore
 ansible_port: 5985
 
-# Authentication - credentials stored in encrypted vault
-ansible_user: "{{ win_username }}"
-ansible_password: "{{ win_password }}"
-
 # Disable become (sudo) - not applicable for Windows
 ansible_become: false
 ansible_become_method: runas
