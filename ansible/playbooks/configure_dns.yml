@@ -133,19 +133,49 @@
       debug:
         msg: "Configuring DNS for connection: {{ active_connection.stdout }} on interface {{ ansible_default_ipv4.interface }}"
 
-    - name: Configure DNS for network interface using NetworkManager
+    - name: Get NetworkManager connection file path
       shell: |
-        # First, allow auto-dns temporarily to clear everything
-        nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns no
-        # Clear all DNS servers
-        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
-        # Now disable auto-dns and set only our DNS
-        nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
-        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
-        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
-      register: nm_config
+        grep -l "{{ active_connection.stdout }}" /etc/NetworkManager/system-connections/* 2>/dev/null | head -1
+      register: nm_file
+      changed_when: false
       become: yes
       when: active_connection.stdout != ""
+
+    - name: Configure DNS by editing NetworkManager connection file directly
+      lineinfile:
+        path: "{{ nm_file.stdout }}"
+        regexp: '^dns='
+        line: "dns={{ dc_ip }};"
+        state: present
+      become: yes
+      when: nm_file.stdout != ""
+      register: dns_file_edit
+
+    - name: Configure DNS search domain in connection file
+      lineinfile:
+        path: "{{ nm_file.stdout }}"
+        regexp: '^dns-search='
+        line: "dns-search={{ domain_name }};"
+        state: present
+      become: yes
+      when: nm_file.stdout != ""
+
+    - name: Disable auto-DNS in connection file
+      lineinfile:
+        path: "{{ nm_file.stdout }}"
+        regexp: '^ignore-auto-dns='
+        line: "ignore-auto-dns=true"
+        state: present
+      become: yes
+      when: nm_file.stdout != ""
+      register: nm_config
+
+    - name: Reload NetworkManager to apply changes
+      systemd:
+        name: NetworkManager
+        state: reloaded
+      become: yes
+      when: nm_config is changed or dns_file_edit is changed
 
     - name: Restart network connection to apply DNS changes
       shell: |
