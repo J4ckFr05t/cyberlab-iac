@@ -84,55 +84,48 @@
 
 # Task 6a: Create reverse DNS lookup zone
 - name: Create reverse DNS lookup zone
-  win_shell: |
-    param($dcIP)
-    
-    $octets = $dcIP.Split('.')
-    $networkID = "$($octets[2]).$($octets[1]).$($octets[0]).in-addr.arpa"
-    
-    $zone = Get-DnsServerZone -Name $networkID -ErrorAction SilentlyContinue
-    
-    if (-not $zone) {
-      Add-DnsServerPrimaryZone -NetworkID "$($octets[0]).$($octets[1]).$($octets[2]).0/24" -ReplicationScope Forest
-      Write-Output "Changed"
-    } else {
-      Write-Output "OK"
-    }
-  args:
-    dcIP: "{{ ansible_host }}"
-  register: reverse_zone
-  changed_when: reverse_zone.stdout_lines[0] == "Changed"
+  ansible.windows.win_powershell:
+    script: |
+      $dcIP = '{{ ansible_host }}'
+      $octets = $dcIP.Split('.')
+      $networkID = "$($octets[2]).$($octets[1]).$($octets[0]).in-addr.arpa"
+      
+      $zone = Get-DnsServerZone -Name $networkID -ErrorAction SilentlyContinue
+      
+      if (-not $zone) {
+        Add-DnsServerPrimaryZone -NetworkID "$($octets[0]).$($octets[1]).$($octets[2]).0/24" -ReplicationScope Forest
+        $Ansible.Changed = $true
+      } else {
+        $Ansible.Changed = $false
+      }
   tags:
     - dns
 
 # Task 6b: Create PTR record for Domain Controller
 - name: Create PTR record for Domain Controller
-  win_shell: |
-    param($dcIP, $dcFQDN)
-    
-    $octets = $dcIP.Split('.')
-    $networkID = "$($octets[2]).$($octets[1]).$($octets[0]).in-addr.arpa"
-    $ptrName = $octets[3]
-    
-    $ptr = Get-DnsServerResourceRecord -ZoneName $networkID -Name $ptrName -RRType PTR -ErrorAction SilentlyContinue
-    
-    if (-not $ptr) {
-      Add-DnsServerResourceRecordPtr -Name $ptrName -ZoneName $networkID -PtrDomainName $dcFQDN
-      Write-Output "Changed"
-    } else {
-      if ($ptr.RecordData.PtrDomainName -ne $dcFQDN) {
-        Remove-DnsServerResourceRecord -ZoneName $networkID -Name $ptrName -RRType PTR -Force
+  ansible.windows.win_powershell:
+    script: |
+      $dcIP = '{{ ansible_host }}'
+      $dcFQDN = '{{ inventory_hostname }}.{{ domain_name }}'
+      
+      $octets = $dcIP.Split('.')
+      $networkID = "$($octets[2]).$($octets[1]).$($octets[0]).in-addr.arpa"
+      $ptrName = $octets[3]
+      
+      $ptr = Get-DnsServerResourceRecord -ZoneName $networkID -Name $ptrName -RRType PTR -ErrorAction SilentlyContinue
+      
+      if (-not $ptr) {
         Add-DnsServerResourceRecordPtr -Name $ptrName -ZoneName $networkID -PtrDomainName $dcFQDN
-        Write-Output "Changed"
+        $Ansible.Changed = $true
       } else {
-        Write-Output "OK"
+        if ($ptr.RecordData.PtrDomainName -ne "$dcFQDN.") {
+          Remove-DnsServerResourceRecord -ZoneName $networkID -Name $ptrName -RRType PTR -Force
+          Add-DnsServerResourceRecordPtr -Name $ptrName -ZoneName $networkID -PtrDomainName $dcFQDN
+          $Ansible.Changed = $true
+        } else {
+          $Ansible.Changed = $false
+        }
       }
-    }
-  args:
-    dcIP: "{{ ansible_host }}"
-    dcFQDN: "{{ inventory_hostname }}.{{ domain_name }}"
-  register: ptr_record
-  changed_when: ptr_record.stdout_lines[0] == "Changed"
   tags:
     - dns
 
