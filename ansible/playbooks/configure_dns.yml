@@ -1,21 +1,25 @@
 ---
 # Playbook to configure DNS settings on all hosts except pfSense and DC
-# This playbook sets the DNS server to the DC (dc-01-srv) IP address
+# This playbook sets the DNS server to the Domain Controller IP address
 # Supports both Windows and Linux hosts
 
 - name: Configure DNS on Windows hosts
   hosts: windows
   gather_facts: yes
+  vars_files:
+    - ../group_vars/dc.yml
   tasks:
-    - name: Get DC IP address from inventory
+    - name: Get DC hostname and IP from inventory
       set_fact:
-        dc_ip: "{{ hostvars['dc-01-srv']['ansible_host'] }}"
+        dc_hostname: "{{ groups['dc'][0] }}"
+        dc_ip: "{{ hostvars[groups['dc'][0]]['ansible_host'] }}"
+        dc_fqdn: "{{ groups['dc'][0] }}.{{ domain_name }}"
       run_once: yes
       delegate_to: localhost
 
-    - name: Display DC IP being configured
+    - name: Display DNS configuration details
       debug:
-        msg: "Configuring DNS to use DC at {{ dc_ip }}"
+        msg: "Configuring DNS to use DC: {{ dc_hostname }} ({{ dc_ip }}) - FQDN: {{ dc_fqdn }}"
 
     - name: Get network adapter information
       win_shell: |
@@ -35,19 +39,80 @@
         msg: "DNS configured successfully on {{ inventory_hostname }}"
       when: dns_result is changed
 
+    - name: Wait for DNS to propagate
+      pause:
+        seconds: 5
+      when: dns_result is changed
+
+    - name: Validate DNS resolution - Domain Controller
+      win_shell: |
+        try {
+          $result = Resolve-DnsName -Name "{{ dc_fqdn }}" -ErrorAction Stop
+          if ($result.IPAddress -contains "{{ dc_ip }}") {
+            Write-Output "SUCCESS: Resolved {{ dc_fqdn }} to {{ dc_ip }}"
+            exit 0
+          } else {
+            Write-Output "WARNING: Resolved {{ dc_fqdn }} but IP doesn't match. Got: $($result.IPAddress)"
+            exit 1
+          }
+        } catch {
+          Write-Output "FAILED: Cannot resolve {{ dc_fqdn }} - $($_.Exception.Message)"
+          exit 2
+        }
+      register: dc_dns_validation
+      changed_when: false
+      failed_when: dc_dns_validation.rc == 2
+
+    - name: Display DC DNS validation result
+      debug:
+        msg: "{{ dc_dns_validation.stdout_lines }}"
+
+    - name: Validate DNS resolution - External (Google)
+      win_shell: |
+        try {
+          $result = Resolve-DnsName -Name "google.com" -ErrorAction Stop
+          Write-Output "SUCCESS: Can resolve google.com - External DNS working"
+          exit 0
+        } catch {
+          Write-Output "FAILED: Cannot resolve google.com - $($_.Exception.Message)"
+          exit 1
+        }
+      register: external_dns_validation
+      changed_when: false
+      failed_when: false
+
+    - name: Display external DNS validation result
+      debug:
+        msg: "{{ external_dns_validation.stdout_lines }}"
+
+    - name: Summary - DNS Configuration Status
+      debug:
+        msg:
+          - "========================================="
+          - "DNS Configuration Summary for {{ inventory_hostname }}"
+          - "========================================="
+          - "DNS Server: {{ dc_ip }} ({{ dc_hostname }})"
+          - "Internal DNS ({{ dc_fqdn }}): {{ 'PASS ✓' if dc_dns_validation.rc == 0 else 'FAIL ✗' }}"
+          - "External DNS (google.com): {{ 'PASS ✓' if external_dns_validation.rc == 0 else 'FAIL ✗' }}"
+          - "========================================="
+
 - name: Configure DNS on Linux hosts (excluding DC)
   hosts: linux,infra
   gather_facts: yes
+  vars_files:
+    - ../group_vars/dc.yml
   tasks:
-    - name: Get DC IP address from inventory
+    - name: Get DC hostname and IP from inventory
       set_fact:
-        dc_ip: "{{ hostvars['dc-01-srv']['ansible_host'] }}"
+        dc_hostname: "{{ groups['dc'][0] }}"
+        dc_ip: "{{ hostvars[groups['dc'][0]]['ansible_host'] }}"
+        dc_fqdn: "{{ groups['dc'][0] }}.{{ domain_name }}"
       run_once: yes
       delegate_to: localhost
 
-    - name: Display DC IP being configured
+    - name: Display DNS configuration details
       debug:
-        msg: "Configuring DNS to use DC at {{ dc_ip }}"
+        msg: "Configuring DNS to use DC: {{ dc_hostname }} ({{ dc_ip }}) - FQDN: {{ dc_fqdn }}"
 
     - name: Check if systemd-resolved is active
       systemd:
@@ -70,7 +135,7 @@
               [Resolve]
               DNS={{ dc_ip }}
               FallbackDNS=
-              Domains=frostsec.corp
+              Domains={{ domain_name }}
             mode: '0644'
           register: resolved_config
 
@@ -104,9 +169,9 @@
             dest: /etc/resolv.conf
             content: |
               # DNS Configuration - Managed by Ansible
-              # Points to Domain Controller (dc-01-srv)
+              # Points to Domain Controller ({{ dc_hostname }})
               nameserver {{ dc_ip }}
-              search frostsec.corp
+              search {{ domain_name }}
             mode: '0644'
           register: resolv_config
 
@@ -119,12 +184,51 @@
       when: systemd_resolved_status.status is not defined or systemd_resolved_status.status.ActiveState != "active"
       become: yes
 
-    - name: Verify DNS resolution
-      command: nslookup dc-01-srv.frostsec.corp
-      register: dns_test
+    - name: Wait for DNS to propagate
+      pause:
+        seconds: 3
+
+    - name: Validate DNS resolution - Domain Controller
+      shell: |
+        if nslookup {{ dc_fqdn }} > /dev/null 2>&1; then
+          echo "SUCCESS: Resolved {{ dc_fqdn }}"
+          exit 0
+        else
+          echo "FAILED: Cannot resolve {{ dc_fqdn }}"
+          exit 1
+        fi
+      register: dc_dns_validation
       changed_when: false
       failed_when: false
 
-    - name: Display DNS test result
+    - name: Display DC DNS validation result
       debug:
-        msg: "DNS resolution test: {{ 'SUCCESS' if dns_test.rc == 0 else 'FAILED - May need time to propagate' }}"
+        msg: "{{ dc_dns_validation.stdout }}"
+
+    - name: Validate DNS resolution - External (Google)
+      shell: |
+        if nslookup google.com > /dev/null 2>&1; then
+          echo "SUCCESS: Can resolve google.com - External DNS working"
+          exit 0
+        else
+          echo "FAILED: Cannot resolve google.com"
+          exit 1
+        fi
+      register: external_dns_validation
+      changed_when: false
+      failed_when: false
+
+    - name: Display external DNS validation result
+      debug:
+        msg: "{{ external_dns_validation.stdout }}"
+
+    - name: Summary - DNS Configuration Status
+      debug:
+        msg:
+          - "========================================="
+          - "DNS Configuration Summary for {{ inventory_hostname }}"
+          - "========================================="
+          - "DNS Server: {{ dc_ip }} ({{ dc_hostname }})"
+          - "Internal DNS ({{ dc_fqdn }}): {{ 'PASS ✓' if dc_dns_validation.rc == 0 else 'FAIL ✗' }}"
+          - "External DNS (google.com): {{ 'PASS ✓' if external_dns_validation.rc == 0 else 'FAIL ✗' }}"
+          - "========================================="

@@ -165,12 +165,14 @@ The DNS configuration playbook (`configure_dns.yml`) sets up all hosts (except p
 
 ### Features
 
-- ✅ Automatically retrieves DC IP from inventory
+- ✅ Dynamically retrieves DC hostname and domain from configuration files
 - ✅ Supports Windows hosts (using `win_dns_client`)
 - ✅ Supports Linux hosts with both systemd-resolved and traditional `/etc/resolv.conf`
 - ✅ Excludes pfSense and DC hosts automatically
 - ✅ Idempotent - safe to run multiple times
-- ✅ Includes DNS verification tests
+- ✅ Validates internal DNS resolution (DC FQDN)
+- ✅ Validates external DNS resolution (google.com)
+- ✅ Provides detailed summary report for each host
 
 ### Prerequisites
 
@@ -216,10 +218,15 @@ ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --check
 ### What It Does
 
 **For Windows hosts:**
-1. Retrieves the DC IP address from inventory (`172.16.10.100`)
-2. Identifies the active network adapter
-3. Configures the DNS server using `win_dns_client` module
-4. Reports success/failure
+1. Retrieves the DC hostname from inventory (first host in `[dc]` group)
+2. Retrieves the domain name from `group_vars/dc.yml`
+3. Constructs the DC FQDN (e.g., `dc-01-srv.frostsec.corp`)
+4. Identifies the active network adapter
+5. Configures the DNS server using `win_dns_client` module
+6. Waits for DNS to propagate
+7. Validates internal DNS by resolving the DC FQDN
+8. Validates external DNS by resolving `google.com`
+9. Displays a summary report with PASS/FAIL status
 
 **For Linux hosts:**
 
@@ -227,16 +234,20 @@ The playbook automatically detects the DNS management method:
 
 - **If systemd-resolved is active** (Ubuntu 18.04+, Debian 10+):
   - Creates `/etc/systemd/resolved.conf.d/dns.conf`
-  - Sets DNS to DC IP
-  - Configures search domain as `frostsec.corp`
+  - Sets DNS to DC IP (dynamically retrieved)
+  - Configures search domain from `dc.yml`
   - Restarts systemd-resolved service
   - Ensures `/etc/resolv.conf` is properly symlinked
+  - Validates internal and external DNS resolution
+  - Displays summary report
 
 - **If traditional resolv.conf is used:**
   - Backs up existing `/etc/resolv.conf` to `/etc/resolv.conf.backup`
   - Creates new `/etc/resolv.conf` with DC DNS
-  - Sets search domain as `frostsec.corp`
+  - Sets search domain from `dc.yml`
   - Makes file immutable to prevent NetworkManager from overwriting
+  - Validates internal and external DNS resolution
+  - Displays summary report
 
 ### Excluded Hosts
 
