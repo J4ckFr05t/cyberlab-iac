@@ -37,6 +37,11 @@
     ansible_user: "{{ win_username }}"
     ansible_password: "{{ win_password }}"
   
+  # Specify roles path relative to playbook location
+  vars_files:
+    - ../group_vars/dc.yml
+    - ../group_vars/dc_vault.yml
+  
   pre_tasks:
     # Display configuration summary
     - name: Display configuration summary
@@ -49,7 +54,7 @@
         - always
   
   roles:
-    - role: dc_setup
+    - role: ../roles/dc_setup
   
   post_tasks:
     # Final verification
