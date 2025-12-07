@@ -107,18 +107,17 @@
   hosts: linux,infra
   gather_facts: yes
   
+  vars_files:
+    - ../group_vars/dc.yml
+  
   vars:
-    # Force SSH connection for Linux hosts
+    # Override WinRM settings from dc.yml with SSH for Linux
     ansible_connection: ssh
     ansible_port: 22
+    ansible_become: true
+    ansible_become_method: sudo
   
   tasks:
-    - name: Load domain name from DC group vars
-      set_fact:
-        domain_name: "{{ hostvars[groups['dc'][0]].domain_name }}"
-      run_once: yes
-      delegate_to: localhost
-    
     - name: Get DC hostname and IP from inventory
       set_fact:
         dc_hostname: "{{ groups['dc'][0] }}"
