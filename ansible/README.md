@@ -281,24 +281,22 @@ ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --check
 
 **For Linux hosts:**
 
-The playbook automatically detects the DNS management method:
+The playbook uses NetworkManager to configure DNS per network interface (similar to Windows):
 
-- **If systemd-resolved is active** (Ubuntu 18.04+, Debian 10+):
-  - Creates `/etc/systemd/resolved.conf.d/dns.conf`
-  - Sets DNS to DC IP (dynamically retrieved)
-  - Configures search domain from `dc.yml`
-  - Restarts systemd-resolved service
-  - Ensures `/etc/resolv.conf` is properly symlinked
-  - Validates internal and external DNS resolution
-  - Displays summary report
+1. Detects the active network interface
+2. Gets the NetworkManager connection name for that interface
+3. Configures DNS server to DC IP using `nmcli`
+4. Sets DNS search domain from `dc.yml`
+5. Disables auto-DNS to prevent DHCP from overwriting settings
+6. Restarts the network connection to apply changes
+7. Validates internal and external DNS resolution
+8. Displays summary report
 
-- **If traditional resolv.conf is used:**
-  - Backs up existing `/etc/resolv.conf` to `/etc/resolv.conf.backup`
-  - Creates new `/etc/resolv.conf` with DC DNS
-  - Sets search domain from `dc.yml`
-  - Makes file immutable to prevent NetworkManager from overwriting
-  - Validates internal and external DNS resolution
-  - Displays summary report
+This approach:
+- Configures DNS **per interface** (not system-wide)
+- Works on both Ubuntu Server and Desktop
+- Consistent with Windows interface-specific configuration
+- Survives reboots and network changes
 
 ### Excluded Hosts
 

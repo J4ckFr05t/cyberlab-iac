@@ -122,75 +122,44 @@
       debug:
         msg: "Configuring DNS to use DC: {{ dc_hostname }} ({{ dc_ip }}) - FQDN: {{ dc_fqdn }}"
 
-    - name: Check if systemd-resolved is active
-      systemd:
-        name: systemd-resolved
-      register: systemd_resolved_status
-      failed_when: false
-
-    - name: Configure DNS via systemd-resolved (Ubuntu/Debian with systemd-resolved)
-      block:
-        - name: Create resolved.conf.d directory
-          file:
-            path: /etc/systemd/resolved.conf.d
-            state: directory
-            mode: '0755'
-
-        - name: Configure DNS in systemd-resolved
-          copy:
-            dest: /etc/systemd/resolved.conf.d/dns.conf
-            content: |
-              [Resolve]
-              DNS={{ dc_ip }}
-              FallbackDNS=
-              Domains={{ domain_name }}
-            mode: '0644'
-          register: resolved_config
-
-        - name: Restart systemd-resolved
-          systemd:
-            name: systemd-resolved
-            state: restarted
-          when: resolved_config is changed
-
-        - name: Ensure /etc/resolv.conf is symlinked to systemd-resolved
-          file:
-            src: /run/systemd/resolve/stub-resolv.conf
-            dest: /etc/resolv.conf
-            state: link
-            force: yes
-      when: systemd_resolved_status.status is defined and systemd_resolved_status.status.ActiveState == "active"
+    - name: Get active network connection name
+      shell: |
+        nmcli -t -f NAME,DEVICE connection show --active | grep "{{ ansible_default_ipv4.interface }}" | cut -d: -f1 | head -1
+      register: active_connection
+      changed_when: false
       become: yes
 
-    - name: Configure DNS via /etc/resolv.conf (Traditional method)
-      block:
-        - name: Backup existing resolv.conf
-          copy:
-            src: /etc/resolv.conf
-            dest: /etc/resolv.conf.backup
-            remote_src: yes
-            force: no
-          failed_when: false
+    - name: Display active connection
+      debug:
+        msg: "Configuring DNS for connection: {{ active_connection.stdout }} on interface {{ ansible_default_ipv4.interface }}"
 
-        - name: Configure /etc/resolv.conf
-          copy:
-            dest: /etc/resolv.conf
-            content: |
-              # DNS Configuration - Managed by Ansible
-              # Points to Domain Controller ({{ dc_hostname }})
-              nameserver {{ dc_ip }}
-              search {{ domain_name }}
-            mode: '0644'
-          register: resolv_config
-
-        - name: Make resolv.conf immutable (prevent NetworkManager from overwriting)
-          file:
-            path: /etc/resolv.conf
-            attributes: +i
-          failed_when: false
-          when: resolv_config is changed
-      when: systemd_resolved_status.status is not defined or systemd_resolved_status.status.ActiveState != "active"
+    - name: Configure DNS for network interface using NetworkManager
+      shell: |
+        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
+        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
+        nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
+      register: nm_config
       become: yes
+      when: active_connection.stdout != ""
+
+    - name: Restart network connection to apply DNS changes
+      shell: |
+        nmcli connection down "{{ active_connection.stdout }}" && nmcli connection up "{{ active_connection.stdout }}"
+      register: nm_restart
+      become: yes
+      when: nm_config is changed
+      async: 30
+      poll: 0
+
+    - name: Wait for network to come back up
+      wait_for:
+        timeout: 5
+      when: nm_restart is changed
+
+    - name: Display DNS configuration result
+      debug:
+        msg: "DNS configured successfully for interface {{ ansible_default_ipv4.interface }}"
+      when: nm_config is changed
 
     - name: Wait for DNS to propagate
       pause:
