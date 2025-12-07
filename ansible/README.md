@@ -40,7 +40,9 @@ ansible/
 The DC setup includes:
 - Active Directory Domain Services installation
 - Domain promotion (new forest: frostsec.corp)
-- DNS Server configuration
+- DNS Server configuration with forwarders
+- Reverse DNS lookup zone creation
+- PTR record for Domain Controller
 - Organizational Units creation
 - Domain users creation
 

@@ -82,6 +82,66 @@
   tags:
     - dns
 
+# Task 6a: Create reverse DNS lookup zone
+- name: Create reverse DNS lookup zone
+  win_shell: |
+    # Get the DC's IP address from inventory
+    $dcIP = "{{ ansible_host }}"
+    
+    # Extract first three octets for reverse zone (e.g., 172.16.10.x -> 10.16.172.in-addr.arpa)
+    $octets = $dcIP.Split('.')
+    $networkID = "$($octets[2]).$($octets[1]).$($octets[0]).in-addr.arpa"
+    
+    # Check if reverse zone exists
+    $zone = Get-DnsServerZone -Name $networkID -ErrorAction SilentlyContinue
+    
+    if (-not $zone) {
+      # Create reverse lookup zone
+      Add-DnsServerPrimaryZone -NetworkID "$($octets[0]).$($octets[1]).$($octets[2]).0/24" -ReplicationScope Forest
+      Write-Output "Changed"
+    } else {
+      Write-Output "OK"
+    }
+  register: reverse_zone
+  changed_when: reverse_zone.stdout_lines[0] == "Changed"
+  tags:
+    - dns
+
+# Task 6b: Create PTR record for Domain Controller
+- name: Create PTR record for Domain Controller
+  win_shell: |
+    # Get the DC's IP and hostname
+    $dcIP = "{{ ansible_host }}"
+    $dcFQDN = "{{ inventory_hostname }}.{{ domain_name }}"
+    
+    # Extract octets
+    $octets = $dcIP.Split('.')
+    $networkID = "$($octets[2]).$($octets[1]).$($octets[0]).in-addr.arpa"
+    $ptrName = $octets[3]
+    
+    # Check if PTR record exists
+    $ptr = Get-DnsServerResourceRecord -ZoneName $networkID -Name $ptrName -RRType PTR -ErrorAction SilentlyContinue
+    
+    if (-not $ptr) {
+      # Create PTR record
+      Add-DnsServerResourceRecordPtr -Name $ptrName -ZoneName $networkID -PtrDomainName $dcFQDN
+      Write-Output "Changed"
+    } else {
+      # Verify PTR points to correct FQDN
+      if ($ptr.RecordData.PtrDomainName -ne $dcFQDN) {
+        Remove-DnsServerResourceRecord -ZoneName $networkID -Name $ptrName -RRType PTR -Force
+        Add-DnsServerResourceRecordPtr -Name $ptrName -ZoneName $networkID -PtrDomainName $dcFQDN
+        Write-Output "Changed"
+      } else {
+        Write-Output "OK"
+      }
+    }
+  register: ptr_record
+  changed_when: ptr_record.stdout_lines[0] == "Changed"
+  tags:
+    - dns
+
+
 # Task 7: Create Organizational Units
 - name: Create Organizational Units
   microsoft.ad.ou:
