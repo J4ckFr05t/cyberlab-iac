@@ -1,0 +1,44 @@
+---
+# Domain Controller Variables
+# These variables are used by the dc_setup role
+
+# Domain Configuration
+domain_name: frostsec.corp
+domain_netbios_name: FROSTSEC
+
+# DNS Configuration
+dns_forwarders:
+  - 8.8.8.8
+  - 8.8.4.4
+
+# Organizational Units to create
+organizational_units:
+  - name: Workstations
+    path: "DC=frostsec,DC=corp"
+  - name: Windows Workstations
+    path: "OU=Workstations,DC=frostsec,DC=corp"
+  - name: Linux Workstations
+    path: "OU=Workstations,DC=frostsec,DC=corp"
+
+# Domain Users to create
+domain_users:
+  - name: Dave Johnson
+    sam_account_name: dave.johnson
+    upn: dave.johnson@frostsec.corp
+    password: "{{ dave_password }}"
+    enabled: yes
+    password_never_expires: no
+    user_cannot_change_password: no
+  - name: Sophia Davis
+    sam_account_name: sophia.davis
+    upn: sophia.davis@frostsec.corp
+    password: "{{ sophia_password }}"
+    enabled: yes
+    password_never_expires: no
+    user_cannot_change_password: no
+
+# WinRM Configuration
+ansible_connection: winrm
+ansible_winrm_transport: ntlm
+ansible_winrm_server_cert_validation: ignore
+ansible_port: 5985

@@ -1,0 +1,145 @@
+---
+# Domain Controller Setup Tasks
+# This role installs and configures Active Directory Domain Services
+
+# Task 1: Ensure WinRM is configured and accessible
+- name: Test WinRM connectivity
+  win_ping:
+  tags:
+    - connectivity
+
+# Task 2: Install AD Domain Services and DNS features
+- name: Install AD-Domain-Services feature
+  win_feature:
+    name:
+      - AD-Domain-Services
+      - DNS
+    include_management_tools: yes
+    include_sub_features: yes
+    state: present
+  register: ad_install
+  tags:
+    - install
+
+# Task 3: Promote server to Domain Controller (creates new forest)
+- name: Promote server to Domain Controller
+  win_domain:
+    dns_domain_name: "{{ domain_name }}"
+    domain_netbios_name: "{{ domain_netbios_name }}"
+    safe_mode_password: "{{ dsrm_password }}"
+    create_dns_delegation: no
+    database_path: C:\Windows\NTDS
+    sysvol_path: C:\Windows\SYSVOL
+    domain_mode: WinThreshold
+    forest_mode: WinThreshold
+  register: dc_promotion
+  tags:
+    - promotion
+
+# Task 4: Reboot after domain promotion
+- name: Reboot after domain promotion
+  win_reboot:
+    reboot_timeout: 600
+    post_reboot_delay: 120
+  when: dc_promotion.reboot_required
+  tags:
+    - reboot
+
+# Task 5: Wait for Active Directory Web Services to be available
+- name: Wait for Active Directory Web Services
+  win_service:
+    name: ADWS
+    state: started
+  register: adws_service
+  until: adws_service is succeeded
+  retries: 10
+  delay: 30
+  tags:
+    - services
+
+# Task 6: Configure DNS forwarders
+- name: Configure DNS forwarders
+  win_shell: |
+    $forwarders = @({{ dns_forwarders | map('quote') | join(', ') }})
+    $currentForwarders = (Get-DnsServerForwarder).IPAddress.IPAddressToString
+    $needsUpdate = $false
+    
+    foreach ($fwd in $forwarders) {
+      if ($fwd -notin $currentForwarders) {
+        $needsUpdate = $true
+        break
+      }
+    }
+    
+    if ($needsUpdate) {
+      Set-DnsServerForwarder -IPAddress $forwarders
+      Write-Output "Changed"
+    } else {
+      Write-Output "OK"
+    }
+  register: dns_config
+  changed_when: dns_config.stdout_lines[0] == "Changed"
+  tags:
+    - dns
+
+# Task 7: Create Organizational Units
+- name: Create Organizational Units
+  win_domain_ou:
+    name: "{{ item.name }}"
+    path: "{{ item.path }}"
+    state: present
+    protected: yes
+  loop: "{{ organizational_units }}"
+  tags:
+    - ou
+
+# Task 8: Create Domain Users
+- name: Create domain users
+  win_domain_user:
+    name: "{{ item.name }}"
+    sam_account_name: "{{ item.sam_account_name }}"
+    upn: "{{ item.upn }}"
+    password: "{{ item.password }}"
+    state: present
+    enabled: "{{ item.enabled }}"
+    password_never_expires: "{{ item.password_never_expires }}"
+    user_cannot_change_password: "{{ item.user_cannot_change_password }}"
+    update_password: on_create
+    path: "CN=Users,DC=frostsec,DC=corp"
+  loop: "{{ domain_users }}"
+  no_log: yes
+  tags:
+    - users
+
+# Task 9: Ensure DNS service is running
+- name: Ensure DNS service is running
+  win_service:
+    name: DNS
+    state: started
+    start_mode: auto
+  tags:
+    - services
+
+# Task 10: Ensure Active Directory Domain Services is running
+- name: Ensure AD DS service is running
+  win_service:
+    name: NTDS
+    state: started
+    start_mode: auto
+  tags:
+    - services
+
+# Task 11: Verify domain controller functionality
+- name: Verify domain controller is functioning
+  win_shell: |
+    $dc = Get-ADDomainController -Identity $env:COMPUTERNAME
+    if ($dc.Enabled -eq $true -and $dc.IsGlobalCatalog -eq $true) {
+      Write-Output "OK"
+    } else {
+      Write-Output "Failed"
+      exit 1
+    }
+  register: dc_verify
+  changed_when: false
+  tags:
+    - verify

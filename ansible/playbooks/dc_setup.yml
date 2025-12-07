@@ -1,0 +1,65 @@
+---
+# Domain Controller Setup Playbook
+# This playbook configures a Windows Server as an Active Directory Domain Controller
+# 
+# Prerequisites:
+#   - Windows Server 2016 or later
+#   - WinRM configured and accessible
+#   - Ansible Windows modules installed (pywinrm)
+#   - Ansible Vault file created with credentials (group_vars/dc_vault.yml)
+#
+# Required variables (stored in group_vars/dc_vault.yml - encrypted with Ansible Vault):
+#   - win_username: Windows administrator username
+#   - win_password: Windows administrator password
+#   - dsrm_password: Directory Services Restore Mode password
+#   - dave_password: Password for dave.johnson user
+#   - sophia_password: Password for sophia.davis user
+#
+# Setup:
+#   1. Create vault file:
+#      ansible-vault create group_vars/dc_vault.yml
+#   
+#   2. Add credentials to vault file (see group_vars/dc_vault.yml.example)
+#
+# Usage:
+#   # Run with vault password prompt:
+#   ansible-playbook -i inventory/hosts.ini playbooks/dc_setup.yml --ask-vault-pass
+#
+#   # Or use a vault password file:
+#   ansible-playbook -i inventory/hosts.ini playbooks/dc_setup.yml --vault-password-file .vault_pass
+
+- name: Configure Domain Controller
+  hosts: dc
+  gather_facts: yes
+  
+  vars:
+    # Connection variables - use provided credentials
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+  
+  pre_tasks:
+    # Display configuration summary
+    - name: Display configuration summary
+      debug:
+        msg:
+          - "Domain: {{ domain_name }}"
+          - "NetBIOS: {{ domain_netbios_name }}"
+          - "Target Host: {{ inventory_hostname }}"
+      tags:
+        - always
+  
+  roles:
+    - role: dc_setup
+  
+  post_tasks:
+    # Final verification
+    - name: Display completion message
+      debug:
+        msg:
+          - "Domain Controller setup completed successfully!"
+          - "Domain: {{ domain_name }}"
+          - "Domain Controller: {{ inventory_hostname }}"
+          - "OUs created: {{ organizational_units | map(attribute='name') | list | join(', ') }}"
+          - "Users created: {{ domain_users | map(attribute='sam_account_name') | list | join(', ') }}"
+      tags:
+        - always
