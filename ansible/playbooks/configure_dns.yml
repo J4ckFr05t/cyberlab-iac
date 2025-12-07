@@ -135,12 +135,11 @@
 
     - name: Configure DNS for network interface using NetworkManager
       shell: |
-        # Clear any existing DNS servers first
-        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
-        # Set only the DC DNS server
+        # Set DNS server (this replaces all existing DNS servers)
         nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
         nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
         nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
+        nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-priority -50
       register: nm_config
       become: yes
       when: active_connection.stdout != ""
