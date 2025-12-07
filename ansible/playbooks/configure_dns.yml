@@ -114,7 +114,6 @@
         dc_ip: "{{ hostvars[groups['dc'][0]]['ansible_host'] }}"
         dc_fqdn: "{{ groups['dc'][0] }}.{{ domain_name }}"
       run_once: yes
-      delegate_to: localhost
 
     - name: Display DNS configuration details
       debug:
