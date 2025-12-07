@@ -8,6 +8,7 @@
   gather_facts: yes
   vars_files:
     - ../group_vars/dc.yml
+    - ../group_vars/windows_vault.yml
   tasks:
     - name: Get DC hostname and IP from inventory
       set_fact:
