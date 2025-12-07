@@ -107,6 +107,9 @@
   hosts: linux,infra
   gather_facts: yes
   
+  vars:
+    domain_name: frostsec.corp
+  
   tasks:
     - name: Get DC hostname and IP from inventory
       set_fact:
