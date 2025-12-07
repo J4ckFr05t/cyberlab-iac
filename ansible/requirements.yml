@@ -1,0 +1,13 @@
+---
+# Ansible Collections Requirements
+# Install with: ansible-galaxy collection install -r requirements.yml
+
+collections:
+  # Microsoft Active Directory collection
+  # Provides: microsoft.ad.domain, microsoft.ad.ou, microsoft.ad.user, etc.
+  - name: microsoft.ad
+    version: ">=1.0.0"
+  
+  # Windows collection (for win_feature, win_reboot, win_service, etc.)
+  - name: ansible.windows
+    version: ">=1.0.0"

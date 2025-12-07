@@ -25,6 +25,10 @@ ansible/
    - Ansible 2.9 or later
    - Python 3.6 or later
    - pywinrm package: `pip install pywinrm`
+   - Required Ansible collections:
+     ```bash
+     ansible-galaxy collection install -r requirements.yml
+     ```
 
 2. **Target Windows Server:**
    - Windows Server 2016 or later
