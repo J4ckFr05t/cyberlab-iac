@@ -108,8 +108,12 @@
   gather_facts: yes
   
   vars:
-    # Override connection settings for Linux hosts
+    # Force SSH connection for Linux hosts
     ansible_connection: ssh
+    ansible_port: 22
+    # Clear any Windows-specific variables
+    ansible_winrm_transport: null
+    ansible_winrm_server_cert_validation: null
   
   vars_files:
     - ../group_vars/dc.yml
