@@ -107,16 +107,6 @@
   hosts: linux,infra
   gather_facts: yes
   
-  vars_files:
-    - ../group_vars/dc.yml
-  
-  vars:
-    # Override WinRM settings from dc.yml with SSH for Linux
-    ansible_connection: ssh
-    ansible_port: 22
-    ansible_become: true
-    ansible_become_method: sudo
-  
   tasks:
     - name: Get DC hostname and IP from inventory
       set_fact:
