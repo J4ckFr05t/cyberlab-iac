@@ -72,7 +72,7 @@ resource "proxmox_vm_qemu" "vms_independent" {
       type     = disk.value.type
       storage  = disk.value.storage
       iothread = try(disk.value.iothread, false)
-      format   = try(disk.value.format, "qcow2")
+      format   = disk.value.type != "cloudinit" ? try(disk.value.format, "qcow2") : null
       discard  = try(disk.value.discard, null)
       cache    = try(disk.value.cache, null)
     }
@@ -162,7 +162,7 @@ resource "proxmox_vm_qemu" "vms_dependent" {
       type     = disk.value.type
       storage  = disk.value.storage
       iothread = try(disk.value.iothread, false)
-      format   = try(disk.value.format, "qcow2")
+      format   = disk.value.type != "cloudinit" ? try(disk.value.format, "qcow2") : null
       discard  = try(disk.value.discard, null)
       cache    = try(disk.value.cache, null)
     }
