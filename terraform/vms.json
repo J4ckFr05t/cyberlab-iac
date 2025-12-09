@@ -371,7 +371,7 @@
       "bios": "ovmf",
       "machine": "q35",
       "efi_storage": "Internal",
-      "memory": 4096,
+      "memory": 8192,
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
