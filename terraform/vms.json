@@ -25,7 +25,6 @@
           "type": "disk",
           "storage": "Internal",
           "iothread": true,
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         }
@@ -77,7 +76,6 @@
           "type": "disk",
           "storage": "Internal",
           "iothread": true,
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         },
@@ -121,11 +119,11 @@
         "Lab"
       ],
       "cpu": {
-        "cores": 2,
+        "cores": 4,
         "sockets": 1,
         "type": "host"
       },
-      "memory": 4096,
+      "memory": 8192,
       "serial": {
         "id": 0,
         "type": "socket"
@@ -138,7 +136,6 @@
           "size": "150G",
           "type": "disk",
           "storage": "Internal",
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         },
@@ -200,7 +197,6 @@
           "size": "64G",
           "type": "disk",
           "storage": "Internal",
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         },
@@ -262,7 +258,6 @@
           "size": "64G",
           "type": "disk",
           "storage": "Internal",
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         },
@@ -320,7 +315,6 @@
           "type": "disk",
           "storage": "Internal",
           "iothread": true,
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         },
@@ -381,7 +375,6 @@
           "type": "disk",
           "storage": "Internal",
           "iothread": true,
-          "format": "qcow2",
           "discard": true,
           "cache": "writeback"
         },
