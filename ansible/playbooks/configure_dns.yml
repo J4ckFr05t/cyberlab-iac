@@ -185,6 +185,7 @@
       block:
         - name: Configure DNS using nmcli
           shell: |
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
             nmcli connection modify "{{ active_connection.stdout }}" ipv6.ignore-auto-dns yes
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
