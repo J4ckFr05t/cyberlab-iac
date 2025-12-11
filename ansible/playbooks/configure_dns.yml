@@ -141,17 +141,10 @@
 
     - name: Configure DNS via netplan (for netplan-managed connections)
       block:
-        - name: Find the active netplan configuration file
-          shell: |
-            ls -t /etc/netplan/*.yaml | head -1
-          register: netplan_file
-          changed_when: false
-
-        - name: Update netplan configuration with DC DNS
-          blockinfile:
-            path: "{{ netplan_file.stdout }}"
-            marker: "# {mark} ANSIBLE MANAGED DNS CONFIGURATION"
-            block: |
+        - name: Create Ansible-managed netplan configuration
+          copy:
+            dest: /etc/netplan/99-ansible-dns.yaml
+            content: |
               network:
                 version: 2
                 ethernets:
@@ -165,13 +158,14 @@
                         - {{ dc_ip }}
                       search:
                         - {{ domain_name }}
-            create: no
+            mode: '0600'
           register: netplan_config
 
         - name: Apply netplan configuration
           command: netplan apply
           when: netplan_config is changed
           register: netplan_apply
+          ignore_errors: yes
 
         - name: Wait for network to stabilize
           wait_for:
