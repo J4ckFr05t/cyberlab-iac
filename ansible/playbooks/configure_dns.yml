@@ -183,39 +183,50 @@
 
     - name: Configure DNS via NetworkManager (for non-netplan connections)
       block:
-        - name: Configure DNS using nmcli (Atomic)
+        - name: Get NetworkManager connection file path
           shell: |
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes ipv4.dns "{{ dc_ip }}" ipv4.dns-search "{{ domain_name }}"
-          register: nm_direct_config
-
-        - name: Verify connection settings (Config)
-          command: nmcli -f ipv4.dns,ipv4.ignore-auto-dns connection show "{{ active_connection.stdout }}"
-          register: nm_show_config
+            nmcli -f FILENAME connection show "{{ active_connection.stdout }}" | awk 'NR==1 {print $1}'
+          register: nm_filename
           changed_when: false
 
-        - name: Verify connection settings (Runtime)
-          command: nmcli -f IP4.DNS connection show "{{ active_connection.stdout }}"
-          register: nm_show_runtime
-          changed_when: false
-          ignore_errors: yes
+        - name: Ensure correct permissions on connection file
+          file:
+            path: "{{ nm_filename.stdout }}"
+            mode: '0600'
 
-        - name: Display connection settings
-          debug:
-            msg: 
-              - "Config: {{ nm_show_config.stdout_lines }}"
-              - "Runtime: {{ nm_show_runtime.stdout_lines }}"
+        - name: Configure DNS in connection file (ipv4)
+          ini_file:
+            path: "{{ nm_filename.stdout }}"
+            section: ipv4
+            option: "{{ item.option }}"
+            value: "{{ item.value }}"
+            no_extra_spaces: yes
+          loop:
+            - { option: "dns", value: "{{ dc_ip }};" }
+            - { option: "ignore-auto-dns", value: "true" }
+          register: nm_file_config
 
-        - name: Restart network connection
+        - name: Configure DNS in connection file (ipv6)
+          ini_file:
+            path: "{{ nm_filename.stdout }}"
+            section: ipv6
+            option: "ignore-auto-dns"
+            value: "true"
+            no_extra_spaces: yes
+          register: nm_file_config_ipv6
+
+        - name: Reload NetworkManager connection
           shell: |
-            nmcli connection down "{{ active_connection.stdout }}" && nmcli connection up "{{ active_connection.stdout }}"
-          when: nm_direct_config is changed
+            nmcli connection load "{{ nm_filename.stdout }}"
+            nmcli connection up "{{ active_connection.stdout }}"
+          when: nm_file_config.changed or nm_file_config_ipv6.changed
           async: 30
           poll: 0
 
         - name: Wait for network to come back up
           wait_for:
             timeout: 10
-          when: nm_direct_config is changed
+          when: nm_file_config.changed or nm_file_config_ipv6.changed
 
       become: yes
       when: network_manager_type.stdout == "networkmanager"
