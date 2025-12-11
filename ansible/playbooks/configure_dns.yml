@@ -183,41 +183,44 @@
 
     - name: Configure DNS via NetworkManager (for non-netplan connections)
       block:
-        - name: Configure DNS using nmcli (Robust)
+        - name: Configure DNS using nmcli (Strict Wipe)
           shell: |
+            # Enable ignore-auto-dns first
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
             nmcli connection modify "{{ active_connection.stdout }}" ipv6.ignore-auto-dns yes
+            
+            # CLEAR existing DNS list
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
+            
+            # Set NEW DNS list (single item)
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
+            
+            # Set priority
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-priority -1
-          register: nm_direct_config
+          register: nm_strict_config
 
-        - name: Restart NetworkManager connection
-          shell: |
-            nmcli connection down "{{ active_connection.stdout }}" && nmcli connection up "{{ active_connection.stdout }}"
-          when: nm_direct_config is changed
+        - name: Restart NetworkManager Service
+          service:
+            name: NetworkManager
+            state: restarted
+          when: nm_strict_config is changed
           async: 30
           poll: 0
 
         - name: Wait for network to come back up
           wait_for:
             timeout: 10
-          when: nm_direct_config is changed
+          when: nm_strict_config is changed
 
-        - name: Flush systemd-resolved caches
-          command: resolvectl flush-caches
-          ignore_errors: yes
+        - name: Verify connection settings (Config)
+          command: nmcli -f ipv4.dns,ipv4.ignore-auto-dns connection show "{{ active_connection.stdout }}"
+          register: nm_show_config
           changed_when: false
 
-        - name: Verify DNS via resolvectl (Ubuntu/Systemd)
-          shell: resolvectl status
-          register: resolvectl_status
-          ignore_errors: yes
-          changed_when: false
-
-        - name: Display resolvectl status
+        - name: Display connection settings
           debug:
-            msg: "{{ resolvectl_status.stdout_lines }}"
+            msg: "{{ nm_show_config.stdout_lines }}"
 
       become: yes
       when: network_manager_type.stdout == "networkmanager"
