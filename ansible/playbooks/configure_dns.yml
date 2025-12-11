@@ -183,23 +183,27 @@
 
     - name: Configure DNS via NetworkManager (for non-netplan connections)
       block:
-        - name: Configure DNS using nmcli
+        - name: Configure DNS using nmcli (Atomic)
           shell: |
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
-            nmcli connection modify "{{ active_connection.stdout }}" ipv6.ignore-auto-dns yes
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes ipv6.ignore-auto-dns yes ipv4.dns "{{ dc_ip }}" ipv4.dns-search "{{ domain_name }}"
           register: nm_direct_config
 
-        - name: Verify connection settings
-          command: nmcli connection show "{{ active_connection.stdout }}"
-          register: nm_show
+        - name: Verify connection settings (Config)
+          command: nmcli -f ipv4.dns,ipv4.ignore-auto-dns connection show "{{ active_connection.stdout }}"
+          register: nm_show_config
           changed_when: false
-          
+
+        - name: Verify connection settings (Runtime)
+          command: nmcli -f IP4.DNS connection show "{{ active_connection.stdout }}"
+          register: nm_show_runtime
+          changed_when: false
+          ignore_errors: yes
+
         - name: Display connection settings
           debug:
-            msg: "{{ nm_show.stdout_lines | select('match', 'ipv4.dns|ipv4.ignore-auto-dns') | list }}"
+            msg: 
+              - "Config: {{ nm_show_config.stdout_lines }}"
+              - "Runtime: {{ nm_show_runtime.stdout_lines }}"
 
         - name: Restart network connection
           shell: |
@@ -210,7 +214,7 @@
 
         - name: Wait for network to come back up
           wait_for:
-            timeout: 5
+            timeout: 10
           when: nm_direct_config is changed
 
       become: yes
