@@ -168,7 +168,8 @@
       },
       "agent": 1,
       "depends_on": [
-        "PF-01-RTR"
+        "PF-01-RTR",
+        "DC-01-SRV"
       ]
     },
     {
@@ -231,7 +232,8 @@
       },
       "agent": 1,
       "depends_on": [
-        "PF-01-RTR"
+        "PF-01-RTR",
+        "DC-01-SRV"
       ]
     },
     {
@@ -294,7 +296,8 @@
       },
       "agent": 1,
       "depends_on": [
-        "PF-01-RTR"
+        "PF-01-RTR",
+        "DC-01-SRV"
       ]
     },
     {
@@ -353,7 +356,8 @@
       },
       "agent": 1,
       "depends_on": [
-        "PF-01-RTR"
+        "PF-01-RTR",
+        "DC-01-SRV"
       ]
     },
     {
@@ -414,7 +418,8 @@
       },
       "agent": 1,
       "depends_on": [
-        "PF-01-RTR"
+        "PF-01-RTR",
+        "DC-01-SRV"
       ]
     }
   ]
