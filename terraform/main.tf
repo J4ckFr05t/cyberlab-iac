@@ -107,6 +107,7 @@ resource "proxmox_vm_qemu" "vms_independent" {
   ciuser     = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
   sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? "${each.value.cloudinit.sshkeys}\n" : null
 }
 
@@ -197,6 +198,7 @@ resource "proxmox_vm_qemu" "vms_dependent" {
   ciuser     = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
   sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? "${each.value.cloudinit.sshkeys}\n" : null
 
   # Static dependency on PF-01-RTR
