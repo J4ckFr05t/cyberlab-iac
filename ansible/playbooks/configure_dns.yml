@@ -185,11 +185,20 @@
       block:
         - name: Configure DNS using nmcli
           shell: |
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
+            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
+            nmcli connection modify "{{ active_connection.stdout }}" ipv6.ignore-auto-dns yes
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
             nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
           register: nm_direct_config
+
+        - name: Verify connection settings
+          command: nmcli connection show "{{ active_connection.stdout }}"
+          register: nm_show
+          changed_when: false
+          
+        - name: Display connection settings
+          debug:
+            msg: "{{ nm_show.stdout_lines | select('match', 'ipv4.dns|ipv4.ignore-auto-dns') | list }}"
 
         - name: Restart network connection
           shell: |
