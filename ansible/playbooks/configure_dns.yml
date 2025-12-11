@@ -183,44 +183,77 @@
 
     - name: Configure DNS via NetworkManager (for non-netplan connections)
       block:
-        - name: Configure DNS using nmcli (Strict Wipe)
+        - name: Get NetworkManager connection file path
           shell: |
-            # Enable ignore-auto-dns first
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.ignore-auto-dns yes
-            nmcli connection modify "{{ active_connection.stdout }}" ipv6.ignore-auto-dns yes
-            
-            # CLEAR existing DNS list
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns ""
-            
-            # Set NEW DNS list (single item)
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns "{{ dc_ip }}"
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-search "{{ domain_name }}"
-            
-            # Set priority
-            nmcli connection modify "{{ active_connection.stdout }}" ipv4.dns-priority -1
-          register: nm_strict_config
+            nmcli -g FILENAME connection show "{{ active_connection.stdout }}"
+          register: nm_filename
+          changed_when: false
 
-        - name: Restart NetworkManager Service
-          service:
-            name: NetworkManager
-            state: restarted
-          when: nm_strict_config is changed
+        - name: Ensure correct permissions on connection file
+          file:
+            path: "{{ nm_filename.stdout }}"
+            mode: '0600'
+          when: nm_filename.stdout != ""
+
+        - name: Display connection filename
+          debug:
+            msg: "Editing connection file: {{ nm_filename.stdout }}"
+
+        - name: Configure file - Remove old DNS entries (ipv4)
+          ini_file:
+            path: "{{ nm_filename.stdout }}"
+            section: ipv4
+            option: dns
+            state: absent
+          when: nm_filename.stdout != ""
+
+        - name: Configure file - Set Strict DNS (ipv4)
+          ini_file:
+            path: "{{ nm_filename.stdout }}"
+            section: ipv4
+            option: "{{ item.option }}"
+            value: "{{ item.value }}"
+            no_extra_spaces: yes
+          loop:
+            - { option: "dns", value: "{{ dc_ip }};" }
+            - { option: "ignore-auto-dns", value: "true" }
+            - { option: "dns-priority", value: "-1" }
+          register: nm_file_config
+          when: nm_filename.stdout != ""
+
+        - name: Configure file - Set Strict DNS (ipv6)
+          ini_file:
+            path: "{{ nm_filename.stdout }}"
+            section: ipv6
+            option: "ignore-auto-dns"
+            value: "true"
+            no_extra_spaces: yes
+          register: nm_file_config_ipv6
+          when: nm_filename.stdout != ""
+
+        - name: Reload NetworkManager connection
+          shell: |
+            nmcli connection load "{{ nm_filename.stdout }}"
+            nmcli connection up "{{ active_connection.stdout }}"
+          when: (nm_file_config.changed or nm_file_config_ipv6.changed) and nm_filename.stdout != ""
           async: 30
           poll: 0
 
         - name: Wait for network to come back up
           wait_for:
             timeout: 10
-          when: nm_strict_config is changed
+          when: (nm_file_config.changed or nm_file_config_ipv6.changed) and nm_filename.stdout != ""
 
-        - name: Verify connection settings (Config)
-          command: nmcli -f ipv4.dns,ipv4.ignore-auto-dns connection show "{{ active_connection.stdout }}"
-          register: nm_show_config
+        - name: Verify DNS content in file
+          command: cat "{{ nm_filename.stdout }}"
+          register: nm_file_content
           changed_when: false
+          when: nm_filename.stdout != ""
 
-        - name: Display connection settings
+        - name: Display file content (debug)
           debug:
-            msg: "{{ nm_show_config.stdout_lines }}"
+            msg: "{{ nm_file_content.stdout_lines }}"
+          when: nm_filename.stdout != ""
 
       become: yes
       when: network_manager_type.stdout == "networkmanager"
