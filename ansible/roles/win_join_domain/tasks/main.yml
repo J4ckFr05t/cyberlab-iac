@@ -1,7 +1,7 @@
 ---
 
 - name: Join domain
-  ansible.windows.win_domain_membership:
+  microsoft.ad.membership:
     dns_domain_name: "{{ domain_name }}"
     domain_admin_user: "{{ win_username }}@{{ domain_name }}"
     domain_admin_password: "{{ win_password }}"
