@@ -11,8 +11,12 @@
 
 - name: Join Windows hosts to domain
   hosts: windows
+  vars:
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
   vars_files:
     - ../group_vars/windows.yml
+    - ../group_vars/windows_vault.yml
     - ../group_vars/dc_vault.yml
   roles:
     - ../roles/win_join_domain
