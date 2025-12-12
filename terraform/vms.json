@@ -16,6 +16,7 @@
         "type": "host"
       },
       "memory": 2048,
+      "balloon": 1024,
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
@@ -63,6 +64,7 @@
       "machine": "q35",
       "efi_storage": "Internal",
       "memory": 2048,
+      "balloon": 1024,
       "serial": {
         "id": 0,
         "type": "socket"
@@ -124,6 +126,7 @@
         "type": "host"
       },
       "memory": 8192,
+      "balloon": 4096,
       "serial": {
         "id": 0,
         "type": "socket"
@@ -188,6 +191,7 @@
         "type": "host"
       },
       "memory": 4096,
+      "balloon": 2048,
       "serial": {
         "id": 0,
         "type": "socket"
@@ -252,6 +256,7 @@
         "type": "host"
       },
       "memory": 4096,
+      "balloon": 2048,
       "serial": {
         "id": 0,
         "type": "socket"
@@ -315,6 +320,7 @@
         "type": "host"
       },
       "memory": 4096,
+      "balloon": 2048,
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
@@ -378,6 +384,7 @@
       "machine": "q35",
       "efi_storage": "Internal",
       "memory": 8192,
+      "balloon": 4096,
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [

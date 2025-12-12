@@ -46,6 +46,7 @@ resource "proxmox_vm_qemu" "tier_0" {
   }
 
   memory   = each.value.memory
+  balloon  = try(each.value.balloon, each.value.memory)
   scsihw   = each.value.scsihw
   bootdisk = each.value.bootdisk
   agent    = try(each.value.agent, 0)
@@ -130,6 +131,7 @@ resource "proxmox_vm_qemu" "tier_1" {
   }
 
   memory   = each.value.memory
+  balloon  = try(each.value.balloon, each.value.memory)
   scsihw   = each.value.scsihw
   bootdisk = each.value.bootdisk
   agent    = try(each.value.agent, 0)
@@ -216,6 +218,7 @@ resource "proxmox_vm_qemu" "tier_2" {
   }
 
   memory   = each.value.memory
+  balloon  = try(each.value.balloon, each.value.memory)
   scsihw   = each.value.scsihw
   bootdisk = each.value.bootdisk
   agent    = try(each.value.agent, 0)
