@@ -3,6 +3,7 @@
   hosts: linux, infra
   become: true
   vars_files:
+    - ../group_vars/all.yml
     - ../group_vars/linux.yml
     - ../group_vars/infra.yml
     - ../group_vars/dc_vault.yml
@@ -15,6 +16,7 @@
     ansible_user: "{{ win_username }}"
     ansible_password: "{{ win_password }}"
   vars_files:
+    - ../group_vars/all.yml
     - ../group_vars/windows.yml
     - ../group_vars/windows_vault.yml
     - ../group_vars/dc_vault.yml
