@@ -8,9 +8,7 @@
       - libnss-sss
       - libpam-sss
       - adcli
-      - samba-common-tools
-      - oddjob
-      - oddjob-mkhomedir
+      - samba-common-bin
       - packagekit
     state: present
     update_cache: yes
