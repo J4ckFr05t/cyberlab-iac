@@ -1,0 +1,36 @@
+---
+- name: Install required packages for domain join
+  apt:
+    name:
+      - realmd
+      - sssd
+      - sssd-tools
+      - libnss-sss
+      - libpam-sss
+      - adcli
+      - samba-common-tools
+      - oddjob
+      - oddjob-mkhomedir
+      - packagekit
+    state: present
+    update_cache: yes
+
+- name: Check if already joined to domain
+  command: realm list
+  register: realm_list
+  changed_when: false
+  ignore_errors: true
+
+- name: Join the domain
+  expect:
+    command: /usr/sbin/realm join --user={{ win_username }} {{ domain_name }}
+    responses:
+      Password for *: "{{ win_password }}"
+  when: domain_name not in realm_list.stdout
+  no_log: true
+
+- name: Configure SSSD to create home directories automatically
+  lineinfile:
+    path: /etc/pam.d/common-session
+    line: "session optional pam_mkhomedir.so skel=/etc/skel umask=0077"
+    state: present

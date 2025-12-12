@@ -1,0 +1,15 @@
+---
+- name: Join Linux hosts to domain
+  hosts: linux, infra
+  become: true
+  vars_files:
+    - ../group_vars/dc_vault.yml
+  roles:
+    - linux_join_domain
+
+- name: Join Windows hosts to domain
+  hosts: windows
+  vars_files:
+    - ../group_vars/dc_vault.yml
+  roles:
+    - win_join_domain
