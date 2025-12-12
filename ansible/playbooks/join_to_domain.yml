@@ -3,6 +3,8 @@
   hosts: linux, infra
   become: true
   vars_files:
+    - ../group_vars/linux.yml
+    - ../group_vars/infra.yml
     - ../group_vars/dc_vault.yml
   roles:
     - ../roles/linux_join_domain
@@ -10,6 +12,7 @@
 - name: Join Windows hosts to domain
   hosts: windows
   vars_files:
+    - ../group_vars/windows.yml
     - ../group_vars/dc_vault.yml
   roles:
     - ../roles/win_join_domain
