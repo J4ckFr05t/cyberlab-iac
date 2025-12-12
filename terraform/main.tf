@@ -76,7 +76,7 @@ resource "proxmox_vm_qemu" "tier_0" {
     for_each = each.value.disks
     content {
       slot     = disk.value.slot
-      size     = try(disk.value.size, null)
+      size     = disk.value.type == "disk" ? try(disk.value.size, null) : null
       type     = disk.value.type
       storage  = disk.value.storage
       iothread = try(disk.value.iothread, false)
@@ -161,7 +161,7 @@ resource "proxmox_vm_qemu" "tier_1" {
     for_each = each.value.disks
     content {
       slot     = disk.value.slot
-      size     = try(disk.value.size, null)
+      size     = disk.value.type == "disk" ? try(disk.value.size, null) : null
       type     = disk.value.type
       storage  = disk.value.storage
       iothread = try(disk.value.iothread, false)
@@ -248,7 +248,7 @@ resource "proxmox_vm_qemu" "tier_2" {
     for_each = each.value.disks
     content {
       slot     = disk.value.slot
-      size     = try(disk.value.size, null)
+      size     = disk.value.type == "disk" ? try(disk.value.size, null) : null
       type     = disk.value.type
       storage  = disk.value.storage
       iothread = try(disk.value.iothread, false)
