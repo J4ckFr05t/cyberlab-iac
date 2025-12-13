@@ -1,0 +1,21 @@
+---
+- name: Check Windows Connectivity
+  hosts: dc,windows
+  gather_facts: no
+  vars_files:
+    - ../group_vars/secret_vault.yml
+  vars:
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+  
+  tasks:
+    - name: Ping Windows hosts
+      win_ping:
+
+- name: Check Linux Connectivity
+  hosts: linux
+  gather_facts: no
+  
+  tasks:
+    - name: Ping Linux hosts
+      ping:
