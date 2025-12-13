@@ -1,6 +1,6 @@
 ---
 - name: Join Linux hosts to domain
-  hosts: linux, infra
+  hosts: linux:!infra
   become: true
   vars_files:
     - ../inventory/group_vars/all.yml
