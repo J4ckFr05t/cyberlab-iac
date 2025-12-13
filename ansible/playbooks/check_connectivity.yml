@@ -3,7 +3,7 @@
   hosts: dc,windows
   gather_facts: no
   vars_files:
-    - ../group_vars/secret_vault.yml
+    - ../inventory/group_vars/secret_vault.yml
   vars:
     ansible_user: "{{ win_username }}"
     ansible_password: "{{ win_password }}"

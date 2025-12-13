@@ -10,8 +10,8 @@
   
   # Specify roles path relative to playbook location
   vars_files:
-    - ../group_vars/dc.yml
-    - ../group_vars/secret_vault.yml
+    - ../inventory/group_vars/dc.yml
+    - ../inventory/group_vars/secret_vault.yml
   
   pre_tasks:
     # Display configuration summary
