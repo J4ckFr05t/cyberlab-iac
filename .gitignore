@@ -40,6 +40,8 @@ override.tf.json
 terraform.rc
 
 # Ansible inventory and vault files
-ansible/inventory/group_vars/*_vault.yml
-ansible/inventory/group_vars/vault.yml
+# Ansible inventory and vault files
+ansible/**/secret_vault.yml
+ansible/**/*_vault.yml
+ansible/**/vault.yml
 ansible/.vault_pass
