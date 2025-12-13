@@ -1,0 +1,6 @@
+---
+- name: Deploy ELK Stack on SIEM Server
+  hosts: siem-01-srv
+  become: yes
+  roles:
+    - elk_setup

@@ -45,3 +45,5 @@ ansible/**/secret_vault.yml
 ansible/**/*_vault.yml
 ansible/**/vault.yml
 ansible/.vault_pass
+# Credentials and Certs
+ansible/files/generated_creds/

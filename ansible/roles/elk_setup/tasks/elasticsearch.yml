@@ -1,0 +1,33 @@
+---
+- name: Check if Elasticsearch is installed
+  command: dpkg-query -W -f='${Status}' elasticsearch
+  register: elastic_check
+  failed_when: false
+  changed_when: false
+  become: yes
+
+- name: Install Elasticsearch and Capture Password
+  shell: apt-get install elasticsearch -y
+  register: elastic_install_output
+  become: yes
+  when: elastic_check.stdout.find('install ok installed') == -1
+
+- name: Extract Elastic User Password
+  set_fact:
+    elastic_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | first }}"
+  when: elastic_install_output.changed and 'The generated password for the elastic built-in superuser is :' in elastic_install_output.stdout
+
+- name: Save Elastic Password
+  local_action:
+    module: copy
+    content: "{{ elastic_password }}"
+    dest: "{{ playbook_dir }}/../files/generated_creds/elastic_password.txt"
+  become: no
+  when: elastic_password is defined and elastic_password != ""
+
+- name: Start and Enable Elasticsearch
+  systemd:
+    name: elasticsearch
+    state: started
+    enabled: yes
+  become: yes

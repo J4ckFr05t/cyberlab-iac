@@ -1,0 +1,70 @@
+---
+- name: Install Kibana
+  apt:
+    name: kibana
+    state: present
+  become: yes
+
+- name: Check if Kibana is configured
+  stat:
+    path: /etc/kibana/kibana.yml
+  register: kibana_config_stat
+
+- name: Check if Kibana Setup Marker exists
+  stat:
+    path: /etc/kibana/.setup_complete
+  register: kibana_setup_marker
+
+- name: Create Enrollment Token
+  command: /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+  register: enrollment_token
+  become: yes
+  when: not kibana_setup_marker.stat.exists
+
+- name: Save Enrollment Token
+  local_action:
+    module: copy
+    content: "{{ enrollment_token.stdout }}"
+    dest: "{{ playbook_dir }}/../files/generated_creds/enrollment_token.txt"
+  become: no
+  when: not kibana_setup_marker.stat.exists and enrollment_token.rc == 0
+
+- name: Setup Kibana with Enrollment Token
+  command: "/usr/share/kibana/bin/kibana-setup --enrollment-token {{ enrollment_token.stdout }}"
+  become: yes
+  when: not kibana_setup_marker.stat.exists and enrollment_token.rc == 0
+  register: kibana_setup_result
+
+- name: Generate Encryption Keys
+  command: /usr/share/kibana/bin/kibana-encryption-keys generate
+  register: encryption_keys_output
+  become: yes
+  when: not kibana_setup_marker.stat.exists
+
+- name: Parse Encryption Keys
+  set_fact:
+    encryption_keys_block: "{{ encryption_keys_output.stdout | regex_search('xpack.encryptedSavedObjects.encryptionKey: .+\\nxpack.reporting.encryptionKey: .+\\nxpack.security.encryptionKey: .+', multiline=True) }}"
+  when: not kibana_setup_marker.stat.exists and encryption_keys_output.rc == 0
+
+- name: Append Encryption Keys to kibana.yml
+  blockinfile:
+    path: /etc/kibana/kibana.yml
+    block: |
+      {{ encryption_keys_block }}
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - ENCRYPTION KEYS"
+  become: yes
+  when: not kibana_setup_marker.stat.exists and encryption_keys_block is defined
+
+- name: Create Setup Marker
+  file:
+    path: /etc/kibana/.setup_complete
+    state: touch
+  become: yes
+  when: kibana_setup_result is changed
+
+- name: Start and Enable Kibana
+  systemd:
+    name: kibana
+    state: started
+    enabled: yes
+  become: yes

@@ -1,0 +1,36 @@
+---
+- name: Update apt cache
+  apt:
+    update_cache: yes
+  become: yes
+
+- name: Install GPG
+  apt:
+    name: gpg
+    state: present
+  become: yes
+
+- name: Download Elastic GPG Key
+  get_url:
+    url: https://artifacts.elastic.co/GPG-KEY-elasticsearch
+    dest: /tmp/elastic.gpg.key
+    mode: '0644'
+  become: yes
+
+- name: De-armor GPG Key
+  shell: gpg --dearmor -o /usr/share/keyrings/elastic.gpg < /tmp/elastic.gpg.key
+  args:
+    creates: /usr/share/keyrings/elastic.gpg
+  become: yes
+
+- name: Add Elastic 9.x Repository
+  copy:
+    content: "deb [signed-by=/usr/share/keyrings/elastic.gpg] https://artifacts.elastic.co/packages/9.x/apt stable main"
+    dest: /etc/apt/sources.list.d/elastic-9.x.list
+    mode: '0644'
+  become: yes
+
+- name: Update apt cache after adding repo
+  apt:
+    update_cache: yes
+  become: yes

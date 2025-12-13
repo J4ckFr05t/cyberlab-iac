@@ -1,0 +1,7 @@
+---
+- name: Fetch Elasticsearch CA Certificate
+  fetch:
+    src: /etc/elasticsearch/certs/http_ca.crt
+    dest: "{{ playbook_dir }}/../files/generated_creds/http_ca.crt"
+    flat: yes
+  become: yes

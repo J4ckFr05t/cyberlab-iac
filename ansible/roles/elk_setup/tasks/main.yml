@@ -1,0 +1,15 @@
+---
+- name: Install Prerequisites
+  import_tasks: prereqs.yml
+
+- name: Install and Configure Elasticsearch
+  import_tasks: elasticsearch.yml
+
+- name: Install and Configure Kibana
+  import_tasks: kibana.yml
+
+- name: Install and Configure Nginx
+  import_tasks: nginx.yml
+
+- name: Post Installation Tasks
+  import_tasks: post_install.yml
