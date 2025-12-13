@@ -1,6 +1,0 @@
----
-# Infrastructure Hosts Variables
-# These variables are used for all infrastructure hosts (SIEM, Fleet, XDR)
-
-# SSH Connection
-ansible_connection: ssh

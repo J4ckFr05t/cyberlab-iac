@@ -1,9 +1,0 @@
----
-# Windows Hosts Vault - Example
-# Copy this file to windows_vault.yml and encrypt it with ansible-vault
-# Command: ansible-vault create group_vars/windows_vault.yml
-
-# Windows Local Administrator Credentials
-# These credentials are used to connect to Windows workstations
-win_username: Administrator
-win_password: YourWindowsAdminPassword

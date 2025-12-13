@@ -167,6 +167,8 @@
 - name: Create domain users
   microsoft.ad.user:
     name: "{{ item.sam_account_name }}"
+    firstname: "{{ item.firstname }}"
+    surname: "{{ item.lastname }}"
     upn: "{{ item.upn }}"
     password: "{{ item.password }}"
     state: present
