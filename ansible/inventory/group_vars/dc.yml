@@ -22,20 +22,16 @@ organizational_units:
 
 # Domain Users to create
 domain_users:
-  - name: Dave Johnson
+  - display_name: Dave Johnson
     firstname: Dave
     lastname: Johnson
-    sam_account_name: dave.johnson
-    upn: dave.johnson@frostsec.corp
     password: "{{ dave_password }}"
     enabled: yes
     password_never_expires: no
     user_cannot_change_password: no
-  - name: Sophia Davis
+  - display_name: Sophia Davis
     firstname: Sophia
     lastname: Davis
-    sam_account_name: sophia.davis
-    upn: sophia.davis@frostsec.corp
     password: "{{ sophia_password }}"
     enabled: yes
     password_never_expires: no

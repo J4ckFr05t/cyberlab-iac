@@ -166,17 +166,18 @@
 # Task 8: Create Domain Users
 - name: Create domain users
   microsoft.ad.user:
-    name: "{{ item.sam_account_name }}"
+    name: "{{ item.firstname | lower }}.{{ item.lastname | lower }}"
+    display_name: "{{ item.display_name | default(omit) }}"
     firstname: "{{ item.firstname }}"
     surname: "{{ item.lastname }}"
-    upn: "{{ item.upn }}"
+    upn: "{{ item.firstname | lower }}.{{ item.lastname | lower }}@{{ domain_name }}"
     password: "{{ item.password }}"
     state: present
     enabled: "{{ item.enabled }}"
     password_never_expires: "{{ item.password_never_expires }}"
     user_cannot_change_password: "{{ item.user_cannot_change_password }}"
     update_password: on_create
-    path: "CN=Users,DC=frostsec,DC=corp"
+    path: "CN=Users,DC={{ domain_name.split('.')[0] }},DC={{ domain_name.split('.')[1] }}"
   loop: "{{ domain_users }}"
   no_log: yes
   tags:
