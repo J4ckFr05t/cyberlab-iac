@@ -36,6 +36,6 @@
           - "Domain: {{ domain_name }}"
           - "Domain Controller: {{ inventory_hostname }}"
           - "OUs created: {{ organizational_units | map(attribute='name') | list | join(', ') }}"
-          - "Users created: {{ domain_users | map(attribute='sam_account_name') | list | join(', ') }}"
+          - "Users created: {{ domain_users | map(attribute='display_name') | list | join(', ') }}"
       tags:
         - always
