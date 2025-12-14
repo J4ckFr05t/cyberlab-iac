@@ -14,3 +14,17 @@
     dest: "{{ playbook_dir }}/../files/generated_creds/http_ca.crt"
     flat: yes
   become: yes
+
+- name: Generate CA Fingerprint
+  shell: "openssl x509 -fingerprint -sha256 -noout -in /etc/elasticsearch/certs/http_ca.crt | awk -F= '{print $2}' | tr -d ':'"
+  register: ca_fingerprint
+  become: yes
+  changed_when: false
+
+- name: Save CA Fingerprint
+  local_action:
+    module: copy
+    content: "{{ ca_fingerprint.stdout }}"
+    dest: "{{ playbook_dir }}/../files/generated_creds/trusted_ca_fingerprint"
+  become: no
+  when: ca_fingerprint.rc == 0

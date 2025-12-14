@@ -10,3 +10,9 @@
     name: elasticsearch
     state: restarted
   become: yes
+
+- name: Restart Kibana
+  systemd:
+    name: kibana
+    state: restarted
+  become: yes
