@@ -2,5 +2,7 @@
 - name: Deploy ELK Stack on SIEM Server
   hosts: siem-01-srv
   become: yes
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
   roles:
     - elk_setup

@@ -51,7 +51,7 @@
 # --- Auto-Generated Password Logic (Fallback) ---
 - name: Extract Password from Install Log
   set_fact:
-    install_log_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | trim }}"
+    install_log_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | regex_replace('\\r', '') | trim }}"
   when: 
     - elastic_custom_password | length == 0
     - elastic_install_output is changed
@@ -67,10 +67,10 @@
 
 - name: Extract Password from Auto-Reset
   set_fact:
-    auto_reset_password: "{{ auto_reset_output.stdout | regex_search('New value: (.*)', '\\1') | trim }}"
+    auto_reset_password: "{{ auto_reset_output.stdout | regex_search('New value: (.*)', '\\1') | regex_replace('\\r', '') | trim }}"
   when: 
     - elastic_custom_password | length == 0
-    - auto_reset_output.changed
+    - auto_reset_output is changed
 
 - name: Set Password Variable (Auto)
   set_fact:
@@ -87,14 +87,10 @@
   become: no
   run_once: true
 
-- name: Debug Final Password
-  debug:
-    msg: "Saving Password: {{ final_elastic_password | regex_replace('\\r', '') }}"
-
 - name: Save Elastic Password
   local_action:
     module: copy
-    content: "{{ final_elastic_password | regex_replace('\\r', '') }}"
+    content: "{{ final_elastic_password }}"
     dest: "{{ playbook_dir }}/../files/generated_creds/elastic_password.txt"
   become: no
   when: final_elastic_password is defined
