@@ -93,6 +93,18 @@
     status_code: [200, 409]
   when: fleet_policy_id is defined
 
+- name: Delete Existing Service Token
+  uri:
+    url: "https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
+    method: DELETE
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+    validate_certs: no
+    status_code: [200, 404]
+
 - name: Generate Service Token
   uri:
     url: "https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
