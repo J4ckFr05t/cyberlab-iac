@@ -4,3 +4,9 @@
     name: nginx
     state: restarted
   become: yes
+
+- name: Restart Elasticsearch
+  systemd:
+    name: elasticsearch
+    state: restarted
+  become: yes
