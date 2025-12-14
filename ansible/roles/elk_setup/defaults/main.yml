@@ -1,0 +1,4 @@
+---
+# Set a custom password for the 'elastic' user.
+# If left empty, a password will be auto-generated and saved to elastic_password.txt
+elastic_custom_password: ""

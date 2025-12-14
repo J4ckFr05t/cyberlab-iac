@@ -6,7 +6,7 @@
   changed_when: false
   become: yes
 
-- name: Install Elasticsearch and Capture Password
+- name: Install Elasticsearch
   shell: apt-get install elasticsearch -y
   register: elastic_install_output
   become: yes
@@ -22,40 +22,62 @@
   become: yes
   notify: Restart Elasticsearch
 
-- name: Extract Elastic User Password from Install
-  set_fact:
-    elastic_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | first }}"
-  when: elastic_install_output.changed and 'The generated password for the elastic built-in superuser is :' in elastic_install_output.stdout
-
-- name: Check if password was captured
-  set_fact:
-    password_captured: "{{ elastic_password is defined and elastic_password | length > 0 }}"
-
-- name: Debug Install Output (If Password Missing)
-  debug:
-    var: elastic_install_output.stdout_lines
-  when: not password_captured
-
-- name: Reset Elastic Password (Fallback)
-  command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b
-  register: password_reset_output
+- name: Start and Enable Elasticsearch
+  systemd:
+    name: elasticsearch
+    state: started
+    enabled: yes
   become: yes
-  when: not password_captured
 
-- name: Debug Reset Output
-  debug:
-    var: password_reset_output.stdout
-  when: not password_captured and password_reset_output is defined
+- name: Wait for Elasticsearch to start
+  wait_for:
+    port: 9200
+    delay: 10
+    timeout: 60
 
-- name: Extract Elastic User Password from Reset
+# --- Custom Password Logic ---
+- name: Set Custom Elastic Password
+  shell: |
+    printf "y\n{{ elastic_custom_password }}\n{{ elastic_custom_password }}\n" | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i
+  become: yes
+  when: elastic_custom_password | length > 0
+  register: custom_pwd_reset
+
+- name: Set Password Variable (Custom)
   set_fact:
-    elastic_password: "{{ password_reset_output.stdout | regex_search('New value: (.*)', '\\1') | trim }}"
-  when: not password_captured and password_reset_output.rc == 0
+    final_elastic_password: "{{ elastic_custom_password }}"
+  when: elastic_custom_password | length > 0
 
-- name: Verify Password Variable
-  debug:
-    msg: "Captured Password: {{ elastic_password }}"
+# --- Auto-Generated Password Logic (Fallback) ---
+- name: Extract Password from Install Log
+  set_fact:
+    install_log_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | trim }}"
+  when: 
+    - elastic_custom_password | length == 0
+    - elastic_install_output is changed
+    - "'The generated password for the elastic built-in superuser is :' in elastic_install_output.stdout"
 
+- name: Reset Elastic Password (Auto-Generate)
+  command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b
+  register: auto_reset_output
+  become: yes
+  when: 
+    - elastic_custom_password | length == 0
+    - install_log_password is not defined or install_log_password | length == 0
+
+- name: Extract Password from Auto-Reset
+  set_fact:
+    auto_reset_password: "{{ auto_reset_output.stdout | regex_search('New value: (.*)', '\\1') | trim }}"
+  when: 
+    - elastic_custom_password | length == 0
+    - auto_reset_output.changed
+
+- name: Set Password Variable (Auto)
+  set_fact:
+    final_elastic_password: "{{ install_log_password if (install_log_password is defined and install_log_password | length > 0) else auto_reset_output.stdout | regex_search('New value: (.*)', '\\1') | regex_replace('\\r', '') | trim }}"
+  when: elastic_custom_password | length == 0
+
+# --- Save Credentials ---
 - name: Ensure generated credentials directory exists
   local_action:
     module: file
@@ -65,17 +87,14 @@
   become: no
   run_once: true
 
+- name: Debug Final Password
+  debug:
+    msg: "Saving Password: {{ final_elastic_password | regex_replace('\\r', '') }}"
+
 - name: Save Elastic Password
   local_action:
     module: copy
-    content: "{{ elastic_password }}"
+    content: "{{ final_elastic_password | regex_replace('\\r', '') }}"
     dest: "{{ playbook_dir }}/../files/generated_creds/elastic_password.txt"
   become: no
-  when: elastic_password is defined and elastic_password | length > 0
-
-- name: Start and Enable Elasticsearch
-  systemd:
-    name: elasticsearch
-    state: started
-    enabled: yes
-  become: yes
+  when: final_elastic_password is defined
