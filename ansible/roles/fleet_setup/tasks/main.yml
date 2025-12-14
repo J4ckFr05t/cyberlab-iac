@@ -1,0 +1,136 @@
+---
+- name: Install Prerequisites (GPG)
+  apt:
+    name: gpg
+    state: present
+  become: yes
+
+# Note: Authentication uses elastic_custom_password from Vault
+
+- name: Create Fleet Server Policy
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/agent_policies?sys_monitoring=true"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "Fleet Server Policy"
+      description: ""
+      namespace: "default"
+      monitoring_enabled: ["logs", "metrics", "traces"]
+      has_fleet_server: true
+      inactivity_timeout: 1209600
+      is_protected: false
+    status_code: [200, 409] # 409 if already exists
+  register: fleet_policy_response
+  failed_when: fleet_policy_response.status != 200 and fleet_policy_response.status != 409
+
+- name: Set Policy ID Fact
+  set_fact:
+    fleet_policy_id: "{{ fleet_policy_response.json.item.id }}"
+  when: fleet_policy_response.status == 200
+
+# Fallback: If policy exists (409), we need to fetch it to get the ID. 
+# For now, assuming fresh install or idempotent skip if we can't get ID easily without another query.
+# But for this specific flow, let's assume valid creation.
+
+- name: Add Fleet Server Package to Policy
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      policy_ids: ["{{ fleet_policy_id }}"]
+      package:
+        name: "fleet_server"
+        version: "1.6.0"
+      name: "Fleet Server"
+      description: ""
+      namespace: ""
+      inputs:
+        fleet_server-fleet-server:
+          enabled: true
+          vars:
+            custom: ""
+          streams: {}
+    status_code: [200, 409]
+  when: fleet_policy_id is defined
+
+- name: Generate Service Token
+  uri:
+    url: "https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    validate_certs: no
+    body_format: json
+  register: service_token_response
+
+- name: Set Service Token Fact
+  set_fact:
+    fleet_service_token: "{{ service_token_response.json.token.value }}"
+
+- name: Download Elastic Agent
+  get_url:
+    url: https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-9.2.2-amd64.deb
+    dest: /tmp/elastic-agent-9.2.2-amd64.deb
+
+- name: Install Elastic Agent
+  apt:
+    deb: /tmp/elastic-agent-9.2.2-amd64.deb
+  become: yes
+
+- name: Enable and Start Elastic Agent Service
+  systemd:
+    name: elastic-agent
+    enabled: yes
+    state: started
+  become: yes
+
+# Check enrollment status to avoid re-enrolling
+- name: Check Elastic Agent Status
+  command: elastic-agent status
+  register: agent_status
+  failed_when: false
+  changed_when: false
+
+- name: Read CA Fingerprint from Local Controller
+  local_action:
+    module: slurp
+    src: "{{ playbook_dir }}/../files/trusted_ca_fingerprint"
+  register: fingerprint_file
+  become: no
+
+- name: Set Fingerprint Fact
+  set_fact:
+    ca_fingerprint: "{{ fingerprint_file['content'] | b64decode | trim }}"
+
+- name: Enroll Elastic Agent (Fleet Server)
+  shell: |
+    elastic-agent enroll \
+      --fleet-server-es=https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200 \
+      --fleet-server-service-token={{ fleet_service_token }} \
+      --fleet-server-policy={{ fleet_policy_id }} \
+      --fleet-server-es-ca-trusted-fingerprint={{ ca_fingerprint }} \
+      --fleet-server-port=8220 \
+      --force
+  become: yes
+  when: 
+    - agent_status.rc != 0 or 'Healthy' not in agent_status.stdout
+    - fleet_policy_id is defined
+    - fleet_service_token is defined

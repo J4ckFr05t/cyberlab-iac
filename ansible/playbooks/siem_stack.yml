@@ -6,3 +6,11 @@
     - ../inventory/group_vars/secret_vault.yml
   roles:
     - elk_setup
+
+- name: Setup Fleet Server on Fleet-01-SRV
+  hosts: fleet-01-srv
+  become: yes
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  roles:
+    - fleet_setup
