@@ -144,14 +144,6 @@
   failed_when: false
   changed_when: false
 
-- name: Debug Enrollment Variables
-  debug:
-    msg: 
-      - "Agent Status RC: {{ agent_status.rc }}"
-      - "Agent Status Stdout: {{ agent_status.stdout }}"
-      - "Fleet Policy ID: {{ fleet_policy_id | default('UNDEFINED') }}"
-      - "Fleet Service Token: {{ fleet_service_token | default('UNDEFINED') }}"
-
 - name: Read CA Fingerprint from Local Controller
   local_action:
     module: slurp
