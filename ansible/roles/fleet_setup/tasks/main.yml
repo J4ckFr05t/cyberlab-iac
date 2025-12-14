@@ -126,9 +126,8 @@
     url: https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-9.2.2-amd64.deb
     dest: /tmp/elastic-agent-9.2.2-amd64.deb
 
-- name: Install Elastic Agent
-  apt:
-    deb: /tmp/elastic-agent-9.2.2-amd64.deb
+- name: Install Elastic Agent (with Flavor)
+  shell: "ELASTIC_AGENT_FLAVOR=servers dpkg -i /tmp/elastic-agent-9.2.2-amd64.deb"
   become: yes
 
 - name: Enable and Start Elastic Agent Service
@@ -138,12 +137,22 @@
     state: started
   become: yes
 
-# Check enrollment status to avoid re-enrolling
+# Check enrollment status
 - name: Check Elastic Agent Status
   command: elastic-agent status
   register: agent_status
   failed_when: false
   changed_when: false
+
+- name: Debug Enrollment Variables
+  debug:
+    msg: 
+      - "Agent Status RC: {{ agent_status.rc }}"
+      - "Agent Status Stdout: {{ agent_status.stdout }}"
+      - "Fleet Policy ID: {{ fleet_policy_id | default('UNDEFINED') }}"
+      - "Fleet Service Token: {{ fleet_service_token | default('UNDEFINED') }}"
+
+- name: Read CA Fingerprint from Local Controller
 
 - name: Read CA Fingerprint from Local Controller
   local_action:
