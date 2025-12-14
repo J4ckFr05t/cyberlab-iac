@@ -7,6 +7,15 @@
 
 # Note: Authentication uses elastic_custom_password from Vault
 
+- name: Wait for Kibana to be ready
+  wait_for:
+    host: "{{ hostvars['siem-01-srv']['ansible_host'] }}"
+    port: 5601
+    delay: 10
+    timeout: 300
+    state: started
+  become: no
+
 - name: Create Fleet Server Policy
   uri:
     url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/agent_policies?sys_monitoring=true"

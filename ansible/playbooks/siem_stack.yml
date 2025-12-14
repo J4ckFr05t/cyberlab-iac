@@ -6,6 +6,8 @@
     - ../inventory/group_vars/secret_vault.yml
   roles:
     - elk_setup
+  tags:
+    - elk
 
 - name: Setup Fleet Server on Fleet-01-SRV
   hosts: fleet-01-srv
@@ -14,3 +16,5 @@
     - ../inventory/group_vars/secret_vault.yml
   roles:
     - fleet_setup
+  tags:
+    - fleet
