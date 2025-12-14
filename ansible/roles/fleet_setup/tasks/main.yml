@@ -16,6 +16,10 @@
     state: started
   become: no
 
+- name: Pause for Kibana Initialization
+  pause:
+    seconds: 15
+
 - name: Create Fleet Server Policy
   uri:
     url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/agent_policies?sys_monitoring=true"
@@ -137,12 +141,11 @@
     state: started
   become: yes
 
-# Check enrollment status
-- name: Check Elastic Agent Status
-  command: elastic-agent status
-  register: agent_status
-  failed_when: false
-  changed_when: false
+# Check enrollment status (File based is more reliable than status command)
+- name: Check if Fleet is Enrolled
+  stat:
+    path: /etc/elastic-agent/fleet.yml
+  register: fleet_enrollment_check
 
 - name: Read CA Fingerprint from Local Controller
   local_action:
@@ -165,6 +168,6 @@
       --fleet-server-port=8220
   become: yes
   when: 
-    - agent_status.rc != 0 or 'Healthy' not in agent_status.stdout
+    - not fleet_enrollment_check.stat.exists
     - fleet_policy_id is defined
     - fleet_service_token is defined
