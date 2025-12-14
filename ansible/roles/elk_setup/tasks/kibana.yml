@@ -71,6 +71,14 @@
   become: yes
   when: kibana_setup_result is changed
 
+- name: Configure Kibana Host
+  lineinfile:
+    path: /etc/kibana/kibana.yml
+    regexp: '^#?server\.host:'
+    line: 'server.host: "0.0.0.0"'
+  become: yes
+  notify: Restart Kibana
+
 - name: Start and Enable Kibana
   systemd:
     name: kibana
