@@ -35,62 +35,23 @@
     delay: 10
     timeout: 60
 
-# --- Custom Password Logic ---
+- name: Check if Custom Password Works
+  uri:
+    url: "https://localhost:9200/_security/_authenticate"
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+    status_code: [200, 401]
+  register: auth_check
+  failed_when: false
+  changed_when: false
+  when: elastic_custom_password | length > 0
+
 - name: Set Custom Elastic Password
   shell: |
     printf "y\n{{ elastic_custom_password }}\n{{ elastic_custom_password }}\n" | /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -i
   become: yes
-  when: elastic_custom_password | length > 0
-  register: custom_pwd_reset
-
-- name: Set Password Variable (Custom)
-  set_fact:
-    final_elastic_password: "{{ elastic_custom_password }}"
-  when: elastic_custom_password | length > 0
-
-# --- Auto-Generated Password Logic (Fallback) ---
-- name: Extract Password from Install Log
-  set_fact:
-    install_log_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | regex_replace('\\r', '') | trim }}"
   when: 
-    - elastic_custom_password | length == 0
-    - elastic_install_output is changed
-    - "'The generated password for the elastic built-in superuser is :' in elastic_install_output.stdout"
-
-- name: Reset Elastic Password (Auto-Generate)
-  command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b
-  register: auto_reset_output
-  become: yes
-  when: 
-    - elastic_custom_password | length == 0
-    - install_log_password is not defined or install_log_password | length == 0
-
-- name: Extract Password from Auto-Reset
-  set_fact:
-    auto_reset_password: "{{ auto_reset_output.stdout | regex_search('New value: (.*)', '\\1') | regex_replace('\\r', '') | trim }}"
-  when: 
-    - elastic_custom_password | length == 0
-    - auto_reset_output is changed
-
-- name: Set Password Variable (Auto)
-  set_fact:
-    final_elastic_password: "{{ install_log_password if (install_log_password is defined and install_log_password | length > 0) else auto_reset_output.stdout | regex_search('New value: (.*)', '\\1') | regex_replace('\\r', '') | trim }}"
-  when: elastic_custom_password | length == 0
-
-# --- Save Credentials ---
-- name: Ensure generated credentials directory exists
-  local_action:
-    module: file
-    path: "{{ playbook_dir }}/../files/generated_creds"
-    state: directory
-    mode: '0700'
-  become: no
-  run_once: true
-
-- name: Save Elastic Password
-  local_action:
-    module: copy
-    content: "{{ final_elastic_password }}"
-    dest: "{{ playbook_dir }}/../files/generated_creds/elastic_password.txt"
-  become: no
-  when: final_elastic_password is defined
+    - elastic_custom_password | length > 0
+    - auth_check.status != 200
