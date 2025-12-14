@@ -163,8 +163,7 @@
       --fleet-server-service-token={{ fleet_service_token }} \
       --fleet-server-policy={{ fleet_policy_id }} \
       --fleet-server-es-ca-trusted-fingerprint={{ ca_fingerprint }} \
-      --fleet-server-port=8220 \
-      --force
+      --fleet-server-port=8220
   become: yes
   when: 
     - agent_status.rc != 0 or 'Healthy' not in agent_status.stdout
