@@ -153,8 +153,6 @@
       - "Fleet Service Token: {{ fleet_service_token | default('UNDEFINED') }}"
 
 - name: Read CA Fingerprint from Local Controller
-
-- name: Read CA Fingerprint from Local Controller
   local_action:
     module: slurp
     src: "{{ playbook_dir }}/../files/trusted_ca_fingerprint"
