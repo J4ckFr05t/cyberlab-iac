@@ -22,15 +22,6 @@
   become: yes
   notify: Restart Elasticsearch
 
-- name: Configure Elasticsearch Network
-  blockinfile:
-    path: /etc/elasticsearch/elasticsearch.yml
-    block: |
-      network.host: 0.0.0.0
-      discovery.type: single-node
-  become: yes
-  notify: Restart Elasticsearch
-
 - name: Start and Enable Elasticsearch
   systemd:
     name: elasticsearch
