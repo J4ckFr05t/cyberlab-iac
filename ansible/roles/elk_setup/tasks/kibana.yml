@@ -21,6 +21,15 @@
   become: yes
   when: not kibana_setup_marker.stat.exists
 
+- name: Ensure generated credentials directory exists
+  local_action:
+    module: file
+    path: "{{ playbook_dir }}/../files/generated_creds"
+    state: directory
+    mode: '0700'
+  become: no
+  run_once: true
+
 - name: Save Enrollment Token
   local_action:
     module: copy

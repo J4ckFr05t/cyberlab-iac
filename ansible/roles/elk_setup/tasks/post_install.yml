@@ -1,4 +1,13 @@
 ---
+- name: Ensure generated credentials directory exists
+  local_action:
+    module: file
+    path: "{{ playbook_dir }}/../files/generated_creds"
+    state: directory
+    mode: '0700'
+  become: no
+  run_once: true
+
 - name: Fetch Elasticsearch CA Certificate
   fetch:
     src: /etc/elasticsearch/certs/http_ca.crt

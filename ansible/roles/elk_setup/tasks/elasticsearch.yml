@@ -17,6 +17,15 @@
     elastic_password: "{{ elastic_install_output.stdout | regex_search('The generated password for the elastic built-in superuser is : (.+)', '\\1') | first }}"
   when: elastic_install_output.changed and 'The generated password for the elastic built-in superuser is :' in elastic_install_output.stdout
 
+- name: Ensure generated credentials directory exists
+  local_action:
+    module: file
+    path: "{{ playbook_dir }}/../files/generated_creds"
+    state: directory
+    mode: '0700'
+  become: no
+  run_once: true
+
 - name: Save Elastic Password
   local_action:
     module: copy
