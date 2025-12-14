@@ -31,16 +31,30 @@
   set_fact:
     password_captured: "{{ elastic_password is defined and elastic_password | length > 0 }}"
 
+- name: Debug Install Output (If Password Missing)
+  debug:
+    var: elastic_install_output.stdout_lines
+  when: not password_captured
+
 - name: Reset Elastic Password (Fallback)
   command: /usr/share/elasticsearch/bin/elasticsearch-reset-password -u elastic -b
   register: password_reset_output
   become: yes
   when: not password_captured
 
+- name: Debug Reset Output
+  debug:
+    var: password_reset_output.stdout
+  when: not password_captured and password_reset_output is defined
+
 - name: Extract Elastic User Password from Reset
   set_fact:
-    elastic_password: "{{ password_reset_output.stdout | regex_search('New value: (.+)', '\\1') | first }}"
+    elastic_password: "{{ password_reset_output.stdout | regex_search('New value: (.*)', '\\1') | trim }}"
   when: not password_captured and password_reset_output.rc == 0
+
+- name: Verify Password Variable
+  debug:
+    msg: "Captured Password: {{ elastic_password }}"
 
 - name: Ensure generated credentials directory exists
   local_action:
@@ -57,7 +71,7 @@
     content: "{{ elastic_password }}"
     dest: "{{ playbook_dir }}/../files/generated_creds/elastic_password.txt"
   become: no
-  when: elastic_password is defined and elastic_password != ""
+  when: elastic_password is defined and elastic_password | length > 0
 
 - name: Start and Enable Elasticsearch
   systemd:
