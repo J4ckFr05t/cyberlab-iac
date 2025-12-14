@@ -39,10 +39,27 @@
   register: fleet_policy_response
   failed_when: fleet_policy_response.status != 200 and fleet_policy_response.status != 409
 
-- name: Set Policy ID Fact
+- name: Set Policy ID Fact (Created)
   set_fact:
     fleet_policy_id: "{{ fleet_policy_response.json.item.id }}"
   when: fleet_policy_response.status == 200
+
+- name: Fetch Existing Policies (Fallback)
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/agent_policies"
+    method: GET
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+  register: existing_policies
+  when: fleet_policy_response.status == 409
+
+- name: Set Policy ID Fact (Existing)
+  set_fact:
+    fleet_policy_id: "{{ existing_policies.json.items | selectattr('name', 'equalto', 'Fleet Server Policy') | map(attribute='id') | first }}"
+  when: fleet_policy_response.status == 409
 
 # Fallback: If policy exists (409), we need to fetch it to get the ID. 
 # For now, assuming fresh install or idempotent skip if we can't get ID easily without another query.
