@@ -58,7 +58,7 @@
 
 - name: Set Policy ID Fact (Existing)
   set_fact:
-    fleet_policy_id: "{{ existing_policies.json.items | selectattr('name', 'equalto', 'Fleet Server Policy') | map(attribute='id') | first }}"
+    fleet_policy_id: "{{ existing_policies.json['items'] | selectattr('name', 'equalto', 'Fleet Server Policy') | map(attribute='id') | first }}"
   when: fleet_policy_response.status == 409
 
 # Fallback: If policy exists (409), we need to fetch it to get the ID. 
