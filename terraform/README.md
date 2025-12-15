@@ -343,6 +343,7 @@ Below is the complete schema for VM definitions in `vms.json`:
 }
 ```
 
+
 ### Windows Server (UEFI, CloudInit)
 ```json
 {
@@ -387,6 +388,16 @@ Below is the complete schema for VM definitions in `vms.json`:
   "depends_on": ["PF-01-RTR"]
 }
 ```
+
+### Other Available VMs
+
+The `vms.json` also contains configurations for:
+
+- **FLEET-01-SRV**: Ubuntu Server for Elastic Fleet (VMID 203)
+- **XDR-01-SRV**: Ubuntu Server for XDR (VMID 204)
+- **LIN-01-WS**: Ubuntu Desktop Workstation (VMID 205)
+- **WIN-01-WS**: Windows 11 Workstation (VMID 206)
+
 
 ## Troubleshooting
 

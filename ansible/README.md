@@ -5,341 +5,145 @@
 ```
 ansible/
 ├── inventory/
-│   └── hosts.ini              # Inventory file with host definitions
-├── group_vars/
-│   └── dc.yml                 # Variables for domain controller group
-├── roles/
-│   └── dc_setup/
-│       └── tasks/
-│           └── main.yml       # Domain controller setup tasks
+│   ├── hosts.ini              # Inventory file with host definitions
+│   └── group_vars/            # Group variables
+│       ├── all.yml            # Global variables
+│       ├── dc.yml             # Domain Controller variables
+│       ├── linux.yml          # Linux specific variables
+│       ├── windows.yml        # Windows specific variables
+│       └── secret_vault.yml   # Encrypted secrets (Ansible Vault)
+├── roles/                     # Ansible roles (dc_setup, linux_join_domain, etc.)
 ├── playbooks/
-│   ├── dc_setup.yml           # Domain controller setup playbook
-│   └── configure_dns.yml      # DNS configuration playbook
+│   ├── dc_setup.yml           # Domain controller setup
+│   ├── configure_dns.yml      # DNS configuration
+│   ├── join_to_domain.yml     # Domain join for Windows/Linux
+│   ├── siem_stack.yml         # ELK and Fleet setup
+│   └── check_connectivity.yml # Connectivity test
 └── README.md                  # This file
 ```
 
-## Domain Controller Setup
-
-### Prerequisites
+## Prerequisites
 
 1. **Ansible Control Node:**
    - Ansible 2.9 or later
    - Python 3.6 or later
-   - pywinrm package: `pip install pywinrm`
-   - Required Ansible collections:
-     ```bash
-     ansible-galaxy collection install -r requirements.yml
-     ```
+   - `pip install pywinrm`
+   - Required Collections: `ansible-galaxy collection install -r requirements.yml`
 
-2. **Target Windows Server:**
-   - Windows Server 2016 or later
-   - WinRM configured and accessible
-   - Administrator credentials
+2. **Target Hosts:**
+   - **Windows**: WinRM configured, Administrator credentials.
+   - **Linux**: SSH access, sudo privileges.
 
-### Configuration
+## Credentials Setup
 
-The DC setup includes:
-- Active Directory Domain Services installation
-- Domain promotion (new forest: frostsec.corp)
-- DNS Server configuration with forwarders
-- Reverse DNS lookup zone creation
-- PTR record for Domain Controller
-- Organizational Units creation
-- Domain users creation
+We use a **single consolidated vault file** (`secret_vault.yml`) for all sensitive credentials.
 
-### Credentials Setup
-
-**Step 1: Create Ansible Vault file**
+### 1. Create/Edit Vault
 
 ```bash
-cd ansible
-ansible-vault create group_vars/dc_vault.yml
+ansible-vault create inventory/group_vars/secret_vault.yml
+# OR to edit existing:
+ansible-vault edit inventory/group_vars/secret_vault.yml
 ```
 
-You'll be prompted to create a vault password. Then add your credentials:
+### 2. Required Secrets Structure
+
+Add your credentials to `secret_vault.yml`:
 
 ```yaml
 ---
-# Windows Administrator Credentials
+# Windows/AD Administrator
 win_username: Administrator
-win_password: YourWindowsAdminPassword
+win_password: YourDeviceAdminPassword
 
-# Directory Services Restore Mode Password
+# Domain Recovery
 dsrm_password: YourDSRMPassword
 
-# Domain User Passwords
-dave_password: DavePassword123!
-sophia_password: SophiaPassword123!
+# User Passwords
+dave_password: UserPassword1!
+sophia_password: UserPassword2!
+
+# ELK Stack
+elastic_custom_password: YourElasticPassword
 ```
 
-**Step 2 (Optional): Create vault password file**
+### 3. Vault Password File
 
-For automation, store the vault password in a file:
+Store your vault password in `.vault_pass` (this file is git-ignored):
 
 ```bash
 echo "your-vault-password" > .vault_pass
 chmod 600 .vault_pass
 ```
 
-> **Note:** The `.vault_pass` file is already in `.gitignore` to prevent accidental commits.
+## Playbooks
 
-### Usage
+### 1. Domain Controller Setup (`dc_setup.yml`)
 
-**Option 1: Prompt for vault password**
-
-```bash
-ansible-playbook -i inventory/hosts.ini playbooks/dc_setup.yml --ask-vault-pass
-```
-
-**Option 2: Use vault password file**
+Promotes the Windows Server to a Domain Controller for `frostsec.corp`.
 
 ```bash
-ansible-playbook -i inventory/hosts.ini playbooks/dc_setup.yml --vault-password-file .vault_pass
+ansible-playbook -i inventory/hosts.ini playbooks/dc_setup.yml
 ```
 
-### Managing Vault Files
-
-**Edit encrypted vault:**
-```bash
-ansible-vault edit group_vars/dc_vault.yml
-```
-
-**View encrypted vault:**
-```bash
-ansible-vault view group_vars/dc_vault.yml
-```
-
-**Change vault password:**
-```bash
-ansible-vault rekey group_vars/dc_vault.yml
-```
-
-### Variables
-
-**Stored in group_vars/dc_vault.yml (encrypted):**
-- `win_username`: Windows administrator username
-- `win_password`: Windows administrator password
-- `dsrm_password`: Directory Services Restore Mode password
-- `dave_password`: Password for dave.johnson user
-- `sophia_password`: Password for sophia.davis user
-
-**Configured in group_vars/dc.yml (plain text):**
-- `domain_name`: frostsec.corp
-- `domain_netbios_name`: FROSTSEC
-- `organizational_units`: List of OUs to create
-- `domain_users`: List of domain users to create
-
-### Idempotency
-
-All tasks are idempotent and safe to re-run:
-- Features are only installed if not present
-- Domain promotion only occurs if not already a DC
-- OUs and users are created only if they don't exist
-- DNS configuration is only changed if needed
-
-### Tags
-
-Use tags to run specific parts of the playbook:
-
-```bash
-# Only install features
-ansible-playbook ... --tags install
-
-# Only create users
-ansible-playbook ... --tags users
-
-# Only create OUs
-ansible-playbook ... --tags ou
-
-# Skip reboot
-ansible-playbook ... --skip-tags reboot
-```
-
----
-
-## Windows Hosts Credentials Setup
-
-For playbooks that interact with Windows hosts (like DNS configuration), you need to set up credentials using the same pattern as the DC setup.
-
-### Step 1: Create Windows Vault File
-
-```bash
-cd ansible
-ansible-vault create group_vars/windows_vault.yml
-```
-
-You'll be prompted to create a vault password (use the same one as your DC vault). Then add your Windows credentials:
+**Configuration (`inventory/group_vars/dc.yml`):**
 
 ```yaml
----
-# Windows Local Administrator Credentials
-win_username: Administrator
-win_password: YourWindowsAdminPassword
+domain_users:
+  - display_name: Dave Johnson
+    firstname: Dave
+    lastname: Johnson
+    password: "{{ dave_password }}" # References vault
+    ...
 ```
 
-### Step 2: Use Vault Password File (Optional)
+### 2. DNS Configuration (`configure_dns.yml`)
 
-If you created a `.vault_pass` file for the DC setup, it will work for Windows hosts too:
+Configures all hosts (Linux & Windows) to use the DC (`172.16.10.100`) as their primary DNS server. Critical for domain joining.
 
-```bash
-echo "your-vault-password" > .vault_pass
-chmod 600 .vault_pass
-```
-
-### Managing Windows Vault
-
-**Edit encrypted vault:**
-```bash
-ansible-vault edit group_vars/windows_vault.yml
-```
-
-**View encrypted vault:**
-```bash
-ansible-vault view group_vars/windows_vault.yml
-```
-
-### File Structure
-
-Similar to DC setup:
-- `group_vars/windows.yml` - WinRM configuration (plain text)
-- `group_vars/windows_vault.yml` - Credentials (encrypted)
-
-The playbook loads both files and uses `{{ win_username }}` and `{{ win_password }}` from the vault.
-
----
-
-## DNS Configuration
-
-### Overview
-
-The DNS configuration playbook (`configure_dns.yml`) sets up all hosts (except pfSense and DC) to use the Domain Controller as their primary DNS server.
-
-### Features
-
-- ✅ Dynamically retrieves DC hostname and domain from configuration files
-- ✅ Supports Windows hosts (using `win_dns_client`)
-- ✅ Supports Linux hosts with both systemd-resolved and traditional `/etc/resolv.conf`
-- ✅ Excludes pfSense and DC hosts automatically
-- ✅ Idempotent - safe to run multiple times
-- ✅ Validates internal DNS resolution (DC FQDN)
-- ✅ Validates external DNS resolution (google.com)
-- ✅ Provides detailed summary report for each host
-
-### Prerequisites
-
-**Windows Hosts:**
-- WinRM configured and accessible
-- PowerShell 3.0 or higher
-- Administrator privileges
-
-**Linux Hosts:**
-- SSH access configured
-- sudo privileges
-- Python installed
-
-**Ansible Collections:**
-```bash
-ansible-galaxy collection install -r requirements.yml
-```
-
-### Usage
-
-**Run the playbook:**
 ```bash
 ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml
 ```
 
-**Run for specific host groups:**
+### 3. Domain Join (`join_to_domain.yml`)
+
+Joins Linux and Windows workstations to the `frostsec.corp` domain.
+
+**Features:**
+- **Linux**: Uses `realm` and `sssd` for AD integration.
+- **Windows**: Uses `microsoft.ad.domain` module.
+- **Note**: Ensure DNS is configured correctly before running this!
+
 ```bash
-# Only Windows hosts
-ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --limit windows
+# Join all eligible hosts
+ansible-playbook -i inventory/hosts.ini playbooks/join_to_domain.yml
 
-# Only Linux hosts
-ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --limit linux,infra
-
-# Specific host
-ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --limit win-01-ws
+# Join only Windows hosts
+ansible-playbook -i inventory/hosts.ini playbooks/join_to_domain.yml --limit windows
 ```
 
-**Dry run (check mode):**
+### 4. SIEM Stack Deployment (`siem_stack.yml`)
+
+Deploys the Elastic Stack (ELK) and Fleet Server.
+
+**Components:**
+- **SIEM-01-SRV**: Elasticsearch, Kibana, Logstash
+- **FLEET-01-SRV**: Elastic Fleet Server
+
 ```bash
-ansible-playbook -i inventory/hosts.ini playbooks/configure_dns.yml --check
+ansible-playbook -i inventory/hosts.ini playbooks/siem_stack.yml
 ```
 
-### What It Does
+## Troubleshooting
 
-**For Windows hosts:**
-1. Retrieves the DC hostname from inventory (first host in `[dc]` group)
-2. Retrieves the domain name from `group_vars/dc.yml`
-3. Constructs the DC FQDN (e.g., `dc-01-srv.frostsec.corp`)
-4. Identifies the active network adapter
-5. Configures the DNS server using `win_dns_client` module
-6. Waits for DNS to propagate
-7. Validates internal DNS by resolving the DC FQDN
-8. Validates external DNS by resolving `google.com`
-9. Displays a summary report with PASS/FAIL status
+- **WinRM Failures**: Verify `ansible_user` and `ansible_password` in `secret_vault.yml` match the local admin credentials of the template.
+- **DNS Resolution**: If domain join fails, run `configure_dns.yml` again and verify `nslookup frostsec.corp` returns the DC's IP.
+- **Vault Errors**: Ensure `.vault_pass` exists and contains the correct password.
 
-**For Linux hosts:**
+## Workflow
 
-The playbook uses NetworkManager to configure DNS per network interface (similar to Windows):
-
-1. Detects the active network interface
-2. Gets the NetworkManager connection name for that interface
-3. Configures DNS server to DC IP using `nmcli`
-4. Sets DNS search domain from `dc.yml`
-5. Disables auto-DNS to prevent DHCP from overwriting settings
-6. Restarts the network connection to apply changes
-7. Validates internal and external DNS resolution
-8. Displays summary report
-
-This approach:
-- Configures DNS **per interface** (not system-wide)
-- Works on both Ubuntu Server and Desktop
-- Consistent with Windows interface-specific configuration
-- Survives reboots and network changes
-
-### Excluded Hosts
-
-The following hosts are **automatically excluded** by targeting specific groups:
-- **pfSense** - Not in any targeted group
-- **DC (dc-01-srv)** - In `[dc]` group which is not targeted
-
-### Verification
-
-Test DNS resolution manually:
-
-**Windows:**
-```powershell
-nslookup dc-01-srv.frostsec.corp
-Get-DnsClientServerAddress
-```
-
-**Linux:**
-```bash
-nslookup dc-01-srv.frostsec.corp
-cat /etc/resolv.conf
-systemd-resolve --status  # For systemd-resolved systems
-```
-
-### Troubleshooting
-
-**Windows Issues:**
-- **WinRM connection failed**: Ensure WinRM is configured and firewall allows ports 5985/5986
-- **Access denied**: Verify the Ansible user has Administrator privileges
-
-**Linux Issues:**
-- **Permission denied**: Ensure `ansible_become=true` is set and user has sudo privileges
-- **DNS not persisting**: Check if NetworkManager is overwriting settings. Consider configuring NetworkManager directly:
-  ```bash
-  nmcli connection modify <connection-name> ipv4.dns "172.16.10.100"
-  nmcli connection modify <connection-name> ipv4.ignore-auto-dns yes
-  ```
-
----
-
-## Typical Workflow
-
-1. **Deploy VMs** using Terraform (see `../terraform/`)
-2. **Setup Domain Controller** using `dc_setup.yml`
-3. **Configure DNS** on all hosts using `configure_dns.yml`
-4. **Join hosts to domain** (future playbook)
+1. **Deploy Infrastructure** (Terraform).
+2. **Setup DC**: `ansible-playbook playbooks/dc_setup.yml`
+3. **Configure DNS**: `ansible-playbook playbooks/configure_dns.yml`
+4. **Join Domain**: `ansible-playbook playbooks/join_to_domain.yml`
+5. **Deploy SIEM**: `ansible-playbook playbooks/siem_stack.yml`
