@@ -163,6 +163,5 @@
       --force
   become: yes
   when: 
-  when: 
     - fleet_policy_id is defined
     - fleet_service_token is defined
