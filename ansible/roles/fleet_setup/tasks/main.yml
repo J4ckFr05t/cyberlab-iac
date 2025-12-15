@@ -141,12 +141,6 @@
     state: started
   become: yes
 
-# Check enrollment status (File based is more reliable than status command)
-- name: Check if Fleet is Enrolled
-  stat:
-    path: /etc/elastic-agent/fleet.yml
-  register: fleet_enrollment_check
-
 - name: Read CA Fingerprint from Local Controller
   local_action:
     module: slurp
@@ -165,9 +159,10 @@
       --fleet-server-service-token={{ fleet_service_token }} \
       --fleet-server-policy={{ fleet_policy_id }} \
       --fleet-server-es-ca-trusted-fingerprint={{ ca_fingerprint }} \
-      --fleet-server-port=8220
+      --fleet-server-port=8220 \
+      --force
   become: yes
   when: 
-    - not fleet_enrollment_check.stat.exists
+  when: 
     - fleet_policy_id is defined
     - fleet_service_token is defined
