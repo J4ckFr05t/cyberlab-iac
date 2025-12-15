@@ -8,8 +8,11 @@
 
 - name: Install Elasticsearch
   shell: apt-get install elasticsearch -y
-  register: elastic_install_output
   become: yes
+  register: elastic_install_output
+  retries: 5
+  delay: 10
+  until: elastic_install_output is success
   when: elastic_check.stdout.find('install ok installed') == -1
 
 - name: Configure Elasticsearch Heap Size

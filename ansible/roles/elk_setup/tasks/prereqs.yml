@@ -3,6 +3,10 @@
   apt:
     update_cache: yes
   become: yes
+  register: apt_result
+  retries: 5
+  delay: 10
+  until: apt_result is success
 
 - name: Install GPG
   apt:
