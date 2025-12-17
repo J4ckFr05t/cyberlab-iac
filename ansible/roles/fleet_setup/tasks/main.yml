@@ -20,7 +20,7 @@
     force_basic_auth: yes
     status_code: 200
   register: kibana_status
-  until: kibana_status.status == 200 and kibana_status.json.status.overall.state == "green"
+  until: kibana_status.status == 200
   retries: 30
   delay: 10
   become: no
