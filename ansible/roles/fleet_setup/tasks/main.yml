@@ -190,7 +190,7 @@
       is_default: true
       host_urls: ["{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"]
     status_code: [200, 409] # 409 might occur if already exists (though API might not return 409 for this POST, standardizing on idempotent-ish behavior)
-  failed_when: false # To avoid failure if it already exists or other non-critical issues, or we should verify API behavior. 
+ 
   # Actually, the user's curl is a POST. If it already exists, we might want to update it or ignore.
   # Let's assume standard behavior. If strict, I should remove failed_when: false and handle status codes.
   # But for now, to ensure flow continues, I'll risk standard behavior or check result. 
