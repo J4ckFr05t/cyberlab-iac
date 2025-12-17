@@ -21,11 +21,19 @@
 
     
 - name: Reboot Servers after Deployment
-  hosts: siem-01-srv, fleet-01-srv
+  hosts:
+    - siem-01-srv
+    - fleet-01-srv
   become: yes
   tags:
     - reboot
+    - elk
+    - fleet
   tasks:
+    - name: Notify Rebooting
+      debug:
+        msg: "Rebooting {{ inventory_hostname }} now..."
+
     - name: Reboot hosts
       reboot:
         reboot_timeout: 300
