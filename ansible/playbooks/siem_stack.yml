@@ -21,10 +21,10 @@
 
     
 - name: Reboot Servers after Deployment
-  hosts: "siem-01-srv,fleet-01-srv"
+  hosts:
+    - siem-01-srv
+    - fleet-01-srv
   become: yes
-  vars_files:
-    - ../inventory/group_vars/secret_vault.yml
   tags:
     - reboot
     - elk
