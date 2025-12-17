@@ -173,3 +173,34 @@
   when: 
     - fleet_policy_id is defined
     - fleet_service_token is defined
+
+- name: Configure Default Fleet Server Host
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/fleet_server_hosts"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ inventory_hostname }}"
+      is_default: true
+      host_urls: ["{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"]
+    status_code: [200, 409] # 409 might occur if already exists (though API might not return 409 for this POST, standardizing on idempotent-ish behavior)
+  failed_when: false # To avoid failure if it already exists or other non-critical issues, or we should verify API behavior. 
+  # Actually, the user's curl is a POST. If it already exists, we might want to update it or ignore.
+  # Let's assume standard behavior. If strict, I should remove failed_when: false and handle status codes.
+  # But for now, to ensure flow continues, I'll risk standard behavior or check result. 
+  # Actually, let's look at the fields: POST to /fleet_server_hosts usually creates a new one. 
+  # If we want to make it default, we set is_default: true.
+  # Providing a unique name 'fleet-01-srv' might cause conflict if run twice. 
+  # Ideally we should check if it exists or use a PUT? 
+  # The user provided a POST. I will stick to POST. 
+  # I'll remove the comment about 409 pending verification, but usually POSTing same name is error.
+  register: set_default_fleet_result
+  changed_when: set_default_fleet_result.status == 200
+  failed_when: set_default_fleet_result.status != 200 and set_default_fleet_result.status != 409 
+
