@@ -20,9 +20,7 @@
     state: started
   become: no
 
-- name: Pause for Kibana Initialization
-  pause:
-    seconds: 15
+
 
 - name: Create Fleet Server Policy
   uri:
@@ -45,6 +43,9 @@
       is_protected: false
     status_code: [200, 409] # 409 if already exists
   register: fleet_policy_response
+  retries: 12
+  delay: 10
+  until: fleet_policy_response.status == 200 or fleet_policy_response.status == 409
   failed_when: fleet_policy_response.status != 200 and fleet_policy_response.status != 409
 
 - name: Set Policy ID Fact (Created)
@@ -62,6 +63,9 @@
     headers:
       kbn-xsrf: "true"
   register: existing_policies
+  retries: 12
+  delay: 10
+  until: existing_policies.status == 200
   when: fleet_policy_response.status == 409
 
 - name: Set Policy ID Fact (Existing)
@@ -99,6 +103,10 @@
             custom: ""
           streams: {}
     status_code: [200, 409]
+  register: add_package_response
+  retries: 12
+  delay: 10
+  until: add_package_response.status == 200 or add_package_response.status == 409
   when: fleet_policy_id is defined
 
 - name: Delete Existing Service Token
