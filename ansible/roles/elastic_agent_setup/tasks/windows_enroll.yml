@@ -1,0 +1,20 @@
+---
+- name: Download Elastic Agent (Windows)
+  win_get_url:
+    url: https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-9.2.2-windows-x86_64.zip
+    dest: C:\Temp\elastic-agent-9.2.2-windows-x86_64.zip
+    force: no
+
+- name: Unzip Elastic Agent
+  win_unzip:
+    src: C:\Temp\elastic-agent-9.2.2-windows-x86_64.zip
+    dest: C:\Program Files\Elastic
+    creates: C:\Program Files\Elastic\elastic-agent-9.2.2-windows-x86_64
+
+- name: Install and Enroll Elastic Agent (Windows)
+  win_shell: |
+    $ProgressPreference = 'SilentlyContinue'
+    cd "C:\Program Files\Elastic\elastic-agent-9.2.2-windows-x86_64"
+    .\elastic-agent.exe install --url={{ fleet_server_url }} --enrollment-token={{ hostvars['localhost']['host_enrollment_tokens'][inventory_hostname] }} --insecure --force
+  register: win_enroll_result
+  failed_when: win_enroll_result.rc != 0 and "already enrolled" not in win_enroll_result.stderr

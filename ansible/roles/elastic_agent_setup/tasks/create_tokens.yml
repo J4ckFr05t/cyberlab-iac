@@ -1,0 +1,29 @@
+---
+- name: Create Enrollment Tokens
+  uri:
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.key }}"
+      policy_id: "{{ policy_name_to_id[item.value] }}"
+    status_code: [200]
+  loop: "{{ host_policy_mapping | dict2items }}"
+  delegate_to: localhost
+  run_once: true
+  register: token_creation_response
+  no_log: true
+
+- name: Map Hostnames to Enrollment Tokens
+  set_fact:
+    host_enrollment_tokens: "{{ host_enrollment_tokens | default({}) | combine({item.item.key: item.json.item.api_key}) }}"
+  loop: "{{ token_creation_response.results }}"
+  no_log: true
+  delegate_to: localhost
+  run_once: true

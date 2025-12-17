@@ -1,0 +1,12 @@
+---
+- name: Enroll Elastic Agents
+  hosts:
+    - dc-01-srv
+    - win-01-ws
+    - lin-01-ws
+    - xdr-01-srv
+  become: yes
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  roles:
+    - elastic_agent_setup
