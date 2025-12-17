@@ -15,15 +15,7 @@
   until: elastic_install_output is success
   when: elastic_check.stdout.find('install ok installed') == -1
 
-- name: Configure Elasticsearch Heap Size
-  copy:
-    content: |
-      -Xms4g
-      -Xmx4g
-    dest: /etc/elasticsearch/jvm.options.d/heap.options
-    mode: '0644'
-  become: yes
-  notify: Restart Elasticsearch
+
 
 - name: Start and Enable Elasticsearch
   systemd:

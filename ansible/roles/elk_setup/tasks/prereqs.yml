@@ -13,6 +13,10 @@
     name: gpg
     state: present
   become: yes
+  register: apt_result
+  retries: 5
+  delay: 10
+  until: apt_result is success
 
 - name: Download Elastic GPG Key
   get_url:
@@ -38,3 +42,7 @@
   apt:
     update_cache: yes
   become: yes
+  register: apt_result
+  retries: 5
+  delay: 10
+  until: apt_result is success

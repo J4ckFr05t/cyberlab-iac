@@ -18,3 +18,14 @@
     - fleet_setup
   tags:
     - fleet
+
+    
+- name: Reboot Servers after Deployment
+  hosts: siem-01-srv, fleet-01-srv
+  become: yes
+  tags:
+    - reboot
+  tasks:
+    - name: Reboot hosts
+      reboot:
+        reboot_timeout: 300

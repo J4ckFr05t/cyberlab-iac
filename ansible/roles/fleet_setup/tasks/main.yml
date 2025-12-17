@@ -137,6 +137,10 @@
 - name: Install Elastic Agent (with Flavor)
   shell: "ELASTIC_AGENT_FLAVOR=servers dpkg -i /tmp/elastic-agent-9.2.2-amd64.deb"
   become: yes
+  register: shell_result
+  retries: 5
+  delay: 10
+  until: shell_result is success
 
 - name: Enable and Start Elastic Agent Service
   systemd:
