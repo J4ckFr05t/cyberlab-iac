@@ -84,7 +84,7 @@
 
 - name: Check Existing Package Policies
   uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies?kuery=policy_id:{{ fleet_policy_id }}"
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies?perPage=1000"
     method: GET
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -122,7 +122,7 @@
     status_code: [200, 409]
   when: 
     - fleet_policy_id is defined
-    - "existing_package_policies.json.items | selectattr('package.name', 'equalto', 'fleet_server') | list | length == 0"
+    - "existing_package_policies.json.items | selectattr('policy_id', 'equalto', fleet_policy_id) | selectattr('package.name', 'equalto', 'fleet_server') | list | length == 0"
 
 - name: Delete Existing Service Token
   uri:
