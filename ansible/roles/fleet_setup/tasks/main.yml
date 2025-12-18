@@ -196,7 +196,7 @@
     body:
       name: "{{ inventory_hostname }}"
       is_default: true
-      host_urls: ["{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"]
+      host_urls: ["https://{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"]
     status_code: [200, 409] # 409 might occur if already exists (though API might not return 409 for this POST, standardizing on idempotent-ish behavior)
  
   # Actually, the user's curl is a POST. If it already exists, we might want to update it or ignore.
