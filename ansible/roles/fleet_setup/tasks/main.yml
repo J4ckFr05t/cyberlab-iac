@@ -81,6 +81,19 @@
 # For now, assuming fresh install or idempotent skip if we can't get ID easily without another query.
 # But for this specific flow, let's assume valid creation.
 
+
+- name: Check Existing Package Policies
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies?kuery=policy_id:{{ fleet_policy_id }}"
+    method: GET
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+  register: existing_package_policies
+  when: fleet_policy_id is defined
+
 - name: Add Fleet Server Package to Policy
   uri:
     url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies"
@@ -107,7 +120,9 @@
             custom: ""
           streams: {}
     status_code: [200, 409]
-  when: fleet_policy_id is defined
+  when: 
+    - fleet_policy_id is defined
+    - "existing_package_policies.json.items | selectattr('package.name', 'equalto', 'fleet_server') | list | length == 0"
 
 - name: Delete Existing Service Token
   uri:
