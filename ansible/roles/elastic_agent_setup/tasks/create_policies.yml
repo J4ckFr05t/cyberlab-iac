@@ -21,6 +21,8 @@
   loop: "{{ agent_policies }}"
   delegate_to: localhost
   run_once: true
+  vars:
+    ansible_connection: local
   register: policy_creation_response
 
 - name: Get All Agent Policies to retrieve IDs
@@ -34,6 +36,8 @@
       kbn-xsrf: "true"
   delegate_to: localhost
   run_once: true
+  vars:
+    ansible_connection: local
   register: all_policies_response
 
 - name: Map Policy Names to IDs
@@ -43,3 +47,5 @@
   no_log: true
   delegate_to: localhost
   run_once: true
+  vars:
+    ansible_connection: local

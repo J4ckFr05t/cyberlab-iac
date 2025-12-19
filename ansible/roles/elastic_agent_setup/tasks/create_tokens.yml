@@ -17,6 +17,8 @@
   loop: "{{ host_policy_mapping | dict2items }}"
   delegate_to: localhost
   run_once: true
+  vars:
+    ansible_connection: local
   register: token_creation_response
   no_log: true
 
@@ -27,3 +29,5 @@
   no_log: true
   delegate_to: localhost
   run_once: true
+  vars:
+    ansible_connection: local
