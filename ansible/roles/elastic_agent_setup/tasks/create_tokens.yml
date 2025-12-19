@@ -14,39 +14,16 @@
     ansible_connection: local
   register: existing_tokens_response
 
-- name: Delete Inactive Tokens for Mapped Hosts
-  uri:
-    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys/{{ item.id }}"
-    method: DELETE
-    user: elastic
-    password: "{{ elastic_custom_password }}"
-    force_basic_auth: yes
-    headers:
-      kbn-xsrf: "true"
-    status_code: [200, 404]
-  loop: "{{ existing_tokens_response.json['list'] | default([]) }}"
-  when: 
-    - item.name.split(' (') | first in host_policy_mapping
-    - item.active == false
-  delegate_to: localhost
-  run_once: true
-  vars:
-    ansible_connection: local
-  loop_control:
-    label: "Deleting inactive token {{ item.name }}"
-
-- name: Build Map of Active Host Tokens
+- name: Build Map of Existing Active Tokens (Policy ID -> Key)
   set_fact:
-    existing_host_tokens: >-
+    policy_id_to_active_key: >-
       {{ 
-        existing_host_tokens | default({}) | combine(
-          { item.name.split(' (') | first : item.api_key }
+        policy_id_to_active_key | default({}) | combine(
+          { item.policy_id : item.api_key }
         ) 
       }}
   loop: "{{ existing_tokens_response.json['list'] | default([]) }}"
-  when: 
-    - item.name.split(' (') | first in host_policy_mapping
-    - item.active == true
+  when: item.active == true
   delegate_to: localhost
   run_once: true
   vars:
@@ -54,7 +31,7 @@
   loop_control:
     label: "{{ item.name }}"
 
-- name: Create Enrollment Tokens (Only if missing)
+- name: Create Missing Tokens for Policies
   uri:
     url: "{{ kibana_url }}/api/fleet/enrollment_api_keys"
     method: POST
@@ -66,34 +43,86 @@
       Content-Type: "application/json"
     body_format: json
     body:
-      name: "{{ item.key }}"
-      policy_id: "{{ policy_name_to_id[item.value] }}"
+      name: "Ansible Token - {{ item.name }}"
+      policy_id: "{{ policy_name_to_id[item.name] }}"
     status_code: [200]
-  loop: "{{ host_policy_mapping | dict2items }}"
+  loop: "{{ agent_policies }}"
   when: 
-    - item.key in ansible_play_hosts
-    - item.key not in existing_host_tokens
+    - policy_name_to_id[item.name] not in policy_id_to_active_key
   delegate_to: localhost
   run_once: true
   vars:
     ansible_connection: local
-  register: token_creation_response
+  register: new_policy_tokens
 
-- name: Combine New and Existing Tokens
+- name: Update Token Map with Newly Created Tokens
   set_fact:
-    host_enrollment_tokens: "{{ existing_host_tokens | default({}) | combine(new_tokens) }}"
+    policy_id_to_active_key: >-
+      {{ 
+        policy_id_to_active_key | default({}) | combine(
+          { item.item.name : (item.json.item.api_key | default(item.json.item.api_key)) } 
+          if item.item is defined else {}
+        ) 
+      }}
+      # Note: The mapping logic here needs to be precise. 
+      # Using policy_name_to_id lookups logic for robustness:
   vars:
     ansible_connection: local
-    new_tokens: >-
+  # Simplified logic: Just re-run the creation register loop to map Policy Name -> New Token
+  # But actually, simpler to just map Host -> Token now using the Policy Map.
+  # We need to map PolicyID -> Token for the next step.
+  delegate_to: localhost
+  run_once: true
+
+- name: Re-map Policy ID to Token including New Ones
+  set_fact:
+    final_policy_tokens: >-
       {{ 
-        token_creation_response.results 
-        | default([])
-        | selectattr('json.item.api_key', 'defined')
-        | map(attribute='item.key') 
-        | zip(token_creation_response.results | selectattr('json.item.api_key', 'defined') | map(attribute='json.item.api_key')) 
-        | list 
-        | items2dict 
+        existing_host_tokens | default({}) 
       }}
+  # This is getting complex in Jinja. 
+  # Simpler approach: 
+  # 1. Iterate over results.
+  # 2. Add to a dictionary "TokenMap[PolicyName] = Token"
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+
+- name: Construct Final Policy Name to Token Map
+  set_fact:
+    policy_name_to_token: >-
+      {{ 
+        policy_name_to_token | default({}) | combine(
+          { 
+            item.name : (
+              policy_id_to_active_key[ policy_name_to_id[item.name] ] 
+              if policy_name_to_id[item.name] in policy_id_to_active_key 
+              else 
+              (new_policy_tokens.results | selectattr('item.name', 'equalto', item.name) | map(attribute='json.item.api_key') | first)
+            ) 
+          }
+        ) 
+      }}
+  loop: "{{ agent_policies }}"
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+
+- name: Map Hostnames to Enrollment Tokens
+  set_fact:
+    host_enrollment_tokens: >-
+      {{ 
+        host_enrollment_tokens | default({}) | combine(
+          { item.key : policy_name_to_token[item.value] }
+        ) 
+      }}
+  loop: "{{ host_policy_mapping | dict2items }}"
+  # Only map for hosts in the play
+  when: item.key in ansible_play_hosts
   delegate_to: localhost
   delegate_facts: true
   run_once: true
+  vars:
+    ansible_connection: local
