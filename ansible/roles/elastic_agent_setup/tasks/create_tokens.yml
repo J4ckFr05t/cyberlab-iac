@@ -1,0 +1,76 @@
+---
+- name: Fetch Existing Enrollment Tokens
+  uri:
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys?perPage=1000"
+    method: GET
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  register: existing_tokens_response
+
+- name: Build Map of Existing Host Tokens
+  set_fact:
+    existing_host_tokens: >-
+      {{ 
+        existing_host_tokens | default({}) | combine(
+          { item.name.split(' (') | first : item.api_key }
+        ) 
+      }}
+  loop: "{{ existing_tokens_response.json['list'] | default([]) }}"
+  when: item.name.split(' (') | first in host_policy_mapping
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create Enrollment Tokens (Only if missing)
+  uri:
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ item.key }}"
+      policy_id: "{{ policy_name_to_id[item.value] }}"
+    status_code: [200]
+  loop: "{{ host_policy_mapping | dict2items }}"
+  when: 
+    - item.key in ansible_play_hosts
+    - item.key not in existing_host_tokens
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  register: token_creation_response
+
+- name: Combine New and Existing Tokens
+  set_fact:
+    host_enrollment_tokens: "{{ existing_host_tokens | default({}) | combine(new_tokens) }}"
+  vars:
+    ansible_connection: local
+    new_tokens: >-
+      {{ 
+        token_creation_response.results 
+        | default([])
+        | selectattr('json.item.api_key', 'defined')
+        | map(attribute='item.key') 
+        | zip(token_creation_response.results | selectattr('json.item.api_key', 'defined') | map(attribute='json.item.api_key')) 
+        | list 
+        | items2dict 
+      }}
+  delegate_to: localhost
+  delegate_facts: true
+  run_once: true
