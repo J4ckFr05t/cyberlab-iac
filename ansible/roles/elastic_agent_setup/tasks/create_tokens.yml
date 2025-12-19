@@ -1,7 +1,7 @@
 ---
 - name: Fetch Existing Enrollment Tokens
   uri:
-    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys"
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys?perPage=1000"
     method: GET
     user: elastic
     password: "{{ elastic_custom_password }}"
