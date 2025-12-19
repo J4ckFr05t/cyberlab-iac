@@ -5,7 +5,7 @@
     - win-01-ws
   gather_facts: yes
   vars:
-    ansible_user: "{{ win_username }}"
+    ansible_user: ".\{{ win_username }}"
     ansible_password: "{{ win_password }}"
     ansible_connection: winrm
     ansible_winrm_transport: ntlm
