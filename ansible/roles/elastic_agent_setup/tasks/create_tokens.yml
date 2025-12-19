@@ -1,0 +1,113 @@
+---
+- name: Fetch Existing Enrollment Tokens
+  uri:
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys?perPage=1000"
+    method: GET
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false
+  register: existing_tokens_response
+
+- name: Build Map of Existing Active Tokens (Policy ID -> Key)
+  set_fact:
+    policy_id_to_active_key: >-
+      {{ 
+        policy_id_to_active_key | default({}) | combine(
+          { item.policy_id : item.api_key }
+        ) 
+      }}
+  loop: "{{ existing_tokens_response.json['list'] | default([]) }}"
+  when: item.active == true
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false
+  loop_control:
+    label: "{{ item.name }}"
+
+- name: Create Missing Tokens for Policies
+  uri:
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "Ansible Token - {{ item.name }}"
+      policy_id: "{{ policy_name_to_id[item.name] }}"
+    status_code: [200]
+  loop: "{{ agent_policies }}"
+  when: 
+    - policy_name_to_id[item.name] not in policy_id_to_active_key
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false
+  register: new_policy_tokens
+
+- name: Update Token Map with Newly Created Tokens
+  set_fact:
+    policy_id_to_active_key: >-
+      {{ 
+        policy_id_to_active_key | default({}) | combine(
+          { item.item.name : (item.json.item.api_key | default(item.json.item.api_key)) } 
+          if item.item is defined else {}
+        ) 
+      }}
+  vars:
+    ansible_connection: local
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Re-map Policy ID to Token including New Ones
+  set_fact:
+    policy_name_to_token: >-
+      {{ 
+        policy_name_to_token | default({}) | combine(
+          { 
+            item.name : (
+              policy_id_to_active_key[ policy_name_to_id[item.name] ] 
+              if policy_name_to_id[item.name] in policy_id_to_active_key 
+              else 
+              (new_policy_tokens.results | selectattr('item.name', 'equalto', item.name) | map(attribute='json.item.api_key') | first)
+            ) 
+          }
+        ) 
+      }}
+  loop: "{{ agent_policies }}"
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false
+
+- name: Map Hostnames to Enrollment Tokens
+  set_fact:
+    host_enrollment_tokens: >-
+      {{ 
+        host_enrollment_tokens | default({}) | combine(
+          { item.key : policy_name_to_token[item.value] }
+        ) 
+      }}
+  loop: "{{ host_policy_mapping | dict2items }}"
+  when: item.key in ansible_play_hosts
+  delegate_to: localhost
+  delegate_facts: true
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false

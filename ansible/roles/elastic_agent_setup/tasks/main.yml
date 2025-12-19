@@ -1,0 +1,16 @@
+---
+- name: Include Policy Creation Tasks
+  include_tasks: create_policies.yml
+  run_once: true
+
+- name: Include Token Creation Tasks
+  include_tasks: create_tokens.yml
+  run_once: true
+
+- name: Install and Enroll on Linux
+  include_tasks: linux_enroll.yml
+  when: ansible_system == 'Linux'
+
+- name: Install and Enroll on Windows
+  include_tasks: windows_enroll.yml
+  when: ansible_os_family == 'Windows'

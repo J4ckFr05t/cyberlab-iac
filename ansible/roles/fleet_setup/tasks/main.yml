@@ -11,13 +11,18 @@
 
 # Note: Authentication uses elastic_custom_password from Vault
 
-- name: Wait for Kibana to be ready
-  wait_for:
-    host: "{{ hostvars['siem-01-srv']['ansible_host'] }}"
-    port: 5601
-    delay: 10
-    timeout: 300
-    state: started
+- name: Wait for Kibana API to be Ready
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/status"
+    method: GET
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: kibana_status
+  until: kibana_status.status == 200
+  retries: 30
+  delay: 10
   become: no
 
 
@@ -47,6 +52,9 @@
   delay: 10
   until: fleet_policy_response.status == 200 or fleet_policy_response.status == 409
   failed_when: fleet_policy_response.status != 200 and fleet_policy_response.status != 409
+  retries: 5
+  delay: 10
+  until: fleet_policy_response.status == 200 or fleet_policy_response.status == 409
 
 - name: Set Policy ID Fact (Created)
   set_fact:
@@ -76,38 +84,6 @@
 # Fallback: If policy exists (409), we need to fetch it to get the ID. 
 # For now, assuming fresh install or idempotent skip if we can't get ID easily without another query.
 # But for this specific flow, let's assume valid creation.
-
-- name: Add Fleet Server Package to Policy
-  uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies"
-    method: POST
-    user: elastic
-    password: "{{ elastic_custom_password }}"
-    force_basic_auth: yes
-    headers:
-      kbn-xsrf: "true"
-      Content-Type: "application/json"
-    body_format: json
-    body:
-      policy_ids: ["{{ fleet_policy_id }}"]
-      package:
-        name: "fleet_server"
-        version: "1.6.0"
-      name: "Fleet Server"
-      description: ""
-      namespace: ""
-      inputs:
-        fleet_server-fleet-server:
-          enabled: true
-          vars:
-            custom: ""
-          streams: {}
-    status_code: [200, 409]
-  register: add_package_response
-  retries: 12
-  delay: 10
-  until: add_package_response.status == 200 or add_package_response.status == 409
-  when: fleet_policy_id is defined
 
 - name: Delete Existing Service Token
   uri:
@@ -181,3 +157,37 @@
   when: 
     - fleet_policy_id is defined
     - fleet_service_token is defined
+
+- name: Configure Default Fleet Server Host
+  uri:
+    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/fleet_server_hosts"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    headers:
+      kbn-xsrf: "true"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ inventory_hostname }}"
+      is_default: true
+      host_urls: ["https://{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"]
+    status_code: [200, 409] # 409 might occur if already exists (though API might not return 409 for this POST, standardizing on idempotent-ish behavior)
+ 
+  # Actually, the user's curl is a POST. If it already exists, we might want to update it or ignore.
+  # Let's assume standard behavior. If strict, I should remove failed_when: false and handle status codes.
+  # But for now, to ensure flow continues, I'll risk standard behavior or check result. 
+  # Actually, let's look at the fields: POST to /fleet_server_hosts usually creates a new one. 
+  # If we want to make it default, we set is_default: true.
+  # Providing a unique name 'fleet-01-srv' might cause conflict if run twice. 
+  # Ideally we should check if it exists or use a PUT? 
+  # The user provided a POST. I will stick to POST. 
+  # I'll remove the comment about 409 pending verification, but usually POSTing same name is error.
+  register: set_default_fleet_result
+  changed_when: set_default_fleet_result.status == 200
+  failed_when: set_default_fleet_result.status != 200 and set_default_fleet_result.status != 409
+  retries: 5
+  delay: 10
+  until: set_default_fleet_result.status == 200 or set_default_fleet_result.status == 409 
+

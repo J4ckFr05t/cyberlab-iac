@@ -1,0 +1,23 @@
+---
+fleet_server_url: "https://{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"
+kibana_url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601"
+
+agent_policies:
+  - name: "Windows Workstation Agent Policy"
+    description: "Policy for Windows Workstations"
+    monitoring_enabled: ["logs", "metrics", "traces"]
+  - name: "Linux Workstation Agent Policy"
+    description: "Policy for Linux Workstations"
+    monitoring_enabled: ["logs", "metrics", "traces"]
+  - name: "Windows Server Agent Policy"
+    description: "Policy for Windows Servers"
+    monitoring_enabled: ["logs", "metrics", "traces"]
+  - name: "Linux Server Agent Policy"
+    description: "Policy for Linux Servers"
+    monitoring_enabled: ["logs", "metrics", "traces"]
+
+host_policy_mapping:
+  "dc-01-srv": "Windows Server Agent Policy"
+  "win-01-ws": "Windows Workstation Agent Policy"
+  "lin-01-ws": "Linux Workstation Agent Policy"
+  "xdr-01-srv": "Linux Server Agent Policy"
