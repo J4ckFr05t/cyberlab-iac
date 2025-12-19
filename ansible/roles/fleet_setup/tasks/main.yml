@@ -82,47 +82,6 @@
 # But for this specific flow, let's assume valid creation.
 
 
-- name: Check Existing Package Policies
-  uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies?perPage=1000"
-    method: GET
-    user: elastic
-    password: "{{ elastic_custom_password }}"
-    force_basic_auth: yes
-    headers:
-      kbn-xsrf: "true"
-  register: existing_package_policies
-  when: fleet_policy_id is defined
-
-- name: Add Fleet Server Package to Policy
-  uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/package_policies"
-    method: POST
-    user: elastic
-    password: "{{ elastic_custom_password }}"
-    force_basic_auth: yes
-    headers:
-      kbn-xsrf: "true"
-      Content-Type: "application/json"
-    body_format: json
-    body:
-      policy_ids: ["{{ fleet_policy_id }}"]
-      package:
-        name: "fleet_server"
-        version: "1.6.0"
-      name: "Fleet Server"
-      description: ""
-      namespace: ""
-      inputs:
-        fleet_server-fleet-server:
-          enabled: true
-          vars:
-            custom: ""
-          streams: {}
-    status_code: [200, 409]
-  when: 
-    - fleet_policy_id is defined
-    - "existing_package_policies.json.items | selectattr('policy_id', 'equalto', fleet_policy_id) | selectattr('package.name', 'equalto', 'fleet_server') | list | length == 0"
 
 - name: Delete Existing Service Token
   uri:
