@@ -71,3 +71,6 @@
         | list 
         | items2dict 
       }}
+  delegate_to: localhost
+  delegate_facts: true
+  run_once: true
