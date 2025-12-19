@@ -1,4 +1,9 @@
 ---
+- name: Ensure Temp Directory Exists
+  win_file:
+    path: C:\Temp
+    state: directory
+
 - name: Download Elastic Agent (Windows)
   win_get_url:
     url: https://artifacts.elastic.co/downloads/beats/elastic-agent/elastic-agent-9.2.2-windows-x86_64.zip
