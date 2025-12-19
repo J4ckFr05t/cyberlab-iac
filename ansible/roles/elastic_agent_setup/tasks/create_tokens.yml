@@ -20,13 +20,13 @@
   vars:
     ansible_connection: local
   register: token_creation_response
-  no_log: true
+  # no_log: true
 
 - name: Map Hostnames to Enrollment Tokens
   set_fact:
     host_enrollment_tokens: "{{ host_enrollment_tokens | default({}) | combine({item.item.key: item.json.item.api_key}) }}"
   loop: "{{ token_creation_response.results }}"
-  no_log: true
+  # no_log: true
   delegate_to: localhost
   run_once: true
   vars:
