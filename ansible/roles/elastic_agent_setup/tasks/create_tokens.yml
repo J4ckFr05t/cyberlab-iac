@@ -14,16 +14,11 @@
     ansible_connection: local
   register: existing_tokens_response
 
-- name: Create Map of Existing Token Names to IDs
-  set_fact:
-    existing_token_name_to_id: "{{ existing_tokens_response.json['list'] | default([]) | items2dict(key_name='name', value_name='id') }}"
-  run_once: true
-  vars:
-    ansible_connection: local
+  register: existing_tokens_response
 
-- name: Delete Existing Token for Mapped Hosts
+- name: Delete Existing Match Tokens
   uri:
-    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys/{{ existing_token_name_to_id[item.key] }}"
+    url: "{{ kibana_url }}/api/fleet/enrollment_api_keys/{{ item.id }}"
     method: DELETE
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -31,16 +26,17 @@
     headers:
       kbn-xsrf: "true"
     status_code: [200, 404]
-  loop: "{{ host_policy_mapping | dict2items }}"
+  loop: "{{ existing_tokens_response.json['list'] | default([]) }}"
   when: 
-    - item.key in existing_token_name_to_id
-    - item.key in ansible_play_hosts
+    # Logic: Strip " (UUID)" suffix and check if the resulting name is in our target list
+    - item.name.split(' (') | first in host_policy_mapping
+    - item.name.split(' (') | first in ansible_play_hosts
   delegate_to: localhost
   run_once: true
   vars:
     ansible_connection: local
   loop_control:
-    label: "Deleting token for {{ item.key }}"
+    label: "Deleting token {{ item.name }}"
 
 - name: Create Enrollment Tokens
   uri:
