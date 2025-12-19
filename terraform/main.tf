@@ -54,6 +54,9 @@ resource "proxmox_vm_qemu" "tier_0" {
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
   tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
+  
+  # Suppress IPv6 warning as per user request
+  skip_ipv6 = true
 
   dynamic "efidisk" {
     for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
@@ -139,6 +142,9 @@ resource "proxmox_vm_qemu" "tier_1" {
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
   tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
+
+  # Suppress IPv6 warning as per user request
+  skip_ipv6 = true
 
   dynamic "efidisk" {
     for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
@@ -226,6 +232,9 @@ resource "proxmox_vm_qemu" "tier_2" {
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
   tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
+
+  # Suppress IPv6 warning as per user request
+  skip_ipv6 = true
 
   dynamic "efidisk" {
     for_each = try(each.value.bios, "") == "ovmf" ? [1] : []
