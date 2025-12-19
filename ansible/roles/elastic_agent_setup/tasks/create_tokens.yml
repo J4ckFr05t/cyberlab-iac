@@ -14,6 +14,11 @@
     ansible_connection: local
   register: existing_tokens_response
 
+- name: Debug Existing Tokens
+  debug:
+    var: existing_tokens_response
+  run_once: true
+
 - name: Delete Existing Token for Host (if exists)
   uri:
     url: "{{ kibana_url }}/api/fleet/enrollment_api_keys/{{ item.id }}"
