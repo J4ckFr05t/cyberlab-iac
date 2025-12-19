@@ -60,17 +60,14 @@
   set_fact:
     host_enrollment_tokens: "{{ existing_host_tokens | default({}) | combine(new_tokens) }}"
   vars:
+    ansible_connection: local
     new_tokens: >-
       {{ 
         token_creation_response.results 
-        | Default([])
+        | default([])
         | selectattr('json.item.api_key', 'defined')
         | map(attribute='item.key') 
         | zip(token_creation_response.results | selectattr('json.item.api_key', 'defined') | map(attribute='json.item.api_key')) 
         | list 
         | items2dict 
       }}
-  delegate_to: localhost
-  run_once: true
-  vars:
-    ansible_connection: local
