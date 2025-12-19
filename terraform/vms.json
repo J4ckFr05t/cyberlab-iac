@@ -43,7 +43,8 @@
           "bridge": "vmbr1",
           "firewall": true
         }
-      ]
+      ],
+      "agent": 1
     },
     {
       "name": "DC-01-SRV",
