@@ -24,7 +24,7 @@
     headers:
       kbn-xsrf: "true"
     status_code: [200, 404]
-  loop: "{{ existing_tokens_response.json.items | default([]) }}"
+  loop: "{{ existing_tokens_response.json['items'] | default([]) }}"
   when: item.name in host_policy_mapping.keys()
   delegate_to: localhost
   run_once: true
