@@ -40,11 +40,16 @@
     ansible_connection: local
   register: all_policies_response
 
+- name: Debug All Policies Response
+  debug:
+    var: all_policies_response
+  run_once: true
+
 - name: Map Policy Names to IDs
   set_fact:
     policy_name_to_id: "{{ policy_name_to_id | default({}) | combine({item.name: item.id}) }}"
   loop: "{{ all_policies_response.json.items }}"
-  no_log: true
+  # no_log: true
   delegate_to: localhost
   run_once: true
   vars:
