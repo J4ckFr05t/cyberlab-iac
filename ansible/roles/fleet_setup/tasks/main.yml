@@ -52,9 +52,6 @@
   delay: 10
   until: fleet_policy_response.status == 200 or fleet_policy_response.status == 409
   failed_when: fleet_policy_response.status != 200 and fleet_policy_response.status != 409
-  retries: 5
-  delay: 10
-  until: fleet_policy_response.status == 200 or fleet_policy_response.status == 409
 
 - name: Set Policy ID Fact (Created)
   set_fact:
