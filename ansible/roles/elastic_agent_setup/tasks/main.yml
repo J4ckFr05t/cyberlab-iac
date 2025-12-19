@@ -1,4 +1,21 @@
 ---
+- name: Wait for Kibana API to be Ready
+  uri:
+    url: "{{ kibana_url }}/api/status"
+    method: GET
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: kibana_status
+  until: kibana_status.status == 200
+  retries: 60
+  delay: 10
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false
 - name: Include Policy Creation Tasks
   include_tasks: create_policies.yml
   run_once: true
