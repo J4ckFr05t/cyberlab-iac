@@ -12,6 +12,7 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
   register: existing_tokens_response
 
 - name: Build Map of Existing Active Tokens (Policy ID -> Key)
@@ -28,6 +29,7 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
   loop_control:
     label: "{{ item.name }}"
 
@@ -53,6 +55,7 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
   register: new_policy_tokens
 
 - name: Update Token Map with Newly Created Tokens
@@ -64,32 +67,13 @@
           if item.item is defined else {}
         ) 
       }}
-      # Note: The mapping logic here needs to be precise. 
-      # Using policy_name_to_id lookups logic for robustness:
   vars:
     ansible_connection: local
-  # Simplified logic: Just re-run the creation register loop to map Policy Name -> New Token
-  # But actually, simpler to just map Host -> Token now using the Policy Map.
-  # We need to map PolicyID -> Token for the next step.
   delegate_to: localhost
   run_once: true
+  become: false
 
 - name: Re-map Policy ID to Token including New Ones
-  set_fact:
-    final_policy_tokens: >-
-      {{ 
-        existing_host_tokens | default({}) 
-      }}
-  # This is getting complex in Jinja. 
-  # Simpler approach: 
-  # 1. Iterate over results.
-  # 2. Add to a dictionary "TokenMap[PolicyName] = Token"
-  delegate_to: localhost
-  run_once: true
-  vars:
-    ansible_connection: local
-
-- name: Construct Final Policy Name to Token Map
   set_fact:
     policy_name_to_token: >-
       {{ 
@@ -109,6 +93,7 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
 
 - name: Map Hostnames to Enrollment Tokens
   set_fact:
@@ -119,10 +104,10 @@
         ) 
       }}
   loop: "{{ host_policy_mapping | dict2items }}"
-  # Only map for hosts in the play
   when: item.key in ansible_play_hosts
   delegate_to: localhost
   delegate_facts: true
   run_once: true
   vars:
     ansible_connection: local
+  become: false

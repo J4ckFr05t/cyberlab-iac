@@ -23,6 +23,7 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
   register: policy_creation_response
 
 - name: Get All Agent Policies to retrieve IDs
@@ -38,6 +39,7 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
   register: all_policies_response
 
 - name: Map Policy Names to IDs
@@ -49,3 +51,4 @@
   run_once: true
   vars:
     ansible_connection: local
+  become: false
