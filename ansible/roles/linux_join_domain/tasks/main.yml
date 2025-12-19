@@ -10,6 +10,7 @@
       - adcli
       - samba-common-bin
       - packagekit
+      - python3-pexpect
     state: present
     update_cache: yes
 
@@ -25,7 +26,7 @@
     responses:
       Password for *: "{{ win_password }}"
   when: domain_name not in realm_list.stdout
-  no_log: true
+  # no_log: true
 
 - name: Configure SSSD to create home directories automatically
   lineinfile:
