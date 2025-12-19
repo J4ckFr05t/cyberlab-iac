@@ -16,7 +16,7 @@
 
 - name: Create Map of Existing Token Names to IDs
   set_fact:
-    existing_token_name_to_id: "{{ existing_tokens_response.json['items'] | default([]) | items2dict(key_name='name', value_name='id') }}"
+    existing_token_name_to_id: "{{ existing_tokens_response.json['list'] | default([]) | items2dict(key_name='name', value_name='id') }}"
   run_once: true
   vars:
     ansible_connection: local
@@ -32,7 +32,9 @@
       kbn-xsrf: "true"
     status_code: [200, 404]
   loop: "{{ host_policy_mapping | dict2items }}"
-  when: item.key in existing_token_name_to_id
+  when: 
+    - item.key in existing_token_name_to_id
+    - item.key in ansible_play_hosts
   delegate_to: localhost
   run_once: true
   vars:
@@ -56,6 +58,7 @@
       policy_id: "{{ policy_name_to_id[item.value] }}"
     status_code: [200]
   loop: "{{ host_policy_mapping | dict2items }}"
+  when: item.key in ansible_play_hosts
   delegate_to: localhost
   run_once: true
   vars:
@@ -67,6 +70,7 @@
   set_fact:
     host_enrollment_tokens: "{{ host_enrollment_tokens | default({}) | combine({item.item.key: item.json.item.api_key}) }}"
   loop: "{{ token_creation_response.results }}"
+  when: item.item.key in ansible_play_hosts
   # no_log: true
   delegate_to: localhost
   run_once: true
