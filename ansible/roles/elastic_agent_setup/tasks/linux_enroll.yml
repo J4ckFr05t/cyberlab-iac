@@ -8,6 +8,10 @@
   apt:
     deb: /tmp/elastic-agent-9.2.2-amd64.deb
     state: present
+  register: agent_install
+  retries: 10
+  delay: 10
+  until: agent_install is success
 
 - name: Enable and Start Elastic Agent Service
   systemd:
