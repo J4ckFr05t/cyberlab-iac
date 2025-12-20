@@ -1,0 +1,5 @@
+---
+# Defaults for Wazuh Server Setup
+wazuh_installer_url: "https://packages.wazuh.com/4.14/wazuh-install.sh"
+wazuh_admin_username: "admin"
+# wazuh_admin_password should be in vault, but we define a default here or expect it to be passed

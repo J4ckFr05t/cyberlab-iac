@@ -1,0 +1,54 @@
+---
+- name: Download Wazuh installation script
+  ansible.builtin.get_url:
+    url: "{{ wazuh_installer_url }}"
+    dest: /tmp/wazuh-install.sh
+    mode: '0755'
+
+- name: Run Wazuh installation script (all-in-one)
+  ansible.builtin.shell: bash /tmp/wazuh-install.sh -a
+  args:
+    creates: /var/ossec/bin/wazuh-control
+  register: wazuh_install_output
+
+- name: Display Wazuh installation output
+  ansible.builtin.debug:
+    var: wazuh_install_output.stdout_lines
+  when: wazuh_install_output.changed
+
+- name: Comment out Wazuh repo in sources.list to prevent accidental updates
+  ansible.builtin.replace:
+    path: /etc/apt/sources.list.d/wazuh.list
+    regexp: '^deb '
+    replace: '#deb '
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Reset Wazuh internal passwords
+  ansible.builtin.shell: /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -a
+  register: password_reset_output
+
+- name: Ensure local files directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../files"
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  become: false
+
+- name: Save Wazuh passwords to local file
+  ansible.builtin.copy:
+    content: "{{ password_reset_output.stdout }}"
+    dest: "{{ playbook_dir }}/../files/wazuh_passwords.txt"
+  delegate_to: localhost
+  become: false
+
+- name: Update Wazuh admin password
+  ansible.builtin.shell: >
+    /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh 
+    -u {{ wazuh_admin_username }} 
+    -p '{{ wazuh_admin_password }}'
+  no_log: true
+  when: wazuh_admin_password is defined
