@@ -256,8 +256,8 @@
         "sockets": 1,
         "type": "host"
       },
-      "memory": 4096,
-      "balloon": 2048,
+      "memory": 8192,
+      "balloon": 4096,
       "serial": {
         "id": 0,
         "type": "socket"
