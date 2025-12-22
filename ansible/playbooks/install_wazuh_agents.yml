@@ -1,0 +1,40 @@
+---
+- name: Install Wazuh Agent on Linux Hosts
+  hosts: linux:!xdr-01-srv
+  become: yes
+  gather_facts: yes
+  vars_files:
+    # Attempt to load secrets if available.
+    # User must ensure this file exists and contains 'wazuh_api_password'
+    - ../inventory/group_vars/secret_vault.yml
+  pre_tasks:
+    - name: Verify wazuh_api_password is defined for API enrollment
+      ansible.builtin.assert:
+        that: wazuh_api_password is defined
+        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in secret_vault.yml for API-based enrollment."
+        quiet: true
+      when: wazuh_api_password is not defined
+  roles:
+    - wazuh_agent_setup
+  tags:
+    - linux
+
+- name: Install Wazuh Agent on Windows Hosts
+  hosts: windows:dc
+  gather_facts: yes
+  vars_files:
+    # Attempt to load secrets if available.
+    # User must ensure this file exists and contains 'wazuh_api_password'
+    - ../inventory/group_vars/secret_vault.yml
+  pre_tasks:
+    - name: Verify wazuh_api_password is defined for API enrollment
+      ansible.builtin.assert:
+        that: wazuh_api_password is defined
+        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in secret_vault.yml for API-based enrollment."
+        quiet: true
+      when: wazuh_api_password is not defined
+  roles:
+    - wazuh_agent_setup
+  tags:
+    - windows
+

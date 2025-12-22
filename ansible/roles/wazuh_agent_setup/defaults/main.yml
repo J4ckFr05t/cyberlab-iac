@@ -1,0 +1,20 @@
+---
+# Defaults for Wazuh Agent Setup
+# Dynamically read Wazuh manager IP from inventory
+wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+wazuh_manager_port: 1514
+wazuh_manager_protocol: tcp
+wazuh_api_port: 55000
+wazuh_api_proto: "http"  # No HTTPS available
+wazuh_api_user: "wazuh"
+# wazuh_api_password should be provided via vault file (secret_vault.yml)
+wazuh_max_retries: 5
+wazuh_retry_interval: 5
+
+# Wazuh version
+wazuh_version: "4.14"
+
+# Package URLs
+wazuh_agent_linux_deb_url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_{{ wazuh_version }}-1_amd64.deb"
+wazuh_agent_windows_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_version }}-1.msi"
+
