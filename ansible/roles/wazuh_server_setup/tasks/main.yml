@@ -65,3 +65,30 @@
     -p '{{ wazuh_admin_password }}'
   no_log: true
   when: wazuh_admin_password is defined
+
+- name: Extract original Wazuh API password
+  ansible.builtin.set_fact:
+    wazuh_original_api_pass: "{{ wazuh_passwords_output.stdout | regex_search(\"api_password: '(.+)'\", '\\1') | first }}"
+
+- name: Update Wazuh API user password
+  ansible.builtin.shell: >
+    /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh 
+    -A 
+    -u wazuh 
+    -p '{{ wazuh_api_password }}' 
+    -au wazuh 
+    -ap '{{ wazuh_original_api_pass }}'
+  no_log: true
+  when: wazuh_api_password is defined and wazuh_original_api_pass is defined
+
+- name: Verify Wazuh API connection with new password
+  ansible.builtin.uri:
+    url: "https://{{ ansible_host }}:55000/security/user/authenticate?raw=true"
+    method: POST
+    user: wazuh
+    password: "{{ wazuh_api_password }}"
+    validate_certs: no
+    force_basic_auth: yes
+  register: api_check
+  failed_when: api_check.status != 200
+  when: wazuh_api_password is defined
