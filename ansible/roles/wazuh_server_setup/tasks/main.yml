@@ -26,9 +26,9 @@
   ansible.builtin.apt:
     update_cache: yes
 
-- name: Reset Wazuh internal passwords
-  ansible.builtin.shell: /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -a
-  register: password_reset_output
+- name: Extract Wazuh passwords from installation archive
+  ansible.builtin.shell: tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt
+  register: wazuh_passwords_output
 
 - name: Ensure local files directory exists
   ansible.builtin.file:
@@ -40,7 +40,7 @@
 
 - name: Save Wazuh passwords to local file
   ansible.builtin.copy:
-    content: "{{ password_reset_output.stdout }}"
+    content: "{{ wazuh_passwords_output.stdout }}"
     dest: "{{ playbook_dir }}/../files/wazuh_passwords.txt"
   delegate_to: localhost
   become: false
