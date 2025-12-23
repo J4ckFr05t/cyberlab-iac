@@ -15,5 +15,10 @@
         that: wazuh_admin_password is defined
         fail_msg: "The variable 'wazuh_admin_password' is not defined. Please ensure it is defined in valid vault file."
 
+    - name: Verify wazuh_api_password is defined
+      ansible.builtin.assert:
+        that: wazuh_api_password is defined
+        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in valid vault file."
+
   roles:
     - wazuh_server_setup
