@@ -5,9 +5,10 @@ wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
 wazuh_manager_port: 1514
 wazuh_manager_protocol: tcp
 wazuh_api_port: 55000
-wazuh_api_proto: "http"  # No HTTPS available
+wazuh_api_proto: "https"  # No HTTPS available
 wazuh_api_user: "wazuh"
 # wazuh_api_password should be provided via vault file (secret_vault.yml)
+wazuh_api_validate_certs: false # Set to false if using self-signed certs
 wazuh_max_retries: 5
 wazuh_retry_interval: 5
 
