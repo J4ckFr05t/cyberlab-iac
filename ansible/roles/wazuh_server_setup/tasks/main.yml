@@ -2,12 +2,13 @@
 - name: Download Wazuh installation script
   ansible.builtin.get_url:
     url: "{{ wazuh_installer_url }}"
-    dest: /tmp/wazuh-install.sh
+    dest: /root/wazuh-install.sh
     mode: '0755'
 
 - name: Run Wazuh installation script (all-in-one)
-  ansible.builtin.shell: bash /tmp/wazuh-install.sh -a
+  ansible.builtin.shell: bash ./wazuh-install.sh -a
   args:
+    chdir: /root
     creates: /var/ossec/bin/wazuh-control
   register: wazuh_install_output
 
@@ -26,8 +27,20 @@
   ansible.builtin.apt:
     update_cache: yes
 
+- name: Check if Wazuh installation archive exists
+  ansible.builtin.stat:
+    path: /root/wazuh-install-files.tar
+  register: wazuh_tar_file
+
+- name: Fail if Wazuh installation archive is missing
+  ansible.builtin.fail:
+    msg: "The Wazuh installation archive '/root/wazuh-install-files.tar' was not found. Installation may have failed or files were removed."
+  when: not wazuh_tar_file.stat.exists
+
 - name: Extract Wazuh passwords from installation archive
   ansible.builtin.shell: tar -O -xvf wazuh-install-files.tar wazuh-install-files/wazuh-passwords.txt
+  args:
+    chdir: /root
   register: wazuh_passwords_output
 
 - name: Ensure local files directory exists
