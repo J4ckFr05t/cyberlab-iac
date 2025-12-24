@@ -44,7 +44,6 @@
   tags:
     - windows
 
----
 - name: Manage Wazuh Groups and Assignments
   hosts: localhost
   connection: local
