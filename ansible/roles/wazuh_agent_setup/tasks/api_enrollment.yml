@@ -82,13 +82,13 @@
   when: not agent_exists | default(false)
   no_log: true
 
-- name: Get agent ID from add response
+- name: Get agent ID and key from add response
   ansible.builtin.set_fact:
-    agent_id: "{{ add_agent_response.json.data.affected_items[0].id }}"
+    agent_id: "{{ add_agent_response.json.data.id | default(add_agent_response.json.data.affected_items[0].id) }}"
+    wazuh_client_key: "{{ add_agent_response.json.data.key | default(omit) }}"
   when: 
     - not agent_exists | default(false)
-    - add_agent_response.json.data.affected_items is defined
-    - add_agent_response.json.data.affected_items | length > 0
+    - add_agent_response.json.data.id is defined or add_agent_response.json.data.affected_items is defined
   delegate_to: localhost
   vars:
     ansible_connection: local
@@ -117,11 +117,12 @@
     ansible_connection: local
   become: false
   register: agent_key_response
-  no_log: true
+  when: wazuh_client_key is not defined
 
-- name: Set client key fact
+- name: Set client key fact from response
   ansible.builtin.set_fact:
     wazuh_client_key: "{{ agent_key_response.json.data.key }}"
+  when: agent_key_response.skipped is not defined or not agent_key_response.skipped
   delegate_to: localhost
   vars:
     ansible_connection: local

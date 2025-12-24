@@ -45,7 +45,7 @@
 
 - name: Import client key from API enrollment
   ansible.builtin.copy:
-    content: "{{ wazuh_client_key }}"
+    content: "{{ wazuh_client_key | b64decode }}"
     dest: /var/ossec/etc/client.keys
     mode: '0640'
     owner: root

@@ -41,7 +41,7 @@
 
 - name: Import client key from API enrollment
   ansible.windows.win_copy:
-    content: "{{ wazuh_client_key }}"
+    content: "{{ wazuh_client_key | b64decode }}"
     dest: C:\Program Files (x86)\ossec-agent\client.keys
   when: 
     - wazuh_api_password is defined
