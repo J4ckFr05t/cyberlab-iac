@@ -7,7 +7,7 @@ This directory contains the Terraform configuration for managing Proxmox Virtual
 - **[`vms.json`](file:///Users/jibingeorge/Documents/cyberlab-iac/terraform/vms.json)**: The source of truth for VM definitions. Contains hardware specs, network config, and CloudInit settings.
 - **[`main.tf`](file:///Users/jibingeorge/Documents/cyberlab-iac/terraform/main.tf)**: The Terraform logic that reads `vms.json` and dynamically creates `proxmox_vm_qemu` resources.
 - **[`variables.tf`](file:///Users/jibingeorge/Documents/cyberlab-iac/terraform/variables.tf)**: Input variable declarations.
-- **[`providers.tf`](file:///Users/jibingeorge/Documents/cyberlab-iac/terraform/providers.tf)**: Proxmox provider configuration (using telmate/proxmox v3.0.2-rc05).
+- **[`providers.tf`](file:///Users/jibingeorge/Documents/cyberlab-iac/terraform/providers.tf)**: Proxmox provider configuration (using telmate/proxmox v3.0.1-rc3).
 - **`terraform.tfvars`**: (Git-ignored) Local secrets and configuration values.
 - **`terraform.tfvars.example`**: Example configuration file with placeholders.
 
@@ -15,7 +15,12 @@ This directory contains the Terraform configuration for managing Proxmox Virtual
 
 1. **Terraform**: Ensure Terraform is installed on your machine.
 2. **Proxmox User**: A Proxmox user with appropriate permissions and an API Token.
-3. **VM Templates**: Pre-configured VM templates in Proxmox (e.g., `ubuntu-server-template`, `win11-template`, `pfsense-template`).
+3. **VM Templates**: Pre-configured VM templates in Proxmox:
+    - `ubuntu-server-template`
+    - `ubuntu-desktop-template`
+    - `win11-template`
+    - `win-dc-2022-template`
+    - `pfsense-template`
 
 ## Setup
 
@@ -120,7 +125,19 @@ Example:
 }
 ```
 
-### 2. Template-Based Authentication
+### 2. Memory Ballooning
+
+The configuration supports memory ballooning to optimize RAM usage on the Proxmox host.
+- `memory`: Maximum RAM allocated to the VM.
+- `balloon`: Minimum RAM guaranteed to the VM.
+
+Example:
+```json
+"memory": 8192,
+"balloon": 4096
+```
+
+### 3. Template-Based Authentication
 
 Authentication is managed at the **template level**, not per VM:
 
@@ -128,7 +145,7 @@ Authentication is managed at the **template level**, not per VM:
 - Passwords are configured per template in `terraform.tfvars` using the `template_passwords` map.
 - All VMs cloned from the same template share the same credentials.
 
-### 3. Disk Optimization for SSD Storage
+### 4. Disk Optimization for SSD Storage
 
 All VM disks are optimized for SSD performance:
 
@@ -137,21 +154,7 @@ All VM disks are optimized for SSD performance:
 - **Cache**: `writeback` for optimal performance
 - **IOThread**: Enabled for high-performance disks
 
-Example disk configuration:
-```json
-{
-  "slot": "scsi0",
-  "size": "64G",
-  "type": "disk",
-  "storage": "Internal",
-  "iothread": true,
-  "format": "qcow2",
-  "discard": true,
-  "cache": "writeback"
-}
-```
-
-### 4. UEFI/BIOS Support
+### 5. UEFI/BIOS Support
 
 The configuration supports both legacy BIOS and UEFI boot:
 
@@ -160,7 +163,7 @@ The configuration supports both legacy BIOS and UEFI boot:
   - Requires `"machine": "q35"` for modern hardware emulation
   - EFI disk is automatically created with `efitype: "4m"` and pre-enrolled keys
 
-### 5. CloudInit Integration
+### 6. CloudInit Integration
 
 CloudInit is fully supported for automated VM provisioning:
 
@@ -170,19 +173,19 @@ CloudInit is fully supported for automated VM provisioning:
 - DNS server configuration
 - Template-based user credentials
 
-### 6. VM Tagging
+### 7. VM Tagging and IDs
 
-VMs can be tagged for organization (e.g., `"tags": ["Lab"]`). Tags are automatically joined with semicolons when applied to Proxmox.
+VMs are tagged for organization and assigned static VMIDs:
 
-### 7. Serial Console Support
-
-Windows VMs can have serial console enabled for troubleshooting:
-```json
-"serial": {
-  "id": 0,
-  "type": "socket"
-}
-```
+| VM Name | VMID | Role |
+| :--- | :--- | :--- |
+| **PF-01-RTR** | 200 | pfSense Router / Gateway |
+| **DC-01-SRV** | 201 | Windows Server 2022 Domain Controller |
+| **SIEM-01-SRV** | 202 | Ubuntu Server for Elasticsearch/Kibana |
+| **FLEET-01-SRV** | 203 | Ubuntu Server for Elastic Fleet |
+| **XDR-01-SRV** | 204 | Ubuntu Server for Wazuh Manager |
+| **LIN-01-WS** | 205 | Ubuntu Desktop Workstation |
+| **WIN-01-WS** | 206 | Windows 11 Workstation |
 
 ## VM Configuration Schema
 
@@ -207,6 +210,7 @@ Below is the complete schema for VM definitions in `vms.json`:
       },
       
       "memory": 4096,                       // Required: RAM in MB
+      "balloon": 2048,                      // Optional: Minimum RAM (Ballooning)
       "scsihw": "virtio-scsi-single",       // Required: SCSI controller type
       "bootdisk": "scsi0",                  // Required: Boot disk identifier
       "agent": 1,                           // Optional: QEMU guest agent (0 or 1)
@@ -265,168 +269,6 @@ Below is the complete schema for VM definitions in `vms.json`:
   ]
 }
 ```
-
-## Example VM Configurations
-
-### pfSense Router (BIOS, No CloudInit)
-```json
-{
-  "name": "PF-01-RTR",
-  "vmid": 200,
-  "target_node": "proxmox",
-  "clone": "pfsense-template",
-  "full_clone": true,
-  "onboot": true,
-  "tags": ["Lab"],
-  "cpu": {"cores": 1, "sockets": 1, "type": "host"},
-  "memory": 2048,
-  "scsihw": "virtio-scsi-single",
-  "bootdisk": "scsi0",
-  "disks": [
-    {
-      "slot": "scsi0",
-      "size": "32G",
-      "type": "disk",
-      "storage": "Internal",
-      "iothread": true,
-      "format": "qcow2",
-      "discard": true,
-      "cache": "writeback"
-    }
-  ],
-  "networks": [
-    {"id": 0, "model": "virtio", "bridge": "vmbr0", "firewall": true},
-    {"id": 1, "model": "virtio", "bridge": "vmbr1", "firewall": true}
-  ]
-}
-```
-
-### Ubuntu Server (BIOS, CloudInit)
-```json
-{
-  "name": "SIEM-01-SRV",
-  "vmid": 202,
-  "target_node": "proxmox",
-  "clone": "ubuntu-server-template",
-  "full_clone": true,
-  "onboot": true,
-  "tags": ["Lab"],
-  "cpu": {"cores": 2, "sockets": 1, "type": "host"},
-  "memory": 4096,
-  "serial": {"id": 0, "type": "socket"},
-  "scsihw": "virtio-scsi-pci",
-  "bootdisk": "scsi0",
-  "disks": [
-    {
-      "slot": "scsi0",
-      "size": "150G",
-      "type": "disk",
-      "storage": "Internal",
-      "format": "qcow2",
-      "discard": true,
-      "cache": "writeback"
-    },
-    {"slot": "ide2", "type": "cloudinit", "storage": "local"}
-  ],
-  "networks": [
-    {"id": 0, "model": "virtio", "bridge": "vmbr1", "firewall": true}
-  ],
-  "cloudinit": {
-    "enabled": true,
-    "sshkeys": "ssh-rsa AAAA...",
-    "ipconfig": [
-      {"interface": "net0", "ip": "172.16.10.210/24", "gateway": "172.16.10.1"}
-    ]
-  },
-  "agent": 1,
-  "depends_on": ["PF-01-RTR"]
-}
-```
-
-
-### Windows Server (UEFI, CloudInit)
-```json
-{
-  "name": "DC-01-SRV",
-  "vmid": 201,
-  "target_node": "proxmox",
-  "clone": "win-dc-2022-template",
-  "full_clone": true,
-  "onboot": true,
-  "tags": ["Lab"],
-  "cpu": {"cores": 2, "sockets": 1, "type": "host"},
-  "bios": "ovmf",
-  "machine": "q35",
-  "efi_storage": "Internal",
-  "memory": 2048,
-  "serial": {"id": 0, "type": "socket"},
-  "scsihw": "virtio-scsi-single",
-  "bootdisk": "scsi0",
-  "disks": [
-    {
-      "slot": "scsi0",
-      "size": "64G",
-      "type": "disk",
-      "storage": "Internal",
-      "iothread": true,
-      "format": "qcow2",
-      "discard": true,
-      "cache": "writeback"
-    },
-    {"slot": "ide1", "type": "cloudinit", "storage": "local"}
-  ],
-  "networks": [
-    {"id": 0, "model": "virtio", "bridge": "vmbr1", "firewall": true}
-  ],
-  "cloudinit": {
-    "enabled": true,
-    "ipconfig": [
-      {"interface": "net0", "ip": "172.16.10.100/24", "gateway": "172.16.10.1"}
-    ]
-  },
-  "agent": 1,
-  "depends_on": ["PF-01-RTR"]
-}
-```
-
-### Other Available VMs
-
-The `vms.json` also contains configurations for:
-
-- **FLEET-01-SRV**: Ubuntu Server for Elastic Fleet (VMID 203)
-- **XDR-01-SRV**: Ubuntu Server for XDR (VMID 204)
-- **LIN-01-WS**: Ubuntu Desktop Workstation (VMID 205)
-- **WIN-01-WS**: Windows 11 Workstation (VMID 206)
-
-
-## Troubleshooting
-
-### VMs Not Booting
-- **UEFI VMs**: Ensure `bios: "ovmf"`, `machine: "q35"`, and `efi_storage` are set.
-- **Legacy VMs**: Use `bios: "seabios"` (or omit the field).
-
-### CloudInit Not Working
-- Verify the CloudInit drive is defined in the `disks` array.
-- Ensure `cloudinit.enabled: true` is set.
-- Check that template passwords are configured in `terraform.tfvars`.
-
-### Snapshots Not Working
-- Ensure all disks use `format: "qcow2"` (not `raw`).
-- EFI disks may not support snapshots in some Proxmox versions.
-
-### Dependency Issues
-- Ensure dependent VMs reference the correct VM name in `depends_on`.
-- The router (`PF-01-RTR`) should not have any dependencies.
-
-## Best Practices
-
-1. **Always use `qcow2` format** for disks to enable snapshots.
-2. **Enable `discard` and `writeback` cache** for SSD storage.
-3. **Use template-based passwords** to simplify credential management.
-4. **Tag VMs** for better organization in Proxmox.
-5. **Set `onboot: true`** for critical infrastructure (routers, domain controllers).
-6. **Use dependencies** to ensure VMs start in the correct order.
-7. **Keep `terraform.tfvars` secure** and never commit it to version control.
 
 ## Additional Resources
 
