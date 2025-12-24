@@ -22,6 +22,12 @@
 - name: Install Wazuh Agent on Windows Hosts
   hosts: windows:dc
   gather_facts: yes
+  vars:
+    ansible_user: ".\\{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
   vars_files:
     # Attempt to load secrets if available.
     # User must ensure this file exists and contains 'wazuh_api_password'
