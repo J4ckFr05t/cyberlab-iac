@@ -1,0 +1,21 @@
+---
+- name: Debug Windows Wazuh Logs
+  hosts: win-01-ws
+  gather_facts: no
+  vars:
+    ansible_user: ".\\{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+    ansible_connection: winrm
+    ansible_winrm_transport: ntlm
+    ansible_winrm_server_cert_validation: ignore
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  tasks:
+    - name: Get WazuhSvc Event Logs
+      win_shell: "Get-EventLog -LogName Application -Source WazuhSvc -Newest 20 | Select-Object -ExpandProperty Message"
+      register: log_output
+      ignore_errors: yes
+
+    - name: Display Logs
+      debug:
+        var: log_output.stdout_lines
