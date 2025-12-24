@@ -19,8 +19,8 @@
 - name: Configure Wazuh agent - Set manager address
   win_lineinfile:
     path: C:\Program Files (x86)\ossec-agent\ossec.conf
-    regexp: '^  <address>(.*)</address>'
-    line: '  <address>{{ wazuh_manager_address }}</address>'
+    regexp: '<address>MANAGER_IP</address>'
+    line: '    <address>{{ wazuh_manager_address }}</address>'
     backup: yes
 
 - name: Configure Wazuh agent - Set manager port
