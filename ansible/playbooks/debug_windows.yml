@@ -11,8 +11,8 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   tasks:
-    - name: Get ossec.log Content
-      win_shell: "Get-Content 'C:\\Program Files (x86)\\ossec-agent\\ossec.log' -Tail 20"
+    - name: Get ossec.conf Content
+      win_shell: "Get-Content 'C:\\Program Files (x86)\\ossec-agent\\ossec.conf'"
       register: log_output
       ignore_errors: yes
 
