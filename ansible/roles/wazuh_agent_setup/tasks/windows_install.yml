@@ -16,6 +16,13 @@
     state: present
     arguments: /qn WAZUH_MANAGER={{ wazuh_manager_address }} WAZUH_REGISTRATION_SERVER={{ wazuh_manager_address }}
 
+- name: Cleanup trailing garbage in ossec.conf (orphan tags)
+  win_lineinfile:
+    path: C:\Program Files (x86)\ossec-agent\ossec.conf
+    regexp: '^\s*<(address|port|protocol)>.*</\1>\s*$'
+    state: absent
+    insertafter: '<!-- END of Default Configuration\. -->'
+
 - name: Configure Wazuh agent - Set manager address
   win_lineinfile:
     path: C:\Program Files (x86)\ossec-agent\ossec.conf
