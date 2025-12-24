@@ -1,0 +1,75 @@
+---
+- name: Ensure Temp Directory Exists
+  win_file:
+    path: C:\Temp
+    state: directory
+
+- name: Download Wazuh Agent MSI
+  win_get_url:
+    url: "{{ wazuh_agent_windows_url }}"
+    dest: C:\Temp\wazuh-agent.msi
+    force: no
+
+- name: Install Wazuh Agent (Silent)
+  win_package:
+    path: C:\Temp\wazuh-agent.msi
+    state: present
+    arguments: /qn WAZUH_MANAGER={{ wazuh_manager_address }} WAZUH_REGISTRATION_SERVER={{ wazuh_manager_address }}
+
+- name: Configure Wazuh agent (Reset and Set)
+  win_shell: |
+    $path = "C:\Program Files (x86)\ossec-agent\ossec.conf"
+    $lines = Get-Content $path
+    # Filter out existing address, port, protocol lines (both valid and garbage)
+    $cleanLines = $lines | Where-Object { $_ -notmatch '^\s*<(address|port|protocol)>' }
+    
+    # Find the <server> block start
+    $serverIdx = -1
+    for ($i=0; $i -lt $cleanLines.Count; $i++) {
+        if ($cleanLines[$i] -match '^\s*<server>\s*$') {
+            $serverIdx = $i
+            break
+        }
+    }
+    
+    # Insert new configuration inside <server> block
+    if ($serverIdx -ge 0) {
+        $newConfig = @(
+            "      <address>{{ wazuh_manager_address }}</address>",
+            "      <port>{{ wazuh_manager_port }}</port>",
+            "      <protocol>{{ wazuh_manager_protocol }}</protocol>"
+        )
+        $finalLines = $cleanLines[0..$serverIdx] + $newConfig + $cleanLines[($serverIdx+1)..($cleanLines.Count-1)]
+        $finalLines | Set-Content $path
+    } else {
+        Write-Error "Could not find <server> block in ossec.conf"
+        exit 1
+    }
+
+- name: Import client key via manage_agents
+  win_shell: |
+    echo y | & "C:\Program Files (x86)\ossec-agent\manage_agents.exe" -i "{{ wazuh_client_key }}"
+  args:
+    executable: powershell
+  register: import_key_result
+  failed_when: 
+    - import_key_result.rc != 0
+    - '"Duplicate agent" not in import_key_result.stdout'
+  when: 
+    - wazuh_api_password is defined
+    - wazuh_client_key is defined
+
+- name: Restart Wazuh agent service
+  win_service:
+    name: WazuhSvc
+    state: restarted
+
+- name: Check Wazuh agent service status
+  win_service:
+    name: WazuhSvc
+  register: agent_service_status
+
+- name: Display agent status
+  ansible.builtin.debug:
+    msg: "Wazuh agent installed and started on {{ inventory_hostname }}. Service state: {{ agent_service_status.state }}"
+

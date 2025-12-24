@@ -1,0 +1,131 @@
+---
+# API-based enrollment: Generate client keys via Wazuh API
+# This task runs once and generates client keys for all agents
+
+- name: Get Wazuh API token
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/security/user/authenticate"
+    method: POST
+    user: "{{ wazuh_api_user }}"
+    password: "{{ wazuh_api_password }}"
+    force_basic_auth: yes
+    status_code: [200]
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  delegate_to: localhost
+  run_once: true
+  vars:
+    ansible_connection: local
+  become: false
+  register: api_token_response
+  no_log: true
+
+- name: Set API token fact on first host
+  ansible.builtin.set_fact:
+    wazuh_api_token: "{{ api_token_response.json.data.token }}"
+  run_once: true
+  delegate_to: "{{ ansible_play_hosts[0] }}"
+  no_log: true
+
+
+- name: Check if agent already exists
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ hostvars[ansible_play_hosts[0]]['wazuh_api_token'] }}"
+    status_code: [200]
+    return_content: yes
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+  register: existing_agents_response
+  failed_when: false
+  no_log: true
+
+- name: Check if current agent exists
+  ansible.builtin.set_fact:
+    agent_exists: "{{ existing_agents_response.json.data.affected_items | selectattr('name', 'equalto', inventory_hostname) | list | length > 0 }}"
+  when: existing_agents_response.json.data.affected_items is defined
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+
+- name: Set agent exists to false if not found
+  ansible.builtin.set_fact:
+    agent_exists: false
+  when: existing_agents_response.json.data.affected_items is not defined or agent_exists is not defined
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+
+- name: Add agent via API
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ hostvars[ansible_play_hosts[0]]['wazuh_api_token'] }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      name: "{{ inventory_hostname }}"
+    status_code: [200, 201]
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+  register: add_agent_response
+  when: not agent_exists | default(false)
+  no_log: true
+
+- name: Get agent ID and key from add response
+  ansible.builtin.set_fact:
+    agent_id: "{{ add_agent_response.json.data.id | default(add_agent_response.json.data.affected_items[0].id) }}"
+    wazuh_client_key: "{{ add_agent_response.json.data.key | default(omit) }}"
+  when: 
+    - not agent_exists | default(false)
+    - add_agent_response.json.data.id is defined or add_agent_response.json.data.affected_items is defined
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+
+- name: Get agent ID from existing agents
+  ansible.builtin.set_fact:
+    agent_id: "{{ existing_agents_response.json.data.affected_items | selectattr('name', 'equalto', inventory_hostname) | map(attribute='id') | first }}"
+  when: agent_exists | default(false)
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+
+- name: Get client key from API
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ agent_id }}/key"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ hostvars[ansible_play_hosts[0]]['wazuh_api_token'] }}"
+    status_code: [200]
+    return_content: yes
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+  register: agent_key_response
+  when: wazuh_client_key is not defined
+
+- name: Set client key fact from response
+  ansible.builtin.set_fact:
+    wazuh_client_key: "{{ agent_key_response.json.data.key | default(agent_key_response.json.data.affected_items[0].key) }}"
+  when: agent_key_response.skipped is not defined or not agent_key_response.skipped
+  delegate_to: localhost
+  vars:
+    ansible_connection: local
+  become: false
+  no_log: true
+
