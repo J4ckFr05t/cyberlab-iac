@@ -17,14 +17,14 @@
     ansible_connection: local
   become: false
   register: api_token_response
-  no_log: true
+
 
 - name: Set API token fact on first host
   ansible.builtin.set_fact:
     wazuh_api_token: "{{ api_token_response.json.data.token }}"
   run_once: true
   delegate_to: "{{ ansible_play_hosts[0] }}"
-  no_log: true
+
 
 - name: Check if agent already exists
   ansible.builtin.uri:
