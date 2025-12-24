@@ -13,7 +13,7 @@ wazuh_max_retries: 5
 wazuh_retry_interval: 5
 
 # Wazuh version
-wazuh_version: "4.14"
+wazuh_version: "4.14.1"
 
 # Package URLs
 wazuh_agent_linux_deb_url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_{{ wazuh_version }}-1_amd64.deb"
