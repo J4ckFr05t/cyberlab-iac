@@ -16,35 +16,35 @@
     state: present
     arguments: /qn WAZUH_MANAGER={{ wazuh_manager_address }} WAZUH_REGISTRATION_SERVER={{ wazuh_manager_address }}
 
-- name: Cleanup trailing garbage in ossec.conf (orphan tags)
-  win_lineinfile:
-    path: C:\Program Files (x86)\ossec-agent\ossec.conf
-    regexp: '^\s*<(address|port|protocol)>.*</\1>\s*$'
-    state: absent
-    insertafter: '<!-- END of Default Configuration\. -->'
-
-- name: Configure Wazuh agent - Set manager address
-  win_lineinfile:
-    path: C:\Program Files (x86)\ossec-agent\ossec.conf
-    regexp: '<address>MANAGER_IP</address>'
-    line: '    <address>{{ wazuh_manager_address }}</address>'
-    backup: yes
-
-- name: Configure Wazuh agent - Set manager port
-  win_lineinfile:
-    path: C:\Program Files (x86)\ossec-agent\ossec.conf
-    regexp: '^    <port>(.*)</port>'
-    line: '    <port>{{ wazuh_manager_port }}</port>'
-    backup: yes
-  when: wazuh_manager_port is defined
-
-- name: Configure Wazuh agent - Set protocol
-  win_lineinfile:
-    path: C:\Program Files (x86)\ossec-agent\ossec.conf
-    regexp: '^    <protocol>(.*)</protocol>'
-    line: '    <protocol>{{ wazuh_manager_protocol }}</protocol>'
-    backup: yes
-  when: wazuh_manager_protocol is defined
+- name: Configure Wazuh agent (Reset and Set)
+  win_shell: |
+    $path = "C:\Program Files (x86)\ossec-agent\ossec.conf"
+    $lines = Get-Content $path
+    # Filter out existing address, port, protocol lines (both valid and garbage)
+    $cleanLines = $lines | Where-Object { $_ -notmatch '^\s*<(address|port|protocol)>' }
+    
+    # Find the <server> block start
+    $serverIdx = -1
+    for ($i=0; $i -lt $cleanLines.Count; $i++) {
+        if ($cleanLines[$i] -match '^\s*<server>\s*$') {
+            $serverIdx = $i
+            break
+        }
+    }
+    
+    # Insert new configuration inside <server> block
+    if ($serverIdx -ge 0) {
+        $newConfig = @(
+            "      <address>{{ wazuh_manager_address }}</address>",
+            "      <port>{{ wazuh_manager_port }}</port>",
+            "      <protocol>{{ wazuh_manager_protocol }}</protocol>"
+        )
+        $finalLines = $cleanLines[0..$serverIdx] + $newConfig + $cleanLines[($serverIdx+1)..($cleanLines.Count-1)]
+        $finalLines | Set-Content $path
+    } else {
+        Write-Error "Could not find <server> block in ossec.conf"
+        exit 1
+    }
 
 - name: Import client key from API enrollment
   win_copy:
