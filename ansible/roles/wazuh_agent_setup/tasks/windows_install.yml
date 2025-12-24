@@ -1,30 +1,30 @@
 ---
 - name: Ensure Temp Directory Exists
-  ansible.windows.win_file:
+  win_file:
     path: C:\Temp
     state: directory
 
 - name: Download Wazuh Agent MSI
-  ansible.windows.win_get_url:
+  win_get_url:
     url: "{{ wazuh_agent_windows_url }}"
     dest: C:\Temp\wazuh-agent.msi
     force: no
 
 - name: Install Wazuh Agent (Silent)
-  ansible.windows.win_package:
+  win_package:
     path: C:\Temp\wazuh-agent.msi
     state: present
     arguments: /qn WAZUH_MANAGER={{ wazuh_manager_address }} WAZUH_REGISTRATION_SERVER={{ wazuh_manager_address }}
 
 - name: Configure Wazuh agent - Set manager address
-  ansible.windows.win_lineinfile:
+  win_lineinfile:
     path: C:\Program Files (x86)\ossec-agent\ossec.conf
     regexp: '^  <address>(.*)</address>'
     line: '  <address>{{ wazuh_manager_address }}</address>'
     backup: yes
 
 - name: Configure Wazuh agent - Set manager port
-  ansible.windows.win_lineinfile:
+  win_lineinfile:
     path: C:\Program Files (x86)\ossec-agent\ossec.conf
     regexp: '^    <port>(.*)</port>'
     line: '    <port>{{ wazuh_manager_port }}</port>'
@@ -32,7 +32,7 @@
   when: wazuh_manager_port is defined
 
 - name: Configure Wazuh agent - Set protocol
-  ansible.windows.win_lineinfile:
+  win_lineinfile:
     path: C:\Program Files (x86)\ossec-agent\ossec.conf
     regexp: '^    <protocol>(.*)</protocol>'
     line: '    <protocol>{{ wazuh_manager_protocol }}</protocol>'
@@ -40,7 +40,7 @@
   when: wazuh_manager_protocol is defined
 
 - name: Import client key from API enrollment
-  ansible.windows.win_copy:
+  win_copy:
     content: "{{ wazuh_client_key | b64decode }}"
     dest: C:\Program Files (x86)\ossec-agent\client.keys
   when: 
@@ -48,12 +48,12 @@
     - wazuh_client_key is defined
 
 - name: Restart Wazuh agent service
-  ansible.windows.win_service:
+  win_service:
     name: OssecSvc
     state: restarted
 
 - name: Check Wazuh agent service status
-  ansible.windows.win_service:
+  win_service:
     name: OssecSvc
   register: agent_service_status
 
