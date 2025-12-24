@@ -46,18 +46,35 @@
         exit 1
     }
 
-- name: Import client key from API enrollment
-  win_copy:
-    content: "{{ wazuh_client_key | b64decode }}"
-    dest: C:\Program Files (x86)\ossec-agent\client.keys
+- name: Import client key via manage_agents
+  win_shell: |
+    echo y | & "C:\Program Files (x86)\ossec-agent\manage_agents.exe" -i "{{ wazuh_client_key }}"
+  args:
+    executable: powershell
+  register: import_key_result
+  failed_when: 
+    - import_key_result.rc != 0
+    - '"Duplicate agent" not in import_key_result.stdout'
   when: 
     - wazuh_api_password is defined
     - wazuh_client_key is defined
 
-- name: Restart Wazuh agent service
+- name: Ensure Wazuh agent service is stopped
   win_service:
     name: WazuhSvc
-    state: restarted
+    state: stopped
+  ignore_errors: yes
+
+- name: Force kill any stuck agent processes
+  win_shell: |
+    Stop-Process -Name "wazuh-agent" -Force -ErrorAction SilentlyContinue
+    Stop-Process -Name "ossec-agent" -Force -ErrorAction SilentlyContinue
+  ignore_errors: yes
+
+- name: Start Wazuh agent service
+  win_service:
+    name: WazuhSvc
+    state: started
 
 - name: Check Wazuh agent service status
   win_service:
