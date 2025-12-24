@@ -23,8 +23,8 @@
 - name: Configure Wazuh agent - Set manager address
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
-    regexp: '^  <address>(.*)</address>'
-    replace: '  <address>{{ wazuh_manager_address }}</address>'
+    regexp: '<address>MANAGER_IP</address>'
+    replace: '<address>{{ wazuh_manager_address }}</address>'
     backup: yes
 
 - name: Configure Wazuh agent - Set manager port
