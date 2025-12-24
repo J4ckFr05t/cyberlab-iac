@@ -13,17 +13,17 @@
     wazuh_api_validate_certs: false
     
     wazuh_agent_groups:
-      - "windows_server"
-      - "linux_server"
-      - "linux_workstation"
-      - "windows_workstation"
+      - "windows-server"
+      - "linux-server"
+      - "linux-workstation"
+      - "windows-workstation"
 
     wazuh_agent_assignments:
-      - { agent_name: "dc-01-srv", group: "windows_server" }
-      - { agent_name: "fleet-01-srv", group: "linux_server" }
-      - { agent_name: "lin-01-ws", group: "linux_workstation" }
-      - { agent_name: "siem-01-srv", group: "linux_server" }
-      - { agent_name: "win-01-ws", group: "windows_workstation" }
+      - { agent_name: "dc-01-srv", group: "windows-server" }
+      - { agent_name: "fleet-01-srv", group: "linux-server" }
+      - { agent_name: "lin-01-ws", group: "linux-workstation" }
+      - { agent_name: "siem-01-srv", group: "linux-server" }
+      - { agent_name: "win-01-ws", group: "windows-workstation" }
 
   tasks:
     - name: Get Wazuh API token
