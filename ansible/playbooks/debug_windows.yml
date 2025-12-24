@@ -11,8 +11,8 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   tasks:
-    - name: Get WazuhSvc Event Logs
-      win_shell: "Get-EventLog -LogName Application -Source WazuhSvc -Newest 20 | Select-Object -ExpandProperty Message"
+    - name: Get ossec.log Content
+      win_shell: "Get-Content 'C:\\Program Files (x86)\\ossec-agent\\ossec.log' -Tail 20"
       register: log_output
       ignore_errors: yes
 
