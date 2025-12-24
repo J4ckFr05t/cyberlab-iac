@@ -119,18 +119,13 @@
   register: agent_key_response
   when: wazuh_client_key is not defined
 
-- name: Debug agent key response
-  ansible.builtin.debug:
-    var: agent_key_response
-  when: agent_key_response.skipped is not defined or not agent_key_response.skipped
-  delegate_to: localhost
-
 - name: Set client key fact from response
   ansible.builtin.set_fact:
-    wazuh_client_key: "{{ agent_key_response.json.data.key }}"
+    wazuh_client_key: "{{ agent_key_response.json.data.key | default(agent_key_response.json.data.affected_items[0].key) }}"
   when: agent_key_response.skipped is not defined or not agent_key_response.skipped
   delegate_to: localhost
   vars:
     ansible_connection: local
   become: false
+  no_log: true
 
