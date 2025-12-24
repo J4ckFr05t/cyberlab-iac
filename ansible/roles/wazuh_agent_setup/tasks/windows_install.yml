@@ -59,22 +59,10 @@
     - wazuh_api_password is defined
     - wazuh_client_key is defined
 
-- name: Ensure Wazuh agent service is stopped
+- name: Restart Wazuh agent service
   win_service:
     name: WazuhSvc
-    state: stopped
-  ignore_errors: yes
-
-- name: Force kill any stuck agent processes
-  win_shell: |
-    Stop-Process -Name "wazuh-agent" -Force -ErrorAction SilentlyContinue
-    Stop-Process -Name "ossec-agent" -Force -ErrorAction SilentlyContinue
-  ignore_errors: yes
-
-- name: Start Wazuh agent service
-  win_service:
-    name: WazuhSvc
-    state: started
+    state: restarted
 
 - name: Check Wazuh agent service status
   win_service:
