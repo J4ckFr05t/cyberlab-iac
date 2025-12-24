@@ -49,12 +49,12 @@
 
 - name: Restart Wazuh agent service
   win_service:
-    name: OssecSvc
+    name: WazuhSvc
     state: restarted
 
 - name: Check Wazuh agent service status
   win_service:
-    name: OssecSvc
+    name: WazuhSvc
   register: agent_service_status
 
 - name: Display agent status
