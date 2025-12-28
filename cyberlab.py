@@ -3,6 +3,7 @@ import os
 import sys
 import subprocess
 import shutil
+import json
 
 # ANSI Colors
 GREEN = "\033[92m"
@@ -44,6 +45,98 @@ class CyberLabManager:
             self.print_status(f"Missing {description}: {filepath}", "ERROR")
             return False
 
+    def get_ssh_key(self):
+        rsa_key = os.path.expanduser('~/.ssh/id_rsa.pub')
+        ed25519_key = os.path.expanduser('~/.ssh/id_ed25519.pub')
+        
+        options = [('Manual input', None)]
+        
+        if os.path.exists(rsa_key):
+            options.append((f"Read from {rsa_key}", rsa_key))
+        if os.path.exists(ed25519_key):
+            options.append((f"Read from {ed25519_key}", ed25519_key))
+            
+        print(f"\n{CYAN}Select SSH Public Key source:{RESET}")
+        for i, (desc, _) in enumerate(options, 1):
+            print(f"{i}. {desc}")
+            
+        while True:
+            try:
+                choice = int(input(f"Select option (1-{len(options)}): "))
+                if 1 <= choice <= len(options):
+                    desc, path = options[choice-1]
+                    if path:
+                        try:
+                            with open(path, 'r') as f:
+                                key = f.read().strip()
+                                print(f"Read key: {key[:20]}...{key[-20:]}")
+                                return key
+                        except Exception as e:
+                            self.print_status(f"Failed to read key: {e}", "ERROR")
+                            return input("Enter SSH Public Key: ").strip()
+                    else:
+                        return input("Enter SSH Public Key: ").strip()
+            except ValueError:
+                pass
+            print("Invalid input.")
+
+    def check_vms_json(self):
+        print(f"\n{YELLOW}Checking Terraform VM Configuration (vms.json):{RESET}")
+        vms_json_path = os.path.join(self.terraform_dir, 'vms.json')
+        vms_example_path = os.path.join(self.terraform_dir, 'vms.json.example')
+        
+        create_new = False
+        if os.path.exists(vms_json_path):
+            self.print_status("Found vms.json", "SUCCESS")
+            if input("Do you want to re-configure vms.json (overwrite)? (y/n): ").lower() == 'y':
+                create_new = True
+        else:
+            self.print_status("Missing vms.json", "WARN")
+            if input("Create vms.json from example? (y/n): ").lower() == 'y':
+                create_new = True
+            else:
+                 self.print_status("vms.json is required for Terraform.", "ERROR")
+                 return
+
+        if create_new:
+            if not os.path.exists(vms_example_path):
+                self.print_status("Missing vms.json.example. Cannot create vms.json automatically.", "ERROR")
+                return
+
+            try:
+                print(f"{CYAN}To configure cloud-init, please provide the following (applied to all VMs):{RESET}")
+                search_domain = input("Enter Search Domain (e.g. yourdomain.com): ").strip()
+                ssh_key = self.get_ssh_key()
+                
+                with open(vms_example_path, 'r') as f:
+                    data = json.load(f)
+                
+                # Update cloudinit for all entries
+                # Structure is {"vms": [...]}
+                if isinstance(data, dict) and 'vms' in data and isinstance(data['vms'], list):
+                    for vm in data['vms']:
+                        if 'cloudinit' in vm:
+                            if 'searchdomain' in vm['cloudinit']:
+                                vm['cloudinit']['searchdomain'] = search_domain
+                            if 'sshkeys' in vm['cloudinit']:
+                                vm['cloudinit']['sshkeys'] = ssh_key
+                elif isinstance(data, list):
+                    # Fallback if structure changes
+                     for vm in data:
+                        if 'cloudinit' in vm:
+                            if 'searchdomain' in vm['cloudinit']:
+                                vm['cloudinit']['searchdomain'] = search_domain
+                            if 'sshkeys' in vm['cloudinit']:
+                                vm['cloudinit']['sshkeys'] = ssh_key
+                
+                with open(vms_json_path, 'w') as f:
+                    json.dump(data, f, indent=2)
+                
+                self.print_status(f"Created and configured {vms_json_path}", "SUCCESS")
+                
+            except Exception as e:
+                self.print_status(f"Failed to create vms.json: {e}", "ERROR")
+
     def run_command_stream(self, command, cwd, description):
         self.print_status(f"Running: {description}...", "INFO")
         print(f"{CYAN}{'-'*40}{RESET}")
@@ -72,110 +165,7 @@ class CyberLabManager:
             self.print_status(f"Failed to execute {description}: {e}", "ERROR")
             return False
 
-    def create_terraform_secrets(self, filepath):
-        print(f"\n{YELLOW}Creating {filepath}...{RESET}")
-        try:
-            proxmox_url = input(f"Enter Proxmox API URL (e.g. https://192.168.1.100:8006/api2/json): ").strip()
-            proxmox_token_id = input(f"Enter Proxmox Token ID (e.g. root@pam!terraform): ").strip()
-            proxmox_token_secret = input(f"Enter Proxmox Token Secret: ").strip()
-            
-            # Simple template for password entry to avoid asking 4 times if they are same
-            print(f"\n{CYAN}Template Passwords (used for cloud-init user):{RESET}")
-            default_password = input("Enter a default password for all VM templates: ").strip()
-            
-            content = f"""# Proxmox API Configuration
-proxmox_api_url          = "{proxmox_url}"
-proxmox_api_token_id     = "{proxmox_token_id}"
-proxmox_api_token_secret = "{proxmox_token_secret}"
-
-# Template-based passwords
-template_passwords = {{
-  "ubuntu-server-template"  = "{default_password}"
-  "ubuntu-desktop-template" = "{default_password}"
-  "win11-template"          = "{default_password}"
-  "win-dc-2022-template"    = "{default_password}"
-}}
-"""
-            with open(filepath, 'w') as f:
-                f.write(content)
-            self.print_status(f"Created {filepath}", "SUCCESS")
-            return True
-        except Exception as e:
-            self.print_status(f"Failed to create {filepath}: {e}", "ERROR")
-            return False
-
-    def create_vault_pass(self, filepath):
-        print(f"\n{YELLOW}Creating {filepath}...{RESET}")
-        try:
-            password = input("Enter Ansible Vault Password: ").strip()
-            with open(filepath, 'w') as f:
-                f.write(password)
-            os.chmod(filepath, 0o600)
-            self.print_status(f"Created {filepath}", "SUCCESS")
-            return True
-        except Exception as e:
-            self.print_status(f"Failed to create {filepath}: {e}", "ERROR")
-            return False
-
-    def create_ansible_vault(self, filepath, vault_pass_file):
-        print(f"\n{YELLOW}Creating {filepath}...{RESET}")
-        temp_file = None
-        try:
-            print("Please provide the following credentials for the Ansible Vault:")
-            win_user = input("Windows Admin Username [Administrator]: ").strip() or "Administrator"
-            win_pass = input("Windows Admin Password: ").strip()
-            dsrm_pass = input("Active Directory DSRM Password: ").strip()
-            
-            # User passwords
-            dave_pass = input("Password for user 'dave' (UserPassword1!): ").strip() or "UserPassword1!"
-            sophia_pass = input("Password for user 'sophia' (UserPassword2!): ").strip() or "UserPassword2!"
-            
-            elastic_pass = input("Elasticsearch Custom Password: ").strip()
-            wazuh_api_pass = input("Wazuh API Password: ").strip()
-            wazuh_admin_pass = input("Wazuh Admin Password: ").strip()
-
-            temp_yaml = """---
-# Windows/AD Administrator
-win_username: {win_user}
-win_password: {win_pass}
-
-# Domain Recovery
-dsrm_password: {dsrm_pass}
-
-# User Passwords
-dave_password: {dave_pass}
-sophia_password: {sophia_pass}
-
-# ELK Stack
-elastic_custom_password: {elastic_pass}
-
-# Wazuh
-wazuh_api_password: {wazuh_api_pass}
-wazuh_admin_password: {wazuh_admin_pass}
-""".format(
-    win_user=win_user, win_pass=win_pass, dsrm_pass=dsrm_pass,
-    dave_pass=dave_pass, sophia_pass=sophia_pass,
-    elastic_pass=elastic_pass,
-    wazuh_api_pass=wazuh_api_pass, wazuh_admin_pass=wazuh_admin_pass
-)
-            
-            temp_file = os.path.join(os.path.dirname(filepath), 'temp_vault.yml')
-            with open(temp_file, 'w') as f:
-                f.write(temp_yaml)
-            
-            cmd = f"ansible-vault encrypt {temp_file} --output {filepath}"
-            if self.run_command_stream(cmd, self.ansible_dir, "Encrypting Vault"):
-                os.remove(temp_file)
-                self.print_status(f"Created and encrypted {filepath}", "SUCCESS")
-                return True
-            else:
-                return False
-
-        except Exception as e:
-            self.print_status(f"Failed to create {filepath}: {e}", "ERROR")
-            if temp_file and os.path.exists(temp_file):
-                os.remove(temp_file)
-            return False
+# ... [rest of methods] ...
 
     def check_prerequisites(self):
         print(f"\n{CYAN}=== Checking Prerequisites ==={RESET}")
@@ -187,6 +177,11 @@ wazuh_admin_password: {wazuh_admin_pass}
         for tool in tools:
             if not self.check_tool(tool):
                 all_checks_passed = False
+
+        # 1.1 Check vms.json
+        self.check_vms_json()
+        if not os.path.exists(os.path.join(self.terraform_dir, 'vms.json')):
+            all_checks_passed = False
 
         # 2. Check Terraform Secrets
         print(f"\n{YELLOW}Checking Terraform Configuration:{RESET}")
@@ -269,6 +264,12 @@ wazuh_admin_password: {wazuh_admin_pass}
     def deploy_vms(self):
         print(f"\n{CYAN}=== Deploy Infrastructure (Terraform) ==={RESET}")
         
+        # Check vms.json
+        if not os.path.exists(os.path.join(self.terraform_dir, 'vms.json')):
+             self.print_status("vms.json is missing. Please run Prerequisites checks first.", "ERROR")
+             input("Press Enter to return to menu...")
+             return
+
         # 1. Terraform Plan
         print(f"\n{YELLOW}Running Terraform Plan...{RESET}")
         plan_file = "lab.tfplan"
