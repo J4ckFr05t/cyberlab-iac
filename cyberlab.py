@@ -4,6 +4,7 @@ import sys
 import subprocess
 import shutil
 import json
+import yaml
 
 # ANSI Colors
 GREEN = "\033[92m"
@@ -251,6 +252,154 @@ class CyberLabManager:
             self.print_status(f"Failed to create Vault password file: {e}", "ERROR")
             return False
 
+    def domain_to_ldap_dn(self, domain_name):
+        """Convert domain name to LDAP DN format.
+        
+        Example:
+            'example.com' -> 'DC=example,DC=com'
+            'domain1.parent.com' -> 'DC=domain1,DC=parent,DC=com'
+        """
+        parts = domain_name.split('.')
+        return ','.join([f'DC={part}' for part in parts])
+
+    def create_all_yml(self, all_yml_path):
+        """Create ansible/inventory/group_vars/all.yml with domain configuration."""
+        try:
+            print(f"\n{CYAN}Configuring Domain Settings for all.yml:{RESET}")
+            
+            domain_name = input("Enter Domain Name (e.g., example.com or domain1.parent.com): ").strip()
+            if not domain_name:
+                self.print_status("Domain name cannot be empty.", "ERROR")
+                return False, None, None, None
+            
+            domain_netbios_name = input("Enter Domain NetBIOS Name (e.g., EXAMPLE): ").strip()
+            if not domain_netbios_name:
+                self.print_status("Domain NetBIOS name cannot be empty.", "ERROR")
+                return False, None, None, None
+            
+            print("Enter DNS Forwarders (press Enter after each, empty line to finish):")
+            dns_forwarders = []
+            while True:
+                forwarder = input("  DNS Forwarder (or Enter to finish): ").strip()
+                if not forwarder:
+                    break
+                dns_forwarders.append(forwarder)
+            
+            if not dns_forwarders:
+                # Default to Google DNS if none provided
+                dns_forwarders = ['8.8.8.8', '8.8.4.4']
+                self.print_status("No DNS forwarders provided, using defaults: 8.8.8.8, 8.8.4.4", "WARN")
+            
+            # Build YAML content
+            yaml_content = """---
+# Variables for all hosts
+# Domain Configuration
+domain_name: {domain_name}
+domain_netbios_name: {domain_netbios_name}
+
+# DNS Configuration
+dns_forwarders:
+""".format(
+                domain_name=domain_name,
+                domain_netbios_name=domain_netbios_name
+            )
+            
+            for forwarder in dns_forwarders:
+                yaml_content += f"  - {forwarder}\n"
+            
+            # Write the file
+            with open(all_yml_path, 'w') as f:
+                f.write(yaml_content)
+            
+            self.print_status(f"Created {os.path.basename(all_yml_path)}", "SUCCESS")
+            return True, domain_name, domain_netbios_name, dns_forwarders
+            
+        except Exception as e:
+            self.print_status(f"Failed to create all.yml: {e}", "ERROR")
+            return False, None, None, None
+
+    def create_dc_yml(self, dc_yml_path, domain_name, domain_netbios_name, dns_forwarders):
+        """Create ansible/inventory/group_vars/dc.yml with domain controller configuration."""
+        try:
+            # Convert domain name to LDAP DN format
+            ldap_dn = self.domain_to_ldap_dn(domain_name)
+            
+            # Build YAML content
+            yaml_content = """---
+# Domain Controller Variables
+# These variables are used by the dc_setup role
+
+# Domain Configuration
+domain_name: {domain_name}
+domain_netbios_name: {domain_netbios_name}
+
+# DNS Configuration
+dns_forwarders:
+""".format(
+                domain_name=domain_name,
+                domain_netbios_name=domain_netbios_name
+            )
+            
+            for forwarder in dns_forwarders:
+                yaml_content += f"  - {forwarder}\n"
+            
+            # Add organizational units with dynamic LDAP DN
+            yaml_content += f"""
+# Organizational Units to create
+organizational_units:
+  - name: Workstations
+    path: "{ldap_dn}"
+  - name: Windows Workstations
+    path: "OU=Workstations,{ldap_dn}"
+  - name: Linux Workstations
+    path: "OU=Workstations,{ldap_dn}"
+  - name: Servers
+    path: "{ldap_dn}"
+  - name: Windows Servers
+    path: "OU=Servers,{ldap_dn}"
+  - name: Linux Servers
+    path: "OU=Servers,{ldap_dn}"
+
+# Domain Users to create
+domain_users:
+  - display_name: Dave Johnson
+    firstname: Dave
+    lastname: Johnson
+    password: "{{{{ dave_password }}}}"
+    enabled: yes
+    password_never_expires: no
+    user_cannot_change_password: no
+  - display_name: Sophia Davis
+    firstname: Sophia
+    lastname: Davis
+    password: "{{{{ sophia_password }}}}"
+    enabled: yes
+    password_never_expires: no
+    user_cannot_change_password: no
+
+# WinRM Configuration
+ansible_connection: winrm
+ansible_winrm_transport: ntlm
+ansible_winrm_server_cert_validation: ignore
+ansible_port: 5985
+
+# Disable become (sudo) - not applicable for Windows
+ansible_become: false
+ansible_become_method: runas
+
+"""
+            
+            # Write the file
+            with open(dc_yml_path, 'w') as f:
+                f.write(yaml_content)
+            
+            self.print_status(f"Created {os.path.basename(dc_yml_path)}", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.print_status(f"Failed to create dc.yml: {e}", "ERROR")
+            return False
+
     def create_ansible_vault(self, vault_path, vault_pass_path):
         """Create Ansible vault file with encrypted secrets."""
         try:
@@ -358,6 +507,57 @@ wazuh_admin_password: {wazuh_admin_password}
         self.check_vms_json()
         if not os.path.exists(os.path.join(self.terraform_dir, 'vms.json')):
             all_checks_passed = False
+
+        # 1.2 Check Ansible Group Vars
+        print(f"\n{YELLOW}Checking Ansible Group Variables:{RESET}")
+        all_yml_path = os.path.join(self.ansible_dir, 'inventory', 'group_vars', 'all.yml')
+        dc_yml_path = os.path.join(self.ansible_dir, 'inventory', 'group_vars', 'dc.yml')
+        
+        domain_name = None
+        domain_netbios_name = None
+        dns_forwarders = None
+        
+        # Check all.yml
+        if not os.path.exists(all_yml_path):
+            self.print_status(f"Missing {os.path.basename(all_yml_path)}", "WARN")
+            if input(f"Create {os.path.basename(all_yml_path)} now? (y/n): ").lower() == 'y':
+                result = self.create_all_yml(all_yml_path)
+                if isinstance(result, tuple):
+                    success, domain_name, domain_netbios_name, dns_forwarders = result
+                    if not success:
+                        all_checks_passed = False
+                else:
+                    all_checks_passed = False
+            else:
+                self.print_status(f"{os.path.basename(all_yml_path)} is required.", "ERROR")
+                all_checks_passed = False
+        else:
+            self.print_status(f"Found {os.path.basename(all_yml_path)}", "SUCCESS")
+            # Read existing values for dc.yml if needed
+            try:
+                with open(all_yml_path, 'r') as f:
+                    all_data = yaml.safe_load(f)
+                    domain_name = all_data.get('domain_name')
+                    domain_netbios_name = all_data.get('domain_netbios_name')
+                    dns_forwarders = all_data.get('dns_forwarders', [])
+            except Exception as e:
+                self.print_status(f"Could not read existing all.yml: {e}", "WARN")
+        
+        # Check dc.yml
+        if not os.path.exists(dc_yml_path):
+            self.print_status(f"Missing {os.path.basename(dc_yml_path)}", "WARN")
+            if domain_name and domain_netbios_name and dns_forwarders:
+                if input(f"Create {os.path.basename(dc_yml_path)} now? (y/n): ").lower() == 'y':
+                    if not self.create_dc_yml(dc_yml_path, domain_name, domain_netbios_name, dns_forwarders):
+                        all_checks_passed = False
+                else:
+                    self.print_status(f"{os.path.basename(dc_yml_path)} is required.", "ERROR")
+                    all_checks_passed = False
+            else:
+                self.print_status(f"Cannot create {os.path.basename(dc_yml_path)} without domain configuration.", "ERROR")
+                all_checks_passed = False
+        else:
+            self.print_status(f"Found {os.path.basename(dc_yml_path)}", "SUCCESS")
 
         # 2. Check Terraform Secrets
         print(f"\n{YELLOW}Checking Terraform Configuration:{RESET}")
@@ -474,9 +674,6 @@ wazuh_admin_password: {wazuh_admin_password}
         
         input("\nPress Enter to return to menu...")
 
-    def configure_vms(self):
-        print(f"\n{CYAN}=== Configure Software (Ansible) ==={RESET}")
-        
     def configure_vms(self):
         print(f"\n{CYAN}=== Configure Software (Ansible) ==={RESET}")
         
