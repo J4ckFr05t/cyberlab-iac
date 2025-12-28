@@ -19,8 +19,35 @@
 - name: Configure Wazuh agent (Reset and Set)
   win_shell: |
     $path = "C:\Program Files (x86)\ossec-agent\ossec.conf"
-    $lines = Get-Content $path
-    # Filter out existing address, port, protocol lines (both valid and garbage)
+    
+    # Read file using .NET to avoid encoding issues
+    if (Test-Path $path) {
+        try {
+            $lines = [System.IO.File]::ReadAllLines($path, [System.Text.Encoding]::ASCII)
+        } catch {
+            $lines = $null
+        }
+    } else {
+        $lines = $null
+    }
+
+    # Fallback for corrupt/empty file
+    if ($null -eq $lines -or $lines.Count -eq 0) {
+        Write-Warning "ossec.conf is empty or corrupt. Regenerating minimal config."
+        $lines = @(
+            "<ossec_config>",
+            "  <client>",
+            "    <server>",
+            "      <address>PENDING</address>",
+            "      <port>1514</port>",
+            "      <protocol>tcp</protocol>",
+            "    </server>",
+            "  </client>",
+            "</ossec_config>"
+        )
+    }
+
+    # Filter out existing address, port, protocol lines
     $cleanLines = $lines | Where-Object { $_ -notmatch '^\s*<(address|port|protocol)>' }
     
     # Find the <server> block start
@@ -39,9 +66,16 @@
             "      <port>{{ wazuh_manager_port }}</port>",
             "      <protocol>{{ wazuh_manager_protocol }}</protocol>"
         )
-        $finalLines = $cleanLines[0..$serverIdx] + $newConfig + $cleanLines[($serverIdx+1)..($cleanLines.Count-1)]
-        $finalLines | Set-Content $path -Encoding ASCII
+        # Reconstruct list
+        $finalContent = [System.Collections.Generic.List[string]]::new()
+        for ($i=0; $i -le $serverIdx; $i++) { $finalContent.Add($cleanLines[$i]) }
+        foreach ($line in $newConfig) { $finalContent.Add($line) }
+        for ($i=$serverIdx+1; $i -lt $cleanLines.Count; $i++) { $finalContent.Add($cleanLines[$i]) }
+        
+        # Write back using .NET to ensure ASCII and no BOM issues
+        [System.IO.File]::WriteAllLines($path, $finalContent, [System.Text.Encoding]::ASCII)
     } else {
+        # Valid XML but no server block? Append valid one (simplified)
         Write-Error "Could not find <server> block in ossec.conf"
         exit 1
     }
