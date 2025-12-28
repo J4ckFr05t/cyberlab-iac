@@ -160,8 +160,8 @@
       "cloudinit": {
         "enabled": true,
         "nameserver": "172.16.10.100",
-        "searchdomain": "frostsec.corp",
-        "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDmHl7m/97U6VNdKn5Eo9vCmmmrHd49RUPo+rGaDOCh6hlk911b7LSVo3ftEduDQ5nR0FezAoMkxGwdvD3rHE+D+CN12Gpl7+IY6MuhpDhKqcKHXBFxIlo7mUzAiy3ddUSG7KT6BZg+REzAsjyx46Ls73RitMd3OCY5MnsERdNQQ+St94suja6wTjBntIir2iMIV9hpiYyp/Q7S2RFvm7q6PgrxAdezztK2w8axnZb77e+b/WvJQY64BCXCQ1kgsG5Ib6OB0NT1dGJYWIG01HIvsMYRTQp3qX5GPzARFiLIfLCv5mJhgTD3zWSGPgr//38soeBaVaJN9BlBWsMySQUOaS928NnsdKZnLDO6YdvJOpUPPjzwmDFoboAw3+F1vtGC4LhbhZwzRb60xCoFphoQjsRkB/gn/NhCY/q5Wp4LcCWEAL35rlNbfeCCKx9sy57ZRbkT9qrHn6lE1xs8c0LyGTfEcEwOEDvh6DqixGYwVcaZUchk5ZmctTc6s3uU6a9TanhGwPRqh6MSSwK1qlhEBXRmrpNN9euPYUdpzX4vpW8nvSqSw01P32Rne11JswACJcnQBnF53lJzAUS8Tr5VxUg/eVKOej3D26fHAZyQ0gYNypJT/lNwHN0uua+6gZbWdO2ojeLLBYQs95m7Zl9Q8/G2reiVBOXJVyJcGlj5kQ== jackfrost@mgmt-01-srv",
+        "searchdomain": "yourdomain.com",
+        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
         "ipconfig": [
           {
             "interface": "net0",
@@ -225,8 +225,8 @@
       "cloudinit": {
         "enabled": true,
         "nameserver": "172.16.10.100",
-        "searchdomain": "frostsec.corp",
-        "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDmHl7m/97U6VNdKn5Eo9vCmmmrHd49RUPo+rGaDOCh6hlk911b7LSVo3ftEduDQ5nR0FezAoMkxGwdvD3rHE+D+CN12Gpl7+IY6MuhpDhKqcKHXBFxIlo7mUzAiy3ddUSG7KT6BZg+REzAsjyx46Ls73RitMd3OCY5MnsERdNQQ+St94suja6wTjBntIir2iMIV9hpiYyp/Q7S2RFvm7q6PgrxAdezztK2w8axnZb77e+b/WvJQY64BCXCQ1kgsG5Ib6OB0NT1dGJYWIG01HIvsMYRTQp3qX5GPzARFiLIfLCv5mJhgTD3zWSGPgr//38soeBaVaJN9BlBWsMySQUOaS928NnsdKZnLDO6YdvJOpUPPjzwmDFoboAw3+F1vtGC4LhbhZwzRb60xCoFphoQjsRkB/gn/NhCY/q5Wp4LcCWEAL35rlNbfeCCKx9sy57ZRbkT9qrHn6lE1xs8c0LyGTfEcEwOEDvh6DqixGYwVcaZUchk5ZmctTc6s3uU6a9TanhGwPRqh6MSSwK1qlhEBXRmrpNN9euPYUdpzX4vpW8nvSqSw01P32Rne11JswACJcnQBnF53lJzAUS8Tr5VxUg/eVKOej3D26fHAZyQ0gYNypJT/lNwHN0uua+6gZbWdO2ojeLLBYQs95m7Zl9Q8/G2reiVBOXJVyJcGlj5kQ== jackfrost@mgmt-01-srv",
+        "searchdomain": "yourdomain.com",
+        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
         "ipconfig": [
           {
             "interface": "net0",
@@ -290,8 +290,8 @@
       "cloudinit": {
         "enabled": true,
         "nameserver": "172.16.10.100",
-        "searchdomain": "frostsec.corp",
-        "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDmHl7m/97U6VNdKn5Eo9vCmmmrHd49RUPo+rGaDOCh6hlk911b7LSVo3ftEduDQ5nR0FezAoMkxGwdvD3rHE+D+CN12Gpl7+IY6MuhpDhKqcKHXBFxIlo7mUzAiy3ddUSG7KT6BZg+REzAsjyx46Ls73RitMd3OCY5MnsERdNQQ+St94suja6wTjBntIir2iMIV9hpiYyp/Q7S2RFvm7q6PgrxAdezztK2w8axnZb77e+b/WvJQY64BCXCQ1kgsG5Ib6OB0NT1dGJYWIG01HIvsMYRTQp3qX5GPzARFiLIfLCv5mJhgTD3zWSGPgr//38soeBaVaJN9BlBWsMySQUOaS928NnsdKZnLDO6YdvJOpUPPjzwmDFoboAw3+F1vtGC4LhbhZwzRb60xCoFphoQjsRkB/gn/NhCY/q5Wp4LcCWEAL35rlNbfeCCKx9sy57ZRbkT9qrHn6lE1xs8c0LyGTfEcEwOEDvh6DqixGYwVcaZUchk5ZmctTc6s3uU6a9TanhGwPRqh6MSSwK1qlhEBXRmrpNN9euPYUdpzX4vpW8nvSqSw01P32Rne11JswACJcnQBnF53lJzAUS8Tr5VxUg/eVKOej3D26fHAZyQ0gYNypJT/lNwHN0uua+6gZbWdO2ojeLLBYQs95m7Zl9Q8/G2reiVBOXJVyJcGlj5kQ== jackfrost@mgmt-01-srv",
+        "searchdomain": "yourdomain.com",
+        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
         "ipconfig": [
           {
             "interface": "net0",
@@ -351,8 +351,8 @@
       "cloudinit": {
         "enabled": true,
         "nameserver": "172.16.10.100",
-        "searchdomain": "frostsec.corp",
-        "sshkeys": "ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQDmHl7m/97U6VNdKn5Eo9vCmmmrHd49RUPo+rGaDOCh6hlk911b7LSVo3ftEduDQ5nR0FezAoMkxGwdvD3rHE+D+CN12Gpl7+IY6MuhpDhKqcKHXBFxIlo7mUzAiy3ddUSG7KT6BZg+REzAsjyx46Ls73RitMd3OCY5MnsERdNQQ+St94suja6wTjBntIir2iMIV9hpiYyp/Q7S2RFvm7q6PgrxAdezztK2w8axnZb77e+b/WvJQY64BCXCQ1kgsG5Ib6OB0NT1dGJYWIG01HIvsMYRTQp3qX5GPzARFiLIfLCv5mJhgTD3zWSGPgr//38soeBaVaJN9BlBWsMySQUOaS928NnsdKZnLDO6YdvJOpUPPjzwmDFoboAw3+F1vtGC4LhbhZwzRb60xCoFphoQjsRkB/gn/NhCY/q5Wp4LcCWEAL35rlNbfeCCKx9sy57ZRbkT9qrHn6lE1xs8c0LyGTfEcEwOEDvh6DqixGYwVcaZUchk5ZmctTc6s3uU6a9TanhGwPRqh6MSSwK1qlhEBXRmrpNN9euPYUdpzX4vpW8nvSqSw01P32Rne11JswACJcnQBnF53lJzAUS8Tr5VxUg/eVKOej3D26fHAZyQ0gYNypJT/lNwHN0uua+6gZbWdO2ojeLLBYQs95m7Zl9Q8/G2reiVBOXJVyJcGlj5kQ== jackfrost@mgmt-01-srv",
+        "searchdomain": "yourdomain.com",
+        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
         "ipconfig": [
           {
             "interface": "net0",
@@ -415,7 +415,7 @@
       "cloudinit": {
         "enabled": true,
         "nameserver": "172.16.10.100",
-        "searchdomain": "frostsec.corp",
+        "searchdomain": "yourdomain.com",
         "ipconfig": [
           {
             "interface": "net0",
