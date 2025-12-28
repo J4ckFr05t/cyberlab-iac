@@ -16,6 +16,11 @@
     state: present
     arguments: /qn WAZUH_MANAGER={{ wazuh_manager_address }} WAZUH_REGISTRATION_SERVER={{ wazuh_manager_address }}
 
+- name: Stop Wazuh agent service to prevent file locks
+  win_service:
+    name: WazuhSvc
+    state: stopped
+
 - name: Configure Wazuh agent (Reset and Set)
   win_shell: |
     $path = "C:\Program Files (x86)\ossec-agent\ossec.conf"
