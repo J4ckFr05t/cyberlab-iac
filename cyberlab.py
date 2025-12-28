@@ -323,6 +323,17 @@ class CyberLabManager:
             self.print_status("Configuration cancelled.", "WARN")
             return
 
+        # Run clean_known_hosts.sh
+        clean_hosts_script = "scripts/clean_known_hosts.sh"
+        if os.path.exists(os.path.join(self.base_dir, clean_hosts_script)):
+            self.print_status("Cleaning known_hosts...", "INFO")
+            # Ensure execute permission
+            os.chmod(os.path.join(self.base_dir, clean_hosts_script), 0o755)
+            if not self.run_command_stream(f"./{clean_hosts_script}", self.base_dir, "Clean Known Hosts"):
+                self.print_status("Failed to clean known_hosts. Continuing...", "WARN")
+        else:
+            self.print_status(f"Script {clean_hosts_script} not found. Skipping.", "WARN")
+
         # Paths relative to base_dir
         inventory_path = "ansible/inventory/hosts.ini"
         vault_pass_path = "ansible/.vault_pass"
