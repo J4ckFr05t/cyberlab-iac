@@ -40,7 +40,7 @@
             "      <protocol>{{ wazuh_manager_protocol }}</protocol>"
         )
         $finalLines = $cleanLines[0..$serverIdx] + $newConfig + $cleanLines[($serverIdx+1)..($cleanLines.Count-1)]
-        $finalLines | Set-Content $path
+        $finalLines | Set-Content $path -Encoding ASCII
     } else {
         Write-Error "Could not find <server> block in ossec.conf"
         exit 1
