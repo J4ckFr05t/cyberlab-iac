@@ -2,6 +2,7 @@
 .terraform/
 .terraform.lock.hcl
 vms.json.old
+vms.json
 
 # .tfstate files
 *.tfstate
