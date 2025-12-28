@@ -301,14 +301,17 @@ class CyberLabManager:
     def configure_vms(self):
         print(f"\n{CYAN}=== Configure Software (Ansible) ==={RESET}")
         
+    def configure_vms(self):
+        print(f"\n{CYAN}=== Configure Software (Ansible) ==={RESET}")
+        
         playbooks = [
-            ("playbooks/dc_setup.yml", "Domain Controller Setup"),
-            ("playbooks/configure_dns.yml", "DNS Configuration"),
-            ("playbooks/join_to_domain.yml", "Join to Domain"),
-            ("playbooks/siem_stack.yml", "SIEM Stack (ELK & Fleet)"),
-            ("playbooks/enroll_elastic_agents.yml", "Enroll Elastic Agents"),
-            ("playbooks/setup_wazuh.yml", "Wazuh Manager Setup"),
-            ("playbooks/enroll_wazuh_agents.yml", "Enroll Wazuh Agents")
+            ("check_connectivity.yml", "Check Connectivity"),
+            ("dc_setup.yml", "Domain Controller Setup"),
+            ("join_to_domain.yml", "Join to Domain"),
+            ("siem_stack.yml", "SIEM Stack (ELK & Fleet)"),
+            ("enroll_elastic_agents.yml", "Enroll Elastic Agents"),
+            ("setup_wazuh.yml", "Wazuh Manager Setup"),
+            ("enroll_wazuh_agents.yml", "Enroll Wazuh Agents")
         ]
 
         print(f"\n{YELLOW}The following playbooks will be executed in order:{RESET}")
@@ -320,17 +323,19 @@ class CyberLabManager:
             self.print_status("Configuration cancelled.", "WARN")
             return
 
-        inventory_file = os.path.join(self.ansible_dir, 'inventory/hosts.ini')
+        # Paths relative to base_dir
+        inventory_path = "ansible/inventory/hosts.ini"
+        vault_pass_path = "ansible/.vault_pass"
         
-        for playbook_rel_path, description in playbooks:
+        for playbook_name, description in playbooks:
             print(f"\n{YELLOW}>> Starting: {description}{RESET}")
-            playbook_path = os.path.join(self.ansible_dir, playbook_rel_path)
+            playbook_path = f"ansible/playbooks/{playbook_name}"
             
-            # Construct command
-            # Note: We assume secrets are handled by ansible.cfg pointing to .vault_pass
-            cmd = f"ansible-playbook -i {inventory_file} {playbook_path}"
+            # Construct command running from root
+            cmd = f"ansible-playbook -i {inventory_path} {playbook_path} --vault-password-file {vault_pass_path}"
             
-            if not self.run_command_stream(cmd, self.ansible_dir, description):
+            # Running from base_dir (root)
+            if not self.run_command_stream(cmd, self.base_dir, description):
                 self.print_status(f"Configuration failed at step: {description}", "ERROR")
                 print(f"{RED}Stopping execution sequence.{RESET}")
                 input("Press Enter to return to menu...")
