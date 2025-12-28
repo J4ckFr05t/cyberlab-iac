@@ -165,7 +165,183 @@ class CyberLabManager:
             self.print_status(f"Failed to execute {description}: {e}", "ERROR")
             return False
 
-# ... [rest of methods] ...
+    def create_terraform_secrets(self, tf_vars_path):
+        """Create terraform.tfvars file with Proxmox credentials and template passwords."""
+        try:
+            print(f"\n{CYAN}Configuring Terraform secrets:{RESET}")
+            
+            # Get Proxmox API details
+            proxmox_api_url = input("Enter Proxmox API URL (e.g., https://your-proxmox-server:8006/api2/json): ").strip()
+            proxmox_api_token_id = input("Enter Proxmox API Token ID (e.g., your-token-id@pam!your-token-name): ").strip()
+            proxmox_api_token_secret = input("Enter Proxmox API Token Secret: ").strip()
+            
+            # Get template passwords
+            print(f"\n{YELLOW}Configure passwords for VM templates:{RESET}")
+            templates = [
+                "ubuntu-server-template",
+                "ubuntu-desktop-template",
+                "win11-template",
+                "win-dc-2022-template"
+            ]
+            
+            use_same_password = input("Use the same password for all templates? (y/n): ").lower().strip() == 'y'
+            template_passwords = {}
+            
+            if use_same_password:
+                common_password = input("Enter password for all templates: ").strip()
+                if common_password:
+                    for template in templates:
+                        template_passwords[template] = common_password
+            else:
+                print("Enter passwords for each template (press Enter to skip):")
+                for template in templates:
+                    password = input(f"Password for {template}: ").strip()
+                    if password:
+                        template_passwords[template] = password
+            
+            # Build the terraform.tfvars content
+            content = "# Proxmox API Configuration\n"
+            content += f'proxmox_api_url          = "{proxmox_api_url}"\n'
+            content += f'proxmox_api_token_id     = "{proxmox_api_token_id}"\n'
+            content += f'proxmox_api_token_secret = "{proxmox_api_token_secret}"\n'
+            content += "\n# Template-based passwords\n"
+            content += "# All VMs using the same template will share the same password\n"
+            content += "template_passwords = {\n"
+            
+            for template, password in template_passwords.items():
+                content += f'  "{template}" = "{password}"\n'
+            
+            content += "}\n"
+            
+            # Write the file
+            with open(tf_vars_path, 'w') as f:
+                f.write(content)
+            
+            # Set restrictive permissions (owner read/write only)
+            os.chmod(tf_vars_path, 0o600)
+            
+            self.print_status(f"Created {os.path.basename(tf_vars_path)}", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.print_status(f"Failed to create Terraform secrets: {e}", "ERROR")
+            return False
+
+    def create_vault_pass(self, vault_pass_path):
+        """Create Ansible vault password file."""
+        try:
+            print(f"\n{CYAN}Creating Ansible Vault password file:{RESET}")
+            password = input("Enter Ansible Vault password: ").strip()
+            
+            if not password:
+                self.print_status("Password cannot be empty.", "ERROR")
+                return False
+            
+            # Write the password file
+            with open(vault_pass_path, 'w') as f:
+                f.write(password + '\n')
+            
+            # Set restrictive permissions (owner read/write only)
+            os.chmod(vault_pass_path, 0o600)
+            
+            self.print_status(f"Created {os.path.basename(vault_pass_path)}", "SUCCESS")
+            return True
+            
+        except Exception as e:
+            self.print_status(f"Failed to create Vault password file: {e}", "ERROR")
+            return False
+
+    def create_ansible_vault(self, vault_path, vault_pass_path):
+        """Create Ansible vault file with encrypted secrets."""
+        try:
+            print(f"\n{CYAN}Configuring Ansible Vault secrets:{RESET}")
+            
+            # Read vault password
+            with open(vault_pass_path, 'r') as f:
+                vault_password = f.read().strip()
+            
+            # Collect all required secrets
+            print(f"\n{YELLOW}Enter the following credentials:{RESET}")
+            win_username = input("Windows/AD Administrator Username (default: Administrator): ").strip() or "Administrator"
+            win_password = input("Windows/AD Administrator Password: ").strip()
+            dsrm_password = input("Domain Recovery (DSRM) Password: ").strip()
+            dave_password = input("Dave User Password: ").strip()
+            sophia_password = input("Sophia User Password: ").strip()
+            elastic_custom_password = input("Elastic Custom Password: ").strip()
+            wazuh_api_password = input("Wazuh API Password: ").strip()
+            wazuh_admin_password = input("Wazuh Admin Password: ").strip()
+            
+            # Build the YAML content
+            vault_content = """---
+# Windows/AD Administrator
+win_username: {win_username}
+win_password: {win_password}
+
+# Domain Recovery
+dsrm_password: {dsrm_password}
+
+# User Passwords
+dave_password: {dave_password}
+sophia_password: {sophia_password}
+
+# ELK Stack
+elastic_custom_password: {elastic_custom_password}
+
+# Wazuh
+wazuh_api_password: {wazuh_api_password}
+wazuh_admin_password: {wazuh_admin_password}
+""".format(
+                win_username=win_username,
+                win_password=win_password,
+                dsrm_password=dsrm_password,
+                dave_password=dave_password,
+                sophia_password=sophia_password,
+                elastic_custom_password=elastic_custom_password,
+                wazuh_api_password=wazuh_api_password,
+                wazuh_admin_password=wazuh_admin_password
+            )
+            
+            # Create a temporary file with the content
+            import tempfile
+            with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.yml') as tmp_file:
+                tmp_file.write(vault_content)
+                tmp_file_path = tmp_file.name
+            
+            try:
+                # Use ansible-vault to encrypt the file
+                # ansible-vault encrypt --encrypt-vault-id default --vault-password-file <pass_file> <vault_file>
+                cmd = f'ansible-vault encrypt --encrypt-vault-id default --vault-password-file "{vault_pass_path}" "{tmp_file_path}"'
+                result = subprocess.run(
+                    cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    cwd=self.ansible_dir
+                )
+                
+                if result.returncode != 0:
+                    self.print_status(f"Failed to encrypt vault: {result.stderr}", "ERROR")
+                    os.unlink(tmp_file_path)
+                    return False
+                
+                # Move the encrypted file to the target location
+                shutil.move(tmp_file_path, vault_path)
+                
+                # Set restrictive permissions
+                os.chmod(vault_path, 0o600)
+                
+                self.print_status(f"Created encrypted {os.path.basename(vault_path)}", "SUCCESS")
+                return True
+                
+            except Exception as e:
+                # Clean up temp file on error
+                if os.path.exists(tmp_file_path):
+                    os.unlink(tmp_file_path)
+                raise e
+            
+        except Exception as e:
+            self.print_status(f"Failed to create Ansible Vault: {e}", "ERROR")
+            return False
 
     def check_prerequisites(self):
         print(f"\n{CYAN}=== Checking Prerequisites ==={RESET}")
