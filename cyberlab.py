@@ -89,8 +89,7 @@ class CyberLabManager:
         create_new = False
         if os.path.exists(vms_json_path):
             self.print_status("Found vms.json", "SUCCESS")
-            if input("Do you want to re-configure vms.json (overwrite)? (y/n): ").lower() == 'y':
-                create_new = True
+            # Skip reconfiguration prompt if file already exists
         else:
             self.print_status("Missing vms.json", "WARN")
             if input("Create vms.json from example? (y/n): ").lower() == 'y':
@@ -518,13 +517,16 @@ wazuh_admin_password: {wazuh_admin_password}
         dns_forwarders = None
         
         # Check all.yml
+        all_yml_created = False
         if not os.path.exists(all_yml_path):
             self.print_status(f"Missing {os.path.basename(all_yml_path)}", "WARN")
             if input(f"Create {os.path.basename(all_yml_path)} now? (y/n): ").lower() == 'y':
                 result = self.create_all_yml(all_yml_path)
                 if isinstance(result, tuple):
                     success, domain_name, domain_netbios_name, dns_forwarders = result
-                    if not success:
+                    if success:
+                        all_yml_created = True
+                    else:
                         all_checks_passed = False
                 else:
                     all_checks_passed = False
@@ -547,12 +549,18 @@ wazuh_admin_password: {wazuh_admin_password}
         if not os.path.exists(dc_yml_path):
             self.print_status(f"Missing {os.path.basename(dc_yml_path)}", "WARN")
             if domain_name and domain_netbios_name and dns_forwarders:
-                if input(f"Create {os.path.basename(dc_yml_path)} now? (y/n): ").lower() == 'y':
+                # If all.yml was just created, automatically create dc.yml without asking
+                if all_yml_created:
+                    self.print_status(f"Creating {os.path.basename(dc_yml_path)} automatically...", "INFO")
                     if not self.create_dc_yml(dc_yml_path, domain_name, domain_netbios_name, dns_forwarders):
                         all_checks_passed = False
                 else:
-                    self.print_status(f"{os.path.basename(dc_yml_path)} is required.", "ERROR")
-                    all_checks_passed = False
+                    if input(f"Create {os.path.basename(dc_yml_path)} now? (y/n): ").lower() == 'y':
+                        if not self.create_dc_yml(dc_yml_path, domain_name, domain_netbios_name, dns_forwarders):
+                            all_checks_passed = False
+                    else:
+                        self.print_status(f"{os.path.basename(dc_yml_path)} is required.", "ERROR")
+                        all_checks_passed = False
             else:
                 self.print_status(f"Cannot create {os.path.basename(dc_yml_path)} without domain configuration.", "ERROR")
                 all_checks_passed = False
