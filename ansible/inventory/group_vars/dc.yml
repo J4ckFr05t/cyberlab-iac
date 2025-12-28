@@ -19,6 +19,12 @@ organizational_units:
     path: "OU=Workstations,DC=frostsec,DC=corp"
   - name: Linux Workstations
     path: "OU=Workstations,DC=frostsec,DC=corp"
+  - name: Servers
+    path: "DC=frostsec,DC=corp"
+  - name: Windows Servers
+    path: "OU=Servers,DC=frostsec,DC=corp"
+  - name: Linux Servers
+    path: "OU=Servers,DC=frostsec,DC=corp"
 
 # Domain Users to create
 domain_users:
