@@ -334,19 +334,20 @@ class CyberLabManager:
         else:
             self.print_status(f"Script {clean_hosts_script} not found. Skipping.", "WARN")
 
-        # Paths relative to base_dir
-        inventory_path = "ansible/inventory/hosts.ini"
-        vault_pass_path = "ansible/.vault_pass"
+        # Paths relative to ansible_dir (we will execute from there)
+        inventory_file = "inventory/hosts.ini"
         
         for playbook_name, description in playbooks:
             print(f"\n{YELLOW}>> Starting: {description}{RESET}")
-            playbook_path = f"ansible/playbooks/{playbook_name}"
+            playbook_path = f"playbooks/{playbook_name}"
             
-            # Construct command running from root
-            cmd = f"ansible-playbook -i {inventory_path} {playbook_path} --vault-password-file {vault_pass_path}"
+            # Construct command
+            # Executing from self.ansible_dir, so ansible.cfg is picked up
+            # ansible.cfg already defines vault_password_file = .vault_pass
+            cmd = f"ansible-playbook -i {inventory_file} {playbook_path}"
             
-            # Running from base_dir (root)
-            if not self.run_command_stream(cmd, self.base_dir, description):
+            # Running from ansible_dir
+            if not self.run_command_stream(cmd, self.ansible_dir, description):
                 self.print_status(f"Configuration failed at step: {description}", "ERROR")
                 print(f"{RED}Stopping execution sequence.{RESET}")
                 input("Press Enter to return to menu...")
