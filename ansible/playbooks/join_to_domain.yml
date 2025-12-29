@@ -20,3 +20,46 @@
     - ../inventory/group_vars/secret_vault.yml
   roles:
     - ../roles/win_join_domain
+
+- name: Ensure AD computer objects are in correct OUs
+  hosts: dc
+  gather_facts: no
+
+  vars:
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+
+  vars_files:
+    - ../inventory/group_vars/dc.yml
+    - ../inventory/group_vars/secret_vault.yml
+
+  tasks:
+    - name: Ensure win-01-ws is in Windows Workstations OU
+      microsoft.ad.computer:
+        name: win-01-ws
+        path: "OU=Windows Workstations,OU=Workstations,DC=frostsec,DC=corp"
+        state: present
+
+    - name: Ensure lin-01-ws is in Linux Workstations OU
+      microsoft.ad.computer:
+        name: lin-01-ws
+        path: "OU=Linux Workstations,OU=Workstations,DC=frostsec,DC=corp"
+        state: present
+
+    - name: Ensure siem-01-srv is in Linux Servers OU
+      microsoft.ad.computer:
+        name: siem-01-srv
+        path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
+        state: present
+
+    - name: Ensure fleet-01-srv is in Linux Servers OU
+      microsoft.ad.computer:
+        name: fleet-01-srv
+        path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
+        state: present
+
+    - name: Ensure xdr-01-srv is in Linux Servers OU
+      microsoft.ad.computer:
+        name: xdr-01-srv
+        path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
+        state: present
