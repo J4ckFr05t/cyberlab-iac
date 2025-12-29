@@ -24,6 +24,7 @@
 - name: Ensure AD computer objects are in correct OUs
   hosts: dc
   gather_facts: no
+  tags: ['ou', 'move_computers']
 
   vars:
     ansible_user: "{{ win_username }}"
