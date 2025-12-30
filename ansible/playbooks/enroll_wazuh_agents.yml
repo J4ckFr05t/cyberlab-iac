@@ -3,6 +3,8 @@
   hosts: localhost
   connection: local
   gather_facts: no
+  tags:
+    - init_groups
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
@@ -101,6 +103,8 @@
   hosts: localhost
   connection: local
   gather_facts: no
+  tags:
+    - assign_groups
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
@@ -138,7 +142,7 @@
     - name: Get Wazuh agent (check case variants)
       ansible.builtin.uri:
         # Check original, upper, and lower case to find existing agent efficiently
-        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name:{{ item.agent_name }},name:{{ item.agent_name | upper }},name:{{ item.agent_name | lower }}"
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name={{ item.agent_name }},name={{ item.agent_name | upper }},name={{ item.agent_name | lower }}"
         method: GET
         headers:
           Authorization: "Bearer {{ wazuh_api_token }}"

@@ -29,7 +29,7 @@
 
 - name: Check if agent already exists (check case variants)
   ansible.builtin.uri:
-    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name:{{ inventory_hostname }},name:{{ inventory_hostname | upper }},name:{{ inventory_hostname | lower }}"
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name={{ inventory_hostname }},name={{ inventory_hostname | upper }},name={{ inventory_hostname | lower }}"
     method: GET
     headers:
       Authorization: "Bearer {{ hostvars[ansible_play_hosts[0]]['wazuh_api_token'] }}"
