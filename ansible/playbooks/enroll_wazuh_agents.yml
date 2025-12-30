@@ -151,22 +151,47 @@
 
       loop: "{{ wazuh_agent_assignments }}"
 
-    - name: Assign Agents to Groups (default + specific)
+    - name: Assign Agents to Default Group
       ansible.builtin.uri:
-        # Assign to 'default' and the specific group using query parameter for multiple groups
-        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group?group_id=default,{{ item.1.group }}"
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}?group_id=default"
+        # Since standard endpoint might be /agents/{id}/group/default, checking doc again.
+        # Actually standard for single group is PUT /agents/{id}/group/{group_id}.
+        # Re-verify URI in my previous search response. Yes: PUT /agents/{agent_id}/group/{group_id}
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/default"
         method: PUT
         headers:
           Authorization: "Bearer {{ wazuh_api_token }}"
         validate_certs: "{{ wazuh_api_validate_certs }}"
         status_code: [200]
       vars:
-        # From the search results (which might contain 1 or 2 matching variants), pick the best one.
-        # Use case-insensitive match against expected name just to be sure, or pick first.
-        my_agent: "{{ item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
+        my_agent: "{{ outer_item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ outer_item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
         my_agent_id: "{{ my_agent.id | default('') }}"
       loop: "{{ agent_search_response.results | zip(wazuh_agent_assignments) | list }}"
-      when: 
-        - my_agent_id != ''
       loop_control:
-        label: "Assigning {{ item.1.agent_name }} (ID: {{ my_agent_id }}) to default,{{ item.1.group }}"
+        loop_var: outer_item
+        label: "Assigning {{ outer_item.1.agent_name }} to default"
+      when: my_agent_id != ''
+      register: assign_default_result
+      failed_when: 
+        - assign_default_result.status != 200
+        - "'already' not in assign_default_result.json.message | default('')"
+      changed_when:
+        - assign_default_result.status == 200
+        - "'already' not in assign_default_result.json.message | default('')"
+
+    - name: Assign Agents to Specific Group
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/{{ outer_item.1.group }}"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ wazuh_api_token }}"
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+        status_code: [200]
+      vars:
+        my_agent: "{{ outer_item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ outer_item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
+        my_agent_id: "{{ my_agent.id | default('') }}"
+      loop: "{{ agent_search_response.results | zip(wazuh_agent_assignments) | list }}"
+      loop_control:
+        loop_var: outer_item
+        label: "Assigning {{ outer_item.1.agent_name }} to {{ outer_item.1.group }}"
+      when: my_agent_id != ''
