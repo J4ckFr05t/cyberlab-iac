@@ -17,14 +17,14 @@
     ansible_connection: local
   become: false
   register: api_token_response
-  no_log: true
+
 
 - name: Set API token fact on first host
   ansible.builtin.set_fact:
     wazuh_api_token: "{{ api_token_response.json.data.token }}"
   run_once: true
   delegate_to: "{{ ansible_play_hosts[0] }}"
-  no_log: true
+
 
 
 - name: Check if agent already exists (check case variants)
@@ -42,7 +42,7 @@
   become: false
   register: existing_agents_response
   failed_when: false
-  no_log: true
+
 
 - name: Check if current agent exists
   ansible.builtin.set_fact:
@@ -80,7 +80,7 @@
   become: false
   register: add_agent_response
   when: not agent_exists | default(false)
-  no_log: true
+
 
 - name: Get agent ID and key from add response
   ansible.builtin.set_fact:
@@ -127,5 +127,5 @@
   vars:
     ansible_connection: local
   become: false
-  no_log: true
+
 
