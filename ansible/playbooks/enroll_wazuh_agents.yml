@@ -153,10 +153,6 @@
 
     - name: Assign Agents to Default Group
       ansible.builtin.uri:
-        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}?group_id=default"
-        # Since standard endpoint might be /agents/{id}/group/default, checking doc again.
-        # Actually standard for single group is PUT /agents/{id}/group/{group_id}.
-        # Re-verify URI in my previous search response. Yes: PUT /agents/{agent_id}/group/{group_id}
         url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/default"
         method: PUT
         headers:
