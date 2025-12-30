@@ -1,11 +1,68 @@
 ---
+- name: Initialize Wazuh Groups
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tags:
+    - init_groups
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  vars:
+    wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+    wazuh_api_port: 55000
+    wazuh_api_proto: "https"
+    wazuh_api_user: "wazuh"
+    wazuh_api_validate_certs: false
+    
+    wazuh_agent_groups:
+      - "windows-server"
+      - "linux-server"
+      - "linux-workstation"
+      - "windows-workstation"
+
+  tasks:
+    - name: Get Wazuh API token
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/security/user/authenticate"
+        method: POST
+        user: "{{ wazuh_api_user }}"
+        password: "{{ wazuh_api_password }}"
+        force_basic_auth: yes
+        status_code: [200]
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+      register: api_token_response
+
+
+    - name: Set API token fact
+      ansible.builtin.set_fact:
+        wazuh_api_token: "{{ api_token_response.json.data.token }}"
+
+
+    - name: Create Wazuh Agent Groups
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups"
+        method: POST
+        headers:
+          Authorization: "Bearer {{ wazuh_api_token }}"
+          Content-Type: "application/json"
+        body_format: json
+        body:
+          group_id: "{{ item }}"
+        status_code: [200, 422] # 422 if already exists
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+      loop: "{{ wazuh_agent_groups }}"
+      register: create_group_response
+      failed_when: 
+        - create_group_response.status != 200
+        # Check if error is "Resource already exists"
+        - "'already exists' not in create_group_response.json.message | default('')"
+        - "'already exist' not in create_group_response.json.detail | default('')"
+
 - name: Install Wazuh Agent on Linux Hosts
   hosts: linux:!xdr-01-srv
   become: yes
   gather_facts: yes
   vars_files:
-    # Attempt to load secrets if available.
-    # User must ensure this file exists and contains 'wazuh_api_password'
     - ../inventory/group_vars/secret_vault.yml
   pre_tasks:
     - name: Verify wazuh_api_password is defined for API enrollment
@@ -29,8 +86,6 @@
     ansible_winrm_transport: ntlm
     ansible_winrm_server_cert_validation: ignore
   vars_files:
-    # Attempt to load secrets if available.
-    # User must ensure this file exists and contains 'wazuh_api_password'
     - ../inventory/group_vars/secret_vault.yml
   pre_tasks:
     - name: Verify wazuh_api_password is defined for API enrollment
@@ -44,10 +99,12 @@
   tags:
     - windows
 
-- name: Manage Wazuh Groups and Assignments
+- name: Assign Wazuh Agents to Groups
   hosts: localhost
   connection: local
   gather_facts: no
+  tags:
+    - assign_groups
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
@@ -56,12 +113,6 @@
     wazuh_api_proto: "https"
     wazuh_api_user: "wazuh"
     wazuh_api_validate_certs: false
-    
-    wazuh_agent_groups:
-      - "windows-server"
-      - "linux-server"
-      - "linux-workstation"
-      - "windows-workstation"
 
     wazuh_agent_assignments:
       - { agent_name: "dc-01-srv", group: "windows-server" }
@@ -81,54 +132,62 @@
         status_code: [200]
         validate_certs: "{{ wazuh_api_validate_certs }}"
       register: api_token_response
-      no_log: true
+
 
     - name: Set API token fact
       ansible.builtin.set_fact:
         wazuh_api_token: "{{ api_token_response.json.data.token }}"
-      no_log: true
 
-    - name: Create Wazuh Agent Groups
-      ansible.builtin.uri:
-        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups"
-        method: POST
-        headers:
-          Authorization: "Bearer {{ wazuh_api_token }}"
-          Content-Type: "application/json"
-        body_format: json
-        body:
-          group_id: "{{ item }}"
-        status_code: [200, 422] # 422 if already exists (Wazuh 4.x behavior varies, sometimes 400 or 422)
-        validate_certs: "{{ wazuh_api_validate_certs }}"
-      loop: "{{ wazuh_agent_groups }}"
-      register: create_group_response
-      failed_when: 
-        - create_group_response.status != 200
-        # Check if error is "Resource already exists" (code 17004 or similar, checking message text)
-        - "'already exists' not in create_group_response.json.message | default('')"
-        - "'already exist' not in create_group_response.json.detail | default('')"
 
-    - name: Get ID for each agent
+    - name: Get Wazuh agent (check case variants)
       ansible.builtin.uri:
-        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?name={{ item.agent_name }}"
+        # Check original, upper, and lower case to find existing agent efficiently
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name={{ item.agent_name }},name={{ item.agent_name | upper }},name={{ item.agent_name | lower }}"
         method: GET
         headers:
           Authorization: "Bearer {{ wazuh_api_token }}"
         validate_certs: "{{ wazuh_api_validate_certs }}"
-      loop: "{{ wazuh_agent_assignments }}"
-      register: agent_ids_response
-      no_log: true
+      register: agent_search_response
 
-    - name: Assign Agents to Groups
+      loop: "{{ wazuh_agent_assignments }}"
+
+    - name: Assign Agents to Default Group
       ansible.builtin.uri:
-        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ item.0.json.data.affected_items[0].id }}/group/{{ item.1.group }}"
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/default"
         method: PUT
         headers:
           Authorization: "Bearer {{ wazuh_api_token }}"
         validate_certs: "{{ wazuh_api_validate_certs }}"
         status_code: [200]
-      loop: "{{ agent_ids_response.results | zip(wazuh_agent_assignments) | list }}"
-      when: 
-        - item.0.json.data.affected_items | length > 0
+      vars:
+        my_agent: "{{ outer_item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ outer_item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
+        my_agent_id: "{{ my_agent.id | default('') }}"
+      loop: "{{ agent_search_response.results | zip(wazuh_agent_assignments) | list }}"
       loop_control:
-        label: "Assigning {{ item.1.agent_name }} to {{ item.1.group }}"
+        loop_var: outer_item
+        label: "Assigning {{ outer_item.1.agent_name }} to default"
+      when: my_agent_id != ''
+      register: assign_default_result
+      failed_when: 
+        - assign_default_result.status != 200
+        - "'already' not in assign_default_result.json.message | default('')"
+      changed_when:
+        - assign_default_result.status == 200
+        - "'already' not in assign_default_result.json.message | default('')"
+
+    - name: Assign Agents to Specific Group
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/{{ outer_item.1.group }}"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ wazuh_api_token }}"
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+        status_code: [200]
+      vars:
+        my_agent: "{{ outer_item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ outer_item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
+        my_agent_id: "{{ my_agent.id | default('') }}"
+      loop: "{{ agent_search_response.results | zip(wazuh_agent_assignments) | list }}"
+      loop_control:
+        loop_var: outer_item
+        label: "Assigning {{ outer_item.1.agent_name }} to {{ outer_item.1.group }}"
+      when: my_agent_id != ''

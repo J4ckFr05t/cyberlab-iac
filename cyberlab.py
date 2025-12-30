@@ -18,6 +18,17 @@ class CyberLabManager:
         self.base_dir = os.path.dirname(os.path.abspath(__file__))
         self.terraform_dir = os.path.join(self.base_dir, 'terraform')
         self.ansible_dir = os.path.join(self.base_dir, 'ansible')
+        
+        # Define playbooks centrally
+        self.playbooks = [
+            ("check_connectivity.yml", "Check Connectivity"),
+            ("dc_setup.yml", "Domain Controller Setup"),
+            ("join_to_domain.yml", "Join to Domain"),
+            ("siem_stack.yml", "SIEM Stack (ELK & Fleet)"),
+            ("enroll_elastic_agents.yml", "Enroll Elastic Agents"),
+            ("setup_wazuh.yml", "Wazuh Manager Setup"),
+            ("enroll_wazuh_agents.yml", "Enroll Wazuh Agents")
+        ]
 
     def print_status(self, message, status="INFO"):
         if status == "SUCCESS":
@@ -682,62 +693,92 @@ wazuh_admin_password: {wazuh_admin_password}
         
         input("\nPress Enter to return to menu...")
 
+    def run_ansible_playbook(self, playbook_name, description, inventory_file="inventory/hosts.ini"):
+        """Helper to run a single playbook."""
+        print(f"\n{YELLOW}>> Starting: {description}{RESET}")
+        playbook_path = f"playbooks/{playbook_name}"
+        
+        # Construct command
+        cmd = f"ansible-playbook -i {inventory_file} {playbook_path}"
+        
+        if self.run_command_stream(cmd, self.ansible_dir, description):
+            self.print_status(f"Finished: {description}", "SUCCESS")
+            return True
+        else:
+            self.print_status(f"Failed: {description}", "ERROR")
+            return False
+
     def configure_vms(self):
         print(f"\n{CYAN}=== Configure Software (Ansible) ==={RESET}")
         
-        playbooks = [
-            ("check_connectivity.yml", "Check Connectivity"),
-            ("dc_setup.yml", "Domain Controller Setup"),
-            ("join_to_domain.yml", "Join to Domain"),
-            ("siem_stack.yml", "SIEM Stack (ELK & Fleet)"),
-            ("enroll_elastic_agents.yml", "Enroll Elastic Agents"),
-            ("setup_wazuh.yml", "Wazuh Manager Setup"),
-            ("enroll_wazuh_agents.yml", "Enroll Wazuh Agents")
-        ]
-
-        print(f"\n{YELLOW}The following playbooks will be executed in order:{RESET}")
-        for i, (_, desc) in enumerate(playbooks, 1):
-            print(f"{i}. {desc}")
-        
-        choice = input(f"\nProceed with configuration? (y/n): ").lower()
-        if choice != 'y':
-            self.print_status("Configuration cancelled.", "WARN")
-            return
-
-        # Run clean_known_hosts.sh
+        # Run clean_known_hosts.sh once upon entry
         clean_hosts_script = "scripts/clean_known_hosts.sh"
         if os.path.exists(os.path.join(self.base_dir, clean_hosts_script)):
             self.print_status("Cleaning known_hosts...", "INFO")
-            # Ensure execute permission
             os.chmod(os.path.join(self.base_dir, clean_hosts_script), 0o755)
             if not self.run_command_stream(f"./{clean_hosts_script}", self.base_dir, "Clean Known Hosts"):
                 self.print_status("Failed to clean known_hosts. Continuing...", "WARN")
         else:
             self.print_status(f"Script {clean_hosts_script} not found. Skipping.", "WARN")
 
-        # Paths relative to ansible_dir (we will execute from there)
-        inventory_file = "inventory/hosts.ini"
-        
-        for playbook_name, description in playbooks:
-            print(f"\n{YELLOW}>> Starting: {description}{RESET}")
-            playbook_path = f"playbooks/{playbook_name}"
+        while True:
+            print(f"\n{CYAN}--- Ansible Configuration Menu ---{RESET}")
+            print("1. Run All Playbooks (Sequential)")
+            print("2. Run Specific Playbook")
+            print("3. Step-by-Step Execution (Interactive)")
+            print("4. Return to Main Menu")
             
-            # Construct command
-            # Executing from self.ansible_dir, so ansible.cfg is picked up
-            # ansible.cfg already defines vault_password_file = .vault_pass
-            cmd = f"ansible-playbook -i {inventory_file} {playbook_path}"
+            choice = input(f"\n{YELLOW}Select an option (1-4): {RESET}")
             
-            # Running from ansible_dir
-            if not self.run_command_stream(cmd, self.ansible_dir, description):
-                self.print_status(f"Configuration failed at step: {description}", "ERROR")
-                print(f"{RED}Stopping execution sequence.{RESET}")
-                input("Press Enter to return to menu...")
-                return
-            
-            self.print_status(f"Finished: {description}", "SUCCESS")
+            if choice == '1':
+                # Run All
+                print(f"\n{YELLOW}Running ALL playbooks sequentially...{RESET}")
+                for playbook_name, description in self.playbooks:
+                    if not self.run_ansible_playbook(playbook_name, description):
+                        print(f"{RED}Stopping execution sequence due to failure.{RESET}")
+                        break
+                input("Press Enter to continue...")
 
-        print(f"\n{GREEN}All configuration steps completed successfully!{RESET}")
-        input("Press Enter to return to menu...")
+            elif choice == '2':
+                # Run Specific
+                print(f"\n{CYAN}--- Available Playbooks ---{RESET}")
+                for i, (_, desc) in enumerate(self.playbooks, 1):
+                    print(f"{i}. {desc}")
+                print(f"{len(self.playbooks) + 1}. Cancel")
+                
+                try:
+                    pb_choice = int(input(f"\n{YELLOW}Select playbook to run (1-{len(self.playbooks) + 1}): {RESET}"))
+                    if 1 <= pb_choice <= len(self.playbooks):
+                        pb_name, pb_desc = self.playbooks[pb_choice - 1]
+                        self.run_ansible_playbook(pb_name, pb_desc)
+                        input("Press Enter to continue...")
+                    elif pb_choice == len(self.playbooks) + 1:
+                        continue
+                    else:
+                        print("Invalid selection.")
+                except ValueError:
+                    print("Invalid input.")
+
+            elif choice == '3':
+                # Step-by-Step
+                print(f"\n{YELLOW}Starting Step-by-Step Execution...{RESET}")
+                for playbook_name, description in self.playbooks:
+                    action = input(f"\nRun '{description}'? (y/n/q): ").lower().strip()
+                    if action == 'q':
+                        print("Quitting step-by-step execution.")
+                        break
+                    elif action == 'y':
+                        if not self.run_ansible_playbook(playbook_name, description):
+                             if input(f"{RED}Playbook failed. Continue anyway? (y/n): {RESET}").lower() != 'y':
+                                 break
+                    else:
+                        print(f"Skipping {description}...")
+                input("Press Enter to continue...")
+
+            elif choice == '4':
+                return
+            else:
+                print("Invalid option.")
 
     def menu(self):
         while True:

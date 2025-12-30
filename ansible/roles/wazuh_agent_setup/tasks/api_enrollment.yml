@@ -17,19 +17,19 @@
     ansible_connection: local
   become: false
   register: api_token_response
-  no_log: true
+
 
 - name: Set API token fact on first host
   ansible.builtin.set_fact:
     wazuh_api_token: "{{ api_token_response.json.data.token }}"
   run_once: true
   delegate_to: "{{ ansible_play_hosts[0] }}"
-  no_log: true
 
 
-- name: Check if agent already exists
+
+- name: Check if agent already exists (check case variants)
   ansible.builtin.uri:
-    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents"
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name={{ inventory_hostname }},name={{ inventory_hostname | upper }},name={{ inventory_hostname | lower }}"
     method: GET
     headers:
       Authorization: "Bearer {{ hostvars[ansible_play_hosts[0]]['wazuh_api_token'] }}"
@@ -42,11 +42,11 @@
   become: false
   register: existing_agents_response
   failed_when: false
-  no_log: true
+
 
 - name: Check if current agent exists
   ansible.builtin.set_fact:
-    agent_exists: "{{ existing_agents_response.json.data.affected_items | selectattr('name', 'equalto', inventory_hostname) | list | length > 0 }}"
+    agent_exists: "{{ existing_agents_response.json.data.affected_items | length > 0 }}"
   when: existing_agents_response.json.data.affected_items is defined
   delegate_to: localhost
   vars:
@@ -80,7 +80,7 @@
   become: false
   register: add_agent_response
   when: not agent_exists | default(false)
-  no_log: true
+
 
 - name: Get agent ID and key from add response
   ansible.builtin.set_fact:
@@ -96,7 +96,7 @@
 
 - name: Get agent ID from existing agents
   ansible.builtin.set_fact:
-    agent_id: "{{ existing_agents_response.json.data.affected_items | selectattr('name', 'equalto', inventory_hostname) | map(attribute='id') | first }}"
+    agent_id: "{{ existing_agents_response.json.data.affected_items | selectattr('name', 'search', '^' ~ inventory_hostname ~ '$', ignorecase=True) | map(attribute='id') | first | default(existing_agents_response.json.data.affected_items[0].id) }}"
   when: agent_exists | default(false)
   delegate_to: localhost
   vars:
@@ -127,5 +127,5 @@
   vars:
     ansible_connection: local
   become: false
-  no_log: true
+
 
