@@ -20,6 +20,14 @@
     state: present
     update_cache: yes
 
+- name: Create Wazuh authd password file
+  ansible.builtin.copy:
+    content: "{{ wazuh_api_password }}"
+    dest: /var/ossec/etc/authd.pass
+    owner: root
+    group: wazuh
+    mode: '0640'
+
 - name: Configure Wazuh agent - Set manager address
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
@@ -43,16 +51,39 @@
     backup: yes
   when: wazuh_manager_protocol is defined
 
-- name: Import client key from API enrollment
-  ansible.builtin.copy:
-    content: "{{ wazuh_client_key | b64decode }}"
-    dest: /var/ossec/etc/client.keys
-    mode: '0640'
-    owner: root
-    group: wazuh
-  when: 
-    - wazuh_api_password is defined
-    - wazuh_client_key is defined
+- name: Configure Wazuh agent - Enable enrollment
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '(<enrollment>\s*\n\s*)<enabled>no</enabled>'
+    replace: '\1<enabled>yes</enabled>'
+    backup: yes
+
+- name: Configure Wazuh agent - Set enrollment groups
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '(\s*)<groups>.*</groups>'
+    replace: '\1<groups>{{ wazuh_target_groups }}</groups>'
+  when: wazuh_target_groups is defined
+
+- name: Configure Wazuh agent - Add enrollment groups if missing
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '(</enrollment>)'
+    replace: '    <groups>{{ wazuh_target_groups }}</groups>\n  \1'
+  when: wazuh_target_groups is defined and lookup("file", "/var/ossec/etc/ossec.conf") is not search("<groups>")
+
+- name: Configure Wazuh agent - Set enrollment password path
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '(\s*)<authorization_pass_path>.*</authorization_pass_path>'
+    replace: '\1<authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>'
+
+- name: Configure Wazuh agent - Add enrollment password path if missing
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '(</enrollment>)'
+    replace: '    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>\n  \1'
+  when: lookup("file", "/var/ossec/etc/ossec.conf") is not search("authorization_pass_path")
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:

@@ -21,82 +21,52 @@
     name: WazuhSvc
     state: stopped
 
-- name: Configure Wazuh agent (Reset and Set)
+- name: Create Wazuh authd password file
+  win_copy:
+    content: "{{ wazuh_api_password }}"
+    dest: "C:\\Program Files (x86)\\ossec-agent\\authd.pass"
+
+
+- name: Configure Wazuh agent (Server & Enrollment)
   win_shell: |
     $path = "C:\Program Files (x86)\ossec-agent\ossec.conf"
-    
-    # Read file using .NET to avoid encoding issues
-    if (Test-Path $path) {
-        try {
-            $lines = [System.IO.File]::ReadAllLines($path, [System.Text.Encoding]::ASCII)
-        } catch {
-            $lines = $null
-        }
-    } else {
-        $lines = $null
-    }
-
-    # Fallback for corrupt/empty file
-    if ($null -eq $lines -or $lines.Count -eq 0) {
-        Write-Warning "ossec.conf is empty or corrupt. Regenerating minimal config."
-        $lines = @(
-            "<ossec_config>",
-            "  <client>",
-            "    <server>",
-            "      <address>PENDING</address>",
-            "      <port>1514</port>",
-            "      <protocol>tcp</protocol>",
-            "    </server>",
-            "  </client>",
-            "</ossec_config>"
-        )
-    }
-
-    # Filter out existing address, port, protocol lines
-    $cleanLines = $lines | Where-Object { $_ -notmatch '^\s*<(address|port|protocol)>' }
-    
-    # Find the <server> block start
-    $serverIdx = -1
-    for ($i=0; $i -lt $cleanLines.Count; $i++) {
-        if ($cleanLines[$i] -match '^\s*<server>\s*$') {
-            $serverIdx = $i
-            break
-        }
-    }
-    
-    # Insert new configuration inside <server> block
-    if ($serverIdx -ge 0) {
-        $newConfig = @(
-            "      <address>{{ wazuh_manager_address }}</address>",
-            "      <port>{{ wazuh_manager_port }}</port>",
-            "      <protocol>{{ wazuh_manager_protocol }}</protocol>"
-        )
-        # Reconstruct list
-        $finalContent = [System.Collections.Generic.List[string]]::new()
-        for ($i=0; $i -le $serverIdx; $i++) { $finalContent.Add($cleanLines[$i]) }
-        foreach ($line in $newConfig) { $finalContent.Add($line) }
-        for ($i=$serverIdx+1; $i -lt $cleanLines.Count; $i++) { $finalContent.Add($cleanLines[$i]) }
-        
-        # Write back using .NET to ensure ASCII and no BOM issues
-        [System.IO.File]::WriteAllLines($path, $finalContent, [System.Text.Encoding]::ASCII)
-    } else {
-        # Valid XML but no server block? Append valid one (simplified)
-        Write-Error "Could not find <server> block in ossec.conf"
+    if (-not (Test-Path $path)) {
+        Write-Error "ossec.conf not found at $path"
         exit 1
     }
 
-- name: Import client key via manage_agents
-  win_shell: |
-    echo y | & "C:\Program Files (x86)\ossec-agent\manage_agents.exe" -i "{{ wazuh_client_key }}"
-  args:
-    executable: powershell
-  register: import_key_result
-  failed_when: 
-    - import_key_result.rc != 0
-    - '"Duplicate agent" not in import_key_result.stdout'
-  when: 
-    - wazuh_api_password is defined
-    - wazuh_client_key is defined
+    [xml]$xml = Get-Content $path
+    $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+
+    # Helper function to ensure node exists
+    function Ensure-Node ($parent, $nodeName) {
+        $node = $parent.SelectSingleNode($nodeName)
+        if ($null -eq $node) {
+            $node = $xml.CreateElement($nodeName)
+            $parent.AppendChild($node) | Out-Null
+        }
+        return $node
+    }
+
+    # Ensure Structure
+    $client = Ensure-Node $xml.ossec_config "client"
+    
+    # --- Server Configuration ---
+    $server = Ensure-Node $client "server"
+    (Ensure-Node $server "address").InnerText = "{{ wazuh_manager_address }}"
+    (Ensure-Node $server "port").InnerText = "{{ wazuh_manager_port | default('1514') }}"
+    (Ensure-Node $server "protocol").InnerText = "{{ wazuh_manager_protocol | default('tcp') }}"
+
+    # --- Enrollment Configuration ---
+    $enrollment = Ensure-Node $client "enrollment"
+    (Ensure-Node $enrollment "enabled").InnerText = "yes"
+    (Ensure-Node $enrollment "groups").InnerText = "{{ wazuh_target_groups }}"
+    (Ensure-Node $enrollment "authorization_pass_path").InnerText = "C:\Program Files (x86)\ossec-agent\authd.pass"
+    (Ensure-Node $enrollment "manager_address").InnerText = "{{ wazuh_manager_address }}"
+
+    # Save
+    $xml.Save($path)
+
 
 - name: Restart Wazuh agent service
   win_service:
