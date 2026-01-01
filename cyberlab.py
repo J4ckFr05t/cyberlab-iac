@@ -733,7 +733,29 @@ wazuh_admin_password: {wazuh_admin_password}
             if choice == '1':
                 # Run All
                 print(f"\n{YELLOW}Running ALL playbooks sequentially...{RESET}")
-                for playbook_name, description in self.playbooks:
+                
+                # Ask for exclusions
+                excluded_indices = set()
+                if input(f"Do you want to exclude any playbooks? (y/n): ").lower().strip() == 'y':
+                    print(f"\n{CYAN}--- Available Playbooks ---{RESET}")
+                    for i, (_, desc) in enumerate(self.playbooks, 1):
+                        print(f"{i}. {desc}")
+                    
+                    try:
+                        exclusion_input = input(f"\n{YELLOW}Enter numbers to exclude (comma-separated, e.g. 1,3): {RESET}")
+                        parts = [p.strip() for p in exclusion_input.split(',') if p.strip()]
+                        for p in parts:
+                            idx = int(p)
+                            if 1 <= idx <= len(self.playbooks):
+                                excluded_indices.add(idx - 1)
+                    except ValueError:
+                        print(f"{RED}Invalid input. Proceeding without exclusions.{RESET}")
+
+                for i, (playbook_name, description) in enumerate(self.playbooks):
+                    if i in excluded_indices:
+                        print(f"{CYAN}Skipping: {description} (Excluded by user){RESET}")
+                        continue
+                        
                     if not self.run_ansible_playbook(playbook_name, description):
                         print(f"{RED}Stopping execution sequence due to failure.{RESET}")
                         break
