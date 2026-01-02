@@ -10,7 +10,7 @@
     - wazuh_agent_setup
 
 - name: Enroll Wazuh Agents (Windows)
-  hosts: windows
+  hosts: windows:dc
   gather_facts: yes
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
