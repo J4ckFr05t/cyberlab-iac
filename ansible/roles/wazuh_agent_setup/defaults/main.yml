@@ -5,7 +5,7 @@ wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
 wazuh_manager_port: 1514
 wazuh_manager_protocol: tcp
 wazuh_api_port: 55000
-wazuh_api_proto: "https"  # No HTTPS available
+wazuh_api_proto: "https"
 wazuh_api_user: "wazuh"
 # wazuh_api_password should be provided via vault file (secret_vault.yml)
 wazuh_api_validate_certs: false # Set to false if using self-signed certs
@@ -16,5 +16,10 @@ wazuh_retry_interval: 5
 wazuh_version: "4.14.1"
 
 # Package URLs
+# These use the wazuh_version variable for easier updates
 wazuh_agent_linux_deb_url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_{{ wazuh_version }}-1_amd64.deb"
 wazuh_agent_windows_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_version }}-1.msi"
+
+# Temporary download paths
+wazuh_agent_linux_dest: "/tmp/wazuh-agent_{{ wazuh_version }}-1_amd64.deb"
+wazuh_agent_windows_dest: "%TEMP%\\wazuh-agent.msi"

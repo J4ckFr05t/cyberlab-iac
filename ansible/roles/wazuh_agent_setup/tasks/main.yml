@@ -1,12 +1,8 @@
 ---
-- name: Generate client keys via Wazuh API
-  include_tasks: api_enrollment.yml
-  when: wazuh_api_password is defined
+- name: Include Linux tasks
+  include_tasks: linux.yml
+  when: ansible_os_family == "Debian" or ansible_os_family == "RedHat"
 
-- name: Install Wazuh Agent on Linux
-  include_tasks: linux_install.yml
-  when: ansible_system == 'Linux'
-
-- name: Install Wazuh Agent on Windows
-  include_tasks: windows_install.yml
-  when: ansible_os_family == 'Windows'
+- name: Include Windows tasks
+  include_tasks: windows.yml
+  when: ansible_os_family == "Windows"

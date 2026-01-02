@@ -1,0 +1,23 @@
+---
+- name: Download Wazuh Agent package (Linux)
+  ansible.builtin.get_url:
+    url: "{{ wazuh_agent_linux_deb_url }}"
+    dest: "{{ wazuh_agent_linux_dest }}"
+    mode: '0644'
+
+- name: Install Wazuh Agent with Group Assignment (Linux)
+  ansible.builtin.shell: |
+    WAZUH_MANAGER='{{ wazuh_manager_address }}' WAZUH_AGENT_GROUP='{{ wazuh_groups }}' dpkg -i {{ wazuh_agent_linux_dest }}
+  environment:
+    WAZUH_MANAGER: "{{ wazuh_manager_address }}"
+    WAZUH_AGENT_GROUP: "{{ wazuh_groups }}"
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd:
+    daemon_reload: yes
+
+- name: Enable and Start Wazuh Agent
+  ansible.builtin.systemd:
+    name: wazuh-agent
+    enabled: yes
+    state: started

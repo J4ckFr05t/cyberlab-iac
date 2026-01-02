@@ -1,0 +1,15 @@
+---
+- name: Download Wazuh Agent MSI (Windows)
+  ansible.windows.win_get_url:
+    url: "{{ wazuh_agent_windows_url }}"
+    dest: "{{ wazuh_agent_windows_dest }}"
+
+- name: Install Wazuh Agent with Group Assignment (Windows)
+  ansible.windows.win_command: >
+    msiexec.exe /i {{ wazuh_agent_windows_dest }} /q WAZUH_MANAGER='{{ wazuh_manager_address }}' WAZUH_AGENT_GROUP='{{ wazuh_groups }}'
+
+- name: Ensure Wazuh Service is Started (Windows)
+  ansible.windows.win_service:
+    name: Wazuh
+    state: started
+    start_mode: auto
