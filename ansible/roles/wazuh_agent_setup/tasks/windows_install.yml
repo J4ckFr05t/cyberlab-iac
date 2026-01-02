@@ -28,7 +28,14 @@
         exit 1
     }
 
-    [xml]$xml = Get-Content $path
+    $xml = New-Object System.Xml.XmlDocument
+    try {
+        $xml.Load($path)
+    } catch {
+        Write-Error "Failed to load XML: $_"
+        exit 1
+    }
+
     $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
 
     # Helper function to ensure node exists
@@ -52,6 +59,12 @@
 
     # Save
     $xml.Save($path)
+    
+    # Verify not empty
+    if ((Get-Item $path).Length -eq 0) {
+        Write-Error "ossec.conf is empty after save!"
+        exit 1
+    }
 
 
 - name: Import client key via manage_agents
