@@ -88,7 +88,7 @@
     path: /var/ossec/etc/ossec.conf
     regexp: '(</enrollment>)'
     replace: '    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>\n  \1'
-  when: "authorization_pass_path" not in (ossec_conf_b64['content'] | b64decode)
+  when: '"authorization_pass_path" not in (ossec_conf_b64["content"] | b64decode)'
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:
