@@ -60,7 +60,9 @@
 - name: Restart Wazuh agent service
   ansible.builtin.systemd:
     name: wazuh-agent
-    state: restarted- name: Display agent status
+    state: restarted
+
+- name: Display agent status
   ansible.builtin.debug:
     msg: "Wazuh agent installed and started on {{ inventory_hostname }}"
 
