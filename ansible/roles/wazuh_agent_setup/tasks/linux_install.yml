@@ -57,8 +57,10 @@
     - '"Duplicate agent" not in import_key_result.stdout'
   when: wazuh_client_key is defined
 
-
-- name: Display agent status
+- name: Restart Wazuh agent service
+  ansible.builtin.systemd:
+    name: wazuh-agent
+    state: restarted- name: Display agent status
   ansible.builtin.debug:
     msg: "Wazuh agent installed and started on {{ inventory_hostname }}"
 
