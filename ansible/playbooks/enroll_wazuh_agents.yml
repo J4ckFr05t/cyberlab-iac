@@ -1,33 +1,22 @@
 ---
-- name: Enroll Wazuh Agents
-  hosts: all:!XDR-01-SRV
+- name: Enroll Wazuh Agents (Linux)
+  hosts: linux:!XDR-01-SRV
   gather_facts: yes
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
     wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
-    
-    # Define agent assignments as requested
-    wazuh_agent_assignments:
-      - { agent_name: "DC-01-SRV", group: ["windows", "windows-servers"] }
-      - { agent_name: "FLEET-01-SRV", group: ["linux", "linux-servers"] }
-      - { agent_name: "LIN-01-WS", group: ["linux", "linux-workstations"] }
-      - { agent_name: "SIEM-01-SRV", group: ["linux", "linux-servers"] }
-      - { agent_name: "WIN-01-WS", group: ["windows", "windows-workstations"] }
+  roles:
+    - wazuh_agent_setup
 
-  tasks:
-    - name: Determine Wazuh Groups for Host
-      set_fact:
-        # Match inventory_hostname (converted to upper) with agent_name in list
-        # Join the groups list with comma and prepend 'default' as per user pattern
-        wazuh_groups: "default,{{ (wazuh_agent_assignments | selectattr('agent_name', 'equalto', inventory_hostname | upper) | map(attribute='group') | first | join(',')) }}"
-      when: (wazuh_agent_assignments | selectattr('agent_name', 'equalto', inventory_hostname | upper) | list | length) > 0
-
-    - name: Debug Group Assignment
-      debug:
-        msg: "Host {{ inventory_hostname }} to be assigned to Wazuh groups: {{ wazuh_groups | default('None (Skipping)') }}"
-
-    - name: Apply Wazuh Agent Role
-      include_role:
-        name: wazuh_agent_setup
-      when: wazuh_groups is defined
+- name: Enroll Wazuh Agents (Windows)
+  hosts: windows
+  gather_facts: yes
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  vars:
+    wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+  roles:
+    - wazuh_agent_setup

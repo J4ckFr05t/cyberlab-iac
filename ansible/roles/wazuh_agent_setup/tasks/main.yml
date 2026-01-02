@@ -1,8 +1,23 @@
 ---
+- name: Determine Wazuh Groups for Host
+  set_fact:
+    # Match inventory_hostname (converted to upper) with agent_name in list
+    # Join the groups list with comma and prepend 'default' as per user pattern
+    wazuh_groups: "default,{{ (wazuh_agent_assignments | selectattr('agent_name', 'equalto', inventory_hostname | upper) | map(attribute='group') | first | join(',')) }}"
+  when: (wazuh_agent_assignments | selectattr('agent_name', 'equalto', inventory_hostname | upper) | list | length) > 0
+
+- name: Debug Group Assignment
+  debug:
+    msg: "Host {{ inventory_hostname }} to be assigned to Wazuh groups: {{ wazuh_groups | default('None (Skipping)') }}"
+
 - name: Include Linux tasks
   include_tasks: linux.yml
-  when: ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+  when: 
+    - ansible_os_family == "Debian" or ansible_os_family == "RedHat"
+    - wazuh_groups is defined
 
 - name: Include Windows tasks
   include_tasks: windows.yml
-  when: ansible_os_family == "Windows"
+  when: 
+    - ansible_os_family == "Windows"
+    - wazuh_groups is defined
