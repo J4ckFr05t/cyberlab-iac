@@ -1,0 +1,34 @@
+---
+- name: Get Wazuh API token
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/security/user/authenticate"
+    method: POST
+    user: "{{ wazuh_api_user }}"
+    password: "{{ wazuh_api_password }}"
+    force_basic_auth: yes
+    status_code: [200]
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  register: api_token_response
+  delegate_to: localhost
+  run_once: true
+
+- name: Create Wazuh Agent Groups
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ api_token_response.json.data.token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      group_id: "{{ item }}"
+    status_code: [200, 422] # 422 where group already exists
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  loop: "{{ wazuh_groups_to_create }}"
+  register: create_group_response
+  failed_when: 
+    - create_group_response.status != 200
+    - "'already exists' not in create_group_response.json.message | default('')"
+    - "'already exist' not in create_group_response.json.detail | default('')"
+  delegate_to: localhost
+  run_once: true
