@@ -127,5 +127,3 @@
   vars:
     ansible_connection: local
   become: false
-
-

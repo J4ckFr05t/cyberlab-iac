@@ -8,7 +8,7 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
-    wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
+    wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
     wazuh_api_port: 55000
     wazuh_api_proto: "https"
     wazuh_api_user: "wazuh"
@@ -59,28 +59,18 @@
         - "'already exist' not in create_group_response.json.detail | default('')"
 
 - name: Install Wazuh Agent on Linux Hosts
-  hosts: linux:!XDR-01-SRV
+  hosts: linux:!xdr-01-srv
   become: yes
   gather_facts: yes
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   pre_tasks:
-    - name: Verify wazuh_api_password is defined for enrollment
+    - name: Verify wazuh_api_password is defined for API enrollment
       ansible.builtin.assert:
         that: wazuh_api_password is defined
-        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in secret_vault.yml."
+        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in secret_vault.yml for API-based enrollment."
         quiet: true
       when: wazuh_api_password is not defined
-
-    - name: Set target groups for Linux Servers
-      ansible.builtin.set_fact:
-        wazuh_target_groups: "default,linux-server"
-      when: "'linux-server' in group_names or inventory_hostname in ['FLEET-01-SRV', 'SIEM-01-SRV']"
-
-    - name: Set target groups for Linux Workstations
-      ansible.builtin.set_fact:
-        wazuh_target_groups: "default,linux-workstation"
-      when: "'linux-workstation' in group_names or inventory_hostname in ['LIN-01-WS']"
   roles:
     - wazuh_agent_setup
   tags:
@@ -98,23 +88,106 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   pre_tasks:
-    - name: Verify wazuh_api_password is defined for enrollment
+    - name: Verify wazuh_api_password is defined for API enrollment
       ansible.builtin.assert:
         that: wazuh_api_password is defined
-        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in secret_vault.yml."
+        fail_msg: "The variable 'wazuh_api_password' is not defined. Please ensure it is defined in secret_vault.yml for API-based enrollment."
         quiet: true
       when: wazuh_api_password is not defined
-
-    - name: Set target groups for Windows Servers
-      ansible.builtin.set_fact:
-        wazuh_target_groups: "default,windows-server"
-      when: "'windows-server' in group_names or inventory_hostname in ['DC-01-SRV']"
-
-    - name: Set target groups for Windows Workstations
-      ansible.builtin.set_fact:
-        wazuh_target_groups: "default,windows-workstation"
-      when: "'windows-workstation' in group_names or inventory_hostname in ['WIN-01-WS']"
   roles:
     - wazuh_agent_setup
   tags:
     - windows
+
+- name: Assign Wazuh Agents to Groups
+  hosts: localhost
+  connection: local
+  gather_facts: no
+  tags:
+    - assign_groups
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  vars:
+    wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+    wazuh_api_port: 55000
+    wazuh_api_proto: "https"
+    wazuh_api_user: "wazuh"
+    wazuh_api_validate_certs: false
+
+    wazuh_agent_assignments:
+      - { agent_name: "dc-01-srv", group: "windows-server" }
+      - { agent_name: "fleet-01-srv", group: "linux-server" }
+      - { agent_name: "lin-01-ws", group: "linux-workstation" }
+      - { agent_name: "siem-01-srv", group: "linux-server" }
+      - { agent_name: "win-01-ws", group: "windows-workstation" }
+
+  tasks:
+    - name: Get Wazuh API token
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/security/user/authenticate"
+        method: POST
+        user: "{{ wazuh_api_user }}"
+        password: "{{ wazuh_api_password }}"
+        force_basic_auth: yes
+        status_code: [200]
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+      register: api_token_response
+
+
+    - name: Set API token fact
+      ansible.builtin.set_fact:
+        wazuh_api_token: "{{ api_token_response.json.data.token }}"
+
+
+    - name: Get Wazuh agent (check case variants)
+      ansible.builtin.uri:
+        # Check original, upper, and lower case to find existing agent efficiently
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents?q=name={{ item.agent_name }},name={{ item.agent_name | upper }},name={{ item.agent_name | lower }}"
+        method: GET
+        headers:
+          Authorization: "Bearer {{ wazuh_api_token }}"
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+      register: agent_search_response
+
+      loop: "{{ wazuh_agent_assignments }}"
+
+    - name: Assign Agents to Default Group
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/default"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ wazuh_api_token }}"
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+        status_code: [200]
+      vars:
+        my_agent: "{{ outer_item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ outer_item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
+        my_agent_id: "{{ my_agent.id | default('') }}"
+      loop: "{{ agent_search_response.results | zip(wazuh_agent_assignments) | list }}"
+      loop_control:
+        loop_var: outer_item
+        label: "Assigning {{ outer_item.1.agent_name }} to default"
+      when: my_agent_id != ''
+      register: assign_default_result
+      failed_when: 
+        - assign_default_result.status != 200
+        - "'already' not in assign_default_result.json.message | default('')"
+      changed_when:
+        - assign_default_result.status == 200
+        - "'already' not in assign_default_result.json.message | default('')"
+
+    - name: Assign Agents to Specific Group
+      ansible.builtin.uri:
+        url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/agents/{{ my_agent_id }}/group/{{ outer_item.1.group }}"
+        method: PUT
+        headers:
+          Authorization: "Bearer {{ wazuh_api_token }}"
+        validate_certs: "{{ wazuh_api_validate_certs }}"
+        status_code: [200]
+      vars:
+        my_agent: "{{ outer_item.0.json.data.affected_items | selectattr('name', 'search', '^' ~ outer_item.1.agent_name ~ '$', ignorecase=True) | first | default({}) }}"
+        my_agent_id: "{{ my_agent.id | default('') }}"
+      loop: "{{ agent_search_response.results | zip(wazuh_agent_assignments) | list }}"
+      loop_control:
+        loop_var: outer_item
+        label: "Assigning {{ outer_item.1.agent_name }} to {{ outer_item.1.group }}"
+      when: my_agent_id != ''

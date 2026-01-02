@@ -18,4 +18,3 @@ wazuh_version: "4.14.1"
 # Package URLs
 wazuh_agent_linux_deb_url: "https://packages.wazuh.com/4.x/apt/pool/main/w/wazuh-agent/wazuh-agent_{{ wazuh_version }}-1_amd64.deb"
 wazuh_agent_windows_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ wazuh_version }}-1.msi"
-

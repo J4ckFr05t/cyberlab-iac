@@ -20,8 +20,6 @@
     state: present
     update_cache: yes
 
-
-
 - name: Configure Wazuh agent - Set manager address
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
@@ -42,6 +40,19 @@
     path: /var/ossec/etc/ossec.conf
     regexp: '^    <protocol>(.*)</protocol>'
     replace: '    <protocol>{{ wazuh_manager_protocol }}</protocol>'
+    backup: yes
+  when: wazuh_manager_protocol is defined
+
+- name: Import client key from API enrollment
+  ansible.builtin.copy:
+    content: "{{ wazuh_client_key | b64decode }}"
+    dest: /var/ossec/etc/client.keys
+    mode: '0640'
+    owner: root
+    group: wazuh
+  when: 
+    - wazuh_api_password is defined
+    - wazuh_client_key is defined
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:
@@ -49,20 +60,12 @@
     enabled: yes
     state: started
 
-- name: Import client key via manage_agents
-  ansible.builtin.shell: echo y | /var/ossec/bin/manage_agents -i {{ wazuh_client_key }}
-  register: import_key_result
-  failed_when: 
-    - import_key_result.rc != 0
-    - '"Duplicate agent" not in import_key_result.stdout'
-  when: wazuh_client_key is defined
-
-- name: Restart Wazuh agent service
-  ansible.builtin.systemd:
-    name: wazuh-agent
-    state: restarted
+- name: Check Wazuh agent status
+  ansible.builtin.command: systemctl status wazuh-agent
+  register: agent_status
+  changed_when: false
+  failed_when: false
 
 - name: Display agent status
   ansible.builtin.debug:
     msg: "Wazuh agent installed and started on {{ inventory_hostname }}"
-

@@ -10,4 +10,3 @@
 - name: Install Wazuh Agent on Windows
   include_tasks: windows_install.yml
   when: ansible_os_family == 'Windows'
-
