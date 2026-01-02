@@ -11,6 +11,9 @@
   register: api_token_response
   delegate_to: localhost
   run_once: true
+  become: false
+  vars:
+    ansible_connection: local
 
 - name: Get Existing Wazuh Groups
   ansible.builtin.uri:
@@ -22,6 +25,9 @@
   register: existing_groups_response
   delegate_to: localhost
   run_once: true
+  become: false
+  vars:
+    ansible_connection: local
 
 - name: Create Missing Wazuh Agent Groups
   ansible.builtin.uri:
@@ -36,8 +42,13 @@
     status_code: [200]
     validate_certs: "{{ wazuh_api_validate_certs }}"
   loop: "{{ wazuh_groups_to_create }}"
+  loop_control:
+    label: "{{ item }}"
   # Filter: Check if item is NOT in the list of existing group names
   when: item not in (existing_groups_response.json.data.affected_items | map(attribute='name') | list)
   register: create_group_response
   delegate_to: localhost
   run_once: true
+  become: false
+  vars:
+    ansible_connection: local
