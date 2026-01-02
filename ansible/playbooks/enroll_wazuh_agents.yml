@@ -8,7 +8,7 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
-    wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+    wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
     wazuh_api_port: 55000
     wazuh_api_proto: "https"
     wazuh_api_user: "wazuh"
@@ -59,7 +59,7 @@
         - "'already exist' not in create_group_response.json.detail | default('')"
 
 - name: Install Wazuh Agent on Linux Hosts
-  hosts: linux:!xdr-01-srv
+  hosts: linux:!XDR-01-SRV
   become: yes
   gather_facts: yes
   vars_files:
@@ -108,18 +108,18 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
-    wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+    wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
     wazuh_api_port: 55000
     wazuh_api_proto: "https"
     wazuh_api_user: "wazuh"
     wazuh_api_validate_certs: false
 
     wazuh_agent_assignments:
-      - { agent_name: "dc-01-srv", group: "windows-server" }
-      - { agent_name: "fleet-01-srv", group: "linux-server" }
-      - { agent_name: "lin-01-ws", group: "linux-workstation" }
-      - { agent_name: "siem-01-srv", group: "linux-server" }
-      - { agent_name: "win-01-ws", group: "windows-workstation" }
+      - { agent_name: "DC-01-SRV", group: "windows-server" }
+      - { agent_name: "FLEET-01-SRV", group: "linux-server" }
+      - { agent_name: "LIN-01-WS", group: "linux-workstation" }
+      - { agent_name: "SIEM-01-SRV", group: "linux-server" }
+      - { agent_name: "WIN-01-WS", group: "windows-workstation" }
 
   tasks:
     - name: Get Wazuh API token
