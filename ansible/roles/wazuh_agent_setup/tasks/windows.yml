@@ -1,0 +1,44 @@
+---
+- name: Download Wazuh Agent MSI (Windows)
+  ansible.windows.win_get_url:
+    url: "{{ wazuh_agent_windows_url }}"
+    dest: "{{ wazuh_agent_windows_dest }}"
+
+- name: Check for Bad Config (Quotes in Address)
+  ansible.windows.win_shell: type "C:\Program Files (x86)\ossec-agent\ossec.conf" | findstr "<address>'"
+  register: bad_config_check
+  failed_when: false
+  changed_when: false
+  ignore_errors: yes
+
+- name: Uninstall Wazuh Agent (If Bad Config Detected)
+  ansible.windows.win_package:
+    path: "{{ wazuh_agent_windows_dest }}"
+    state: absent
+  when: bad_config_check.rc == 0
+
+- name: Install Wazuh Agent with Group Assignment (Windows)
+  ansible.windows.win_package:
+    path: "{{ wazuh_agent_windows_dest }}"
+    state: present
+    # Using explicit property=value syntax without quotes for the value if no spaces, 
+    # or let win_package handle the string. Removing single quotes around IPs.
+    arguments: 
+      - WAZUH_MANAGER={{ wazuh_manager_address }}
+      - WAZUH_AGENT_GROUP={{ wazuh_groups }}
+
+- name: Ensure Wazuh Service is Started (Windows)
+  ansible.windows.win_service:
+    name: Wazuh
+    state: started
+    start_mode: auto
+
+- name: Debug Wazuh Config (Check Manager IP)
+  ansible.windows.win_shell: type "C:\Program Files (x86)\ossec-agent\ossec.conf" | findstr "<address>"
+  register: wazuh_config_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Show Wazuh Config Address
+  debug:
+    msg: "Configured Manager Address: {{ wazuh_config_check.stdout | trim }}"

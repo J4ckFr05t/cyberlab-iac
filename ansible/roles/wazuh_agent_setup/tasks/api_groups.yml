@@ -1,0 +1,54 @@
+---
+- name: Get Wazuh API token
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/security/user/authenticate"
+    method: POST
+    user: "{{ wazuh_api_user }}"
+    password: "{{ wazuh_api_password }}"
+    force_basic_auth: yes
+    status_code: [200]
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  register: api_token_response
+  delegate_to: localhost
+  run_once: true
+  become: false
+  vars:
+    ansible_connection: local
+
+- name: Get Existing Wazuh Groups
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups?limit=500"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ api_token_response.json.data.token }}"
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  register: existing_groups_response
+  delegate_to: localhost
+  run_once: true
+  become: false
+  vars:
+    ansible_connection: local
+
+- name: Create Missing Wazuh Agent Groups
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups"
+    method: POST
+    headers:
+      Authorization: "Bearer {{ api_token_response.json.data.token }}"
+      Content-Type: "application/json"
+    body_format: json
+    body:
+      group_id: "{{ item }}"
+    status_code: [200]
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  loop: "{{ wazuh_groups_to_create }}"
+  loop_control:
+    label: "{{ item }}"
+  # Filter: Check if item is NOT in the list of existing group names
+  when: item not in (existing_groups_response.json.data.affected_items | map(attribute='name') | list)
+  register: create_group_response
+  delegate_to: localhost
+  run_once: true
+  become: false
+  vars:
+    ansible_connection: local

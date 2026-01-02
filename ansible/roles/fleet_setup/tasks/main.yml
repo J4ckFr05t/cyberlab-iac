@@ -13,7 +13,7 @@
 
 - name: Wait for Kibana API to be Ready
   uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/status"
+    url: "http://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:5601/api/status"
     method: GET
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -29,7 +29,7 @@
 
 - name: Create Fleet Server Policy
   uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/agent_policies?sys_monitoring=true"
+    url: "http://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:5601/api/fleet/agent_policies?sys_monitoring=true"
     method: POST
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -60,7 +60,7 @@
 
 - name: Fetch Existing Policies (Fallback)
   uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/agent_policies"
+    url: "http://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:5601/api/fleet/agent_policies"
     method: GET
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -84,7 +84,7 @@
 
 - name: Delete Existing Service Token
   uri:
-    url: "https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
+    url: "https://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
     method: DELETE
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -96,7 +96,7 @@
 
 - name: Generate Service Token
   uri:
-    url: "https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
+    url: "https://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:9200/_security/service/elastic/fleet-server/credential/token/fleet-01-srv"
     method: POST
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -144,7 +144,7 @@
 - name: Enroll Elastic Agent (Fleet Server)
   shell: |
     elastic-agent enroll \
-      --fleet-server-es=https://{{ hostvars['siem-01-srv']['ansible_host'] }}:9200 \
+      --fleet-server-es=https://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:9200 \
       --fleet-server-service-token={{ fleet_service_token }} \
       --fleet-server-policy={{ fleet_policy_id }} \
       --fleet-server-es-ca-trusted-fingerprint={{ ca_fingerprint }} \
@@ -157,7 +157,7 @@
 
 - name: Configure Default Fleet Server Host
   uri:
-    url: "http://{{ hostvars['siem-01-srv']['ansible_host'] }}:5601/api/fleet/fleet_server_hosts"
+    url: "http://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:5601/api/fleet/fleet_server_hosts"
     method: POST
     user: elastic
     password: "{{ elastic_custom_password }}"
@@ -169,7 +169,7 @@
     body:
       name: "{{ inventory_hostname }}"
       is_default: true
-      host_urls: ["https://{{ hostvars['fleet-01-srv']['ansible_host'] }}:8220"]
+      host_urls: ["https://{{ hostvars['FLEET-01-SRV']['ansible_host'] }}:8220"]
     status_code: [200, 409] # 409 might occur if already exists (though API might not return 409 for this POST, standardizing on idempotent-ish behavior)
  
   # Actually, the user's curl is a POST. If it already exists, we might want to update it or ignore.

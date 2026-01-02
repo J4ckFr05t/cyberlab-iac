@@ -1,6 +1,6 @@
 ---
 - name: Setup Wazuh Server
-  hosts: xdr-01-srv
+  hosts: XDR-01-SRV
   become: yes
   gather_facts: yes
 

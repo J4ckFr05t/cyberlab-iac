@@ -35,32 +35,32 @@
     - ../inventory/group_vars/secret_vault.yml
 
   tasks:
-    - name: Ensure win-01-ws is in Windows Workstations OU
+    - name: Ensure WIN-01-WS is in Windows Workstations OU
       microsoft.ad.computer:
-        identity: "win-01-ws$"
+        identity: "WIN-01-WS$"
         path: "OU=Windows Workstations,OU=Workstations,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure lin-01-ws is in Linux Workstations OU
+    - name: Ensure LIN-01-WS is in Linux Workstations OU
       microsoft.ad.computer:
-        identity: "lin-01-ws$"
+        identity: "LIN-01-WS$"
         path: "OU=Linux Workstations,OU=Workstations,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure siem-01-srv is in Linux Servers OU
+    - name: Ensure SIEM-01-SRV is in Linux Servers OU
       microsoft.ad.computer:
-        identity: "siem-01-srv$"
+        identity: "SIEM-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure fleet-01-srv is in Linux Servers OU
+    - name: Ensure FLEET-01-SRV is in Linux Servers OU
       microsoft.ad.computer:
-        identity: "fleet-01-srv$"
+        identity: "FLEET-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure xdr-01-srv is in Linux Servers OU
+    - name: Ensure XDR-01-SRV is in Linux Servers OU
       microsoft.ad.computer:
-        identity: "xdr-01-srv$"
+        identity: "XDR-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
