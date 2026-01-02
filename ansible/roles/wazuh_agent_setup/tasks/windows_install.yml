@@ -61,8 +61,6 @@
     $enrollment = Ensure-Node $client "enrollment"
     (Ensure-Node $enrollment "enabled").InnerText = "yes"
     (Ensure-Node $enrollment "groups").InnerText = "{{ wazuh_target_groups }}"
-    (Ensure-Node $enrollment "authorization_pass_path").InnerText = "C:\Program Files (x86)\ossec-agent\authd.pass"
-    (Ensure-Node $enrollment "manager_address").InnerText = "{{ wazuh_manager_address }}"
 
     # Save
     $xml.Save($path)

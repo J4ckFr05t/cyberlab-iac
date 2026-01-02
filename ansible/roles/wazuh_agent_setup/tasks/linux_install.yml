@@ -66,8 +66,6 @@
       \1  <enrollment>
       \1    <enabled>yes</enabled>
       \1    <groups>{{ wazuh_target_groups }}</groups>
-      \1    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
-      \1    <manager_address>{{ wazuh_manager_address }}</manager_address>
       \1  </enrollment>
       \1</client>
   when: enrollment_check.rc != 0
@@ -89,12 +87,7 @@
 
 
 
-- name: Configure Wazuh agent - Set enrollment pass path (if block exists)
-  ansible.builtin.replace:
-    path: /var/ossec/etc/ossec.conf
-    regexp: '(<enrollment>[\s\S]*?)<authorization_pass_path>.*</authorization_pass_path>'
-    replace: '\1<authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>'
-  when: enrollment_check.rc == 0
+
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:
