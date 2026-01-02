@@ -36,36 +36,31 @@
 
   tasks:
     - name: Ensure WIN-01-WS is in Windows Workstations OU
-      community.windows.win_domain_object_info:
-        filter: "(&(objectClass=computer)(name=WIN-01-WS))"
+      microsoft.ad.computer:
         identity: "WIN-01-WS$"
         path: "OU=Windows Workstations,OU=Workstations,DC=frostsec,DC=corp"
         state: present
 
     - name: Ensure LIN-01-WS is in Linux Workstations OU
-      community.windows.win_domain_object_info:
-        filter: "(&(objectClass=computer)(name=LIN-01-WS))"
+      microsoft.ad.computer:
         identity: "LIN-01-WS$"
         path: "OU=Linux Workstations,OU=Workstations,DC=frostsec,DC=corp"
         state: present
 
     - name: Ensure SIEM-01-SRV is in Linux Servers OU
-      community.windows.win_domain_object_info:
-        filter: "(&(objectClass=computer)(name=SIEM-01-SRV))"
+      microsoft.ad.computer:
         identity: "SIEM-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
 
     - name: Ensure FLEET-01-SRV is in Linux Servers OU
-      community.windows.win_domain_object_info:
-        filter: "(&(objectClass=computer)(name=FLEET-01-SRV))"
+      microsoft.ad.computer:
         identity: "FLEET-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
 
     - name: Ensure XDR-01-SRV is in Linux Servers OU
-      community.windows.win_domain_object_info:
-        filter: "(&(objectClass=computer)(name=XDR-01-SRV))"
+      microsoft.ad.computer:
         identity: "XDR-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
