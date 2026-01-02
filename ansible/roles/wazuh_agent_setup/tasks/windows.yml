@@ -5,8 +5,10 @@
     dest: "{{ wazuh_agent_windows_dest }}"
 
 - name: Install Wazuh Agent with Group Assignment (Windows)
-  ansible.windows.win_shell: >
-    msiexec.exe /i {{ wazuh_agent_windows_dest }} /q WAZUH_MANAGER='{{ wazuh_manager_address }}' WAZUH_AGENT_GROUP='{{ wazuh_groups }}' /l*v %TEMP%\wazuh_install.log
+  ansible.windows.win_package:
+    path: "{{ wazuh_agent_windows_dest }}"
+    state: present
+    arguments: "WAZUH_MANAGER='{{ wazuh_manager_address }}' WAZUH_AGENT_GROUP='{{ wazuh_groups }}'"
 
 - name: Ensure Wazuh Service is Started (Windows)
   ansible.windows.win_service:
