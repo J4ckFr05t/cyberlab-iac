@@ -8,10 +8,24 @@
   ansible.windows.win_package:
     path: "{{ wazuh_agent_windows_dest }}"
     state: present
-    arguments: "WAZUH_MANAGER='{{ wazuh_manager_address }}' WAZUH_AGENT_GROUP='{{ wazuh_groups }}'"
+    # Using explicit property=value syntax without quotes for the value if no spaces, 
+    # or let win_package handle the string. Removing single quotes around IPs.
+    arguments: 
+      - WAZUH_MANAGER={{ wazuh_manager_address }}
+      - WAZUH_AGENT_GROUP={{ wazuh_groups }}
 
 - name: Ensure Wazuh Service is Started (Windows)
   ansible.windows.win_service:
     name: Wazuh
     state: started
     start_mode: auto
+
+- name: Debug Wazuh Config (Check Manager IP)
+  ansible.windows.win_shell: type "C:\Program Files (x86)\ossec-agent\ossec.conf" | findstr "<address>"
+  register: wazuh_config_check
+  changed_when: false
+  ignore_errors: yes
+
+- name: Show Wazuh Config Address
+  debug:
+    msg: "Configured Manager Address: {{ wazuh_config_check.stdout | trim }}"
