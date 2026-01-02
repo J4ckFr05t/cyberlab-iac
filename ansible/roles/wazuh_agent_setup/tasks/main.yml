@@ -1,11 +1,4 @@
 ---
-- name: Initialize Wazuh Groups (One-time)
-  include_tasks: api_groups.yml
-  args:
-    apply:
-      delegate_to: localhost
-      run_once: true
-
 - name: Determine Wazuh Groups for Host
   set_fact:
     # Match inventory_hostname (converted to upper) with agent_name in list

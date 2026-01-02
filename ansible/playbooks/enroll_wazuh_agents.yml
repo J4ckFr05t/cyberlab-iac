@@ -1,3 +1,16 @@
+---
+- name: Initialize Wazuh Groups
+  hosts: all
+  gather_facts: no
+  run_once: true
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  tasks:
+    - name: Create Wazuh Groups via API
+      include_role:
+        name: wazuh_agent_setup
+        tasks_from: api_groups
+      delegate_to: localhost
 
 - name: Enroll Wazuh Agents (Linux)
   hosts: linux:!XDR-01-SRV

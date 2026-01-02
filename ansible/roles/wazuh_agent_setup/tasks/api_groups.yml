@@ -12,7 +12,18 @@
   delegate_to: localhost
   run_once: true
 
-- name: Create Wazuh Agent Groups
+- name: Get Existing Wazuh Groups
+  ansible.builtin.uri:
+    url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups?limit=500"
+    method: GET
+    headers:
+      Authorization: "Bearer {{ api_token_response.json.data.token }}"
+    validate_certs: "{{ wazuh_api_validate_certs }}"
+  register: existing_groups_response
+  delegate_to: localhost
+  run_once: true
+
+- name: Create Missing Wazuh Agent Groups
   ansible.builtin.uri:
     url: "{{ wazuh_api_proto }}://{{ wazuh_manager_address }}:{{ wazuh_api_port }}/groups"
     method: POST
@@ -22,13 +33,11 @@
     body_format: json
     body:
       group_id: "{{ item }}"
-    status_code: [200, 422] # 422 where group already exists
+    status_code: [200]
     validate_certs: "{{ wazuh_api_validate_certs }}"
   loop: "{{ wazuh_groups_to_create }}"
+  # Filter: Check if item is NOT in the list of existing group names
+  when: item not in (existing_groups_response.json.data.affected_items | map(attribute='name') | list)
   register: create_group_response
-  failed_when: 
-    - create_group_response.status != 200
-    - "'already exists' not in create_group_response.json.message | default('')"
-    - "'already exist' not in create_group_response.json.detail | default('')"
   delegate_to: localhost
   run_once: true
