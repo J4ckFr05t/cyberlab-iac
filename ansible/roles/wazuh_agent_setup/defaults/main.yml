@@ -22,7 +22,7 @@ wazuh_agent_windows_url: "https://packages.wazuh.com/4.x/windows/wazuh-agent-{{ 
 
 # Temporary download paths
 wazuh_agent_linux_dest: "/tmp/wazuh-agent_{{ wazuh_version }}-1_amd64.deb"
-wazuh_agent_windows_dest: "%TEMP%\\wazuh-agent.msi"
+wazuh_agent_windows_dest: "{{ ansible_env.TEMP }}\\wazuh-agent.msi"
 
 # Agent Assignments
 # Map hosts to specific Wazuh groups

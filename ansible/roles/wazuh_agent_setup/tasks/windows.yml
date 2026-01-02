@@ -10,6 +10,6 @@
 
 - name: Ensure Wazuh Service is Started (Windows)
   ansible.windows.win_service:
-    name: WazuhSvc
+    name: Wazuh
     state: started
     start_mode: auto
