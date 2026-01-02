@@ -10,7 +10,6 @@
       include_role:
         name: wazuh_agent_setup
         tasks_from: api_groups
-      delegate_to: localhost
 
 - name: Enroll Wazuh Agents (Linux)
   hosts: linux:!XDR-01-SRV
