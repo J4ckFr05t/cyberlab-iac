@@ -87,6 +87,8 @@
     replace: '\1<groups>{{ wazuh_target_groups }}</groups>'
   when: enrollment_check.rc == 0 and wazuh_target_groups is defined
 
+
+
 - name: Configure Wazuh agent - Set enrollment pass path (if block exists)
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
