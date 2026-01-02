@@ -1,4 +1,14 @@
 ---
+- name: Install Wazuh Agent Dependencies (Linux)
+  ansible.builtin.apt:
+    name:
+      - curl
+      - gnupg
+      - lsb-release
+      - apt-transport-https
+    state: present
+    update_cache: yes
+
 - name: Download Wazuh Agent package (Linux)
   ansible.builtin.get_url:
     url: "{{ wazuh_agent_linux_deb_url }}"
