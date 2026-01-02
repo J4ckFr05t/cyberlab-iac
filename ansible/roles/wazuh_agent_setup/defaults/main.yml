@@ -1,7 +1,7 @@
 ---
 # Defaults for Wazuh Agent Setup
 # Dynamically read Wazuh manager IP from inventory
-wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
 wazuh_manager_port: 1514
 wazuh_manager_protocol: tcp
 wazuh_api_port: 55000

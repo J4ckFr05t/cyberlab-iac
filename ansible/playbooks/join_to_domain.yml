@@ -35,32 +35,37 @@
     - ../inventory/group_vars/secret_vault.yml
 
   tasks:
-    - name: Ensure win-01-ws is in Windows Workstations OU
-      microsoft.ad.computer:
-        identity: "win-01-ws$"
+    - name: Ensure WIN-01-WS is in Windows Workstations OU
+      community.windows.win_domain_object_info:
+        filter: "(&(objectClass=computer)(name=WIN-01-WS))"
+        identity: "WIN-01-WS$"
         path: "OU=Windows Workstations,OU=Workstations,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure lin-01-ws is in Linux Workstations OU
-      microsoft.ad.computer:
-        identity: "lin-01-ws$"
+    - name: Ensure LIN-01-WS is in Linux Workstations OU
+      community.windows.win_domain_object_info:
+        filter: "(&(objectClass=computer)(name=LIN-01-WS))"
+        identity: "LIN-01-WS$"
         path: "OU=Linux Workstations,OU=Workstations,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure siem-01-srv is in Linux Servers OU
-      microsoft.ad.computer:
-        identity: "siem-01-srv$"
+    - name: Ensure SIEM-01-SRV is in Linux Servers OU
+      community.windows.win_domain_object_info:
+        filter: "(&(objectClass=computer)(name=SIEM-01-SRV))"
+        identity: "SIEM-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure fleet-01-srv is in Linux Servers OU
-      microsoft.ad.computer:
-        identity: "fleet-01-srv$"
+    - name: Ensure FLEET-01-SRV is in Linux Servers OU
+      community.windows.win_domain_object_info:
+        filter: "(&(objectClass=computer)(name=FLEET-01-SRV))"
+        identity: "FLEET-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
 
-    - name: Ensure xdr-01-srv is in Linux Servers OU
-      microsoft.ad.computer:
-        identity: "xdr-01-srv$"
+    - name: Ensure XDR-01-SRV is in Linux Servers OU
+      community.windows.win_domain_object_info:
+        filter: "(&(objectClass=computer)(name=XDR-01-SRV))"
+        identity: "XDR-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present

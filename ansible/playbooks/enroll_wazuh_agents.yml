@@ -8,7 +8,7 @@
   vars_files:
     - ../inventory/group_vars/secret_vault.yml
   vars:
-    wazuh_manager_address: "{{ hostvars['xdr-01-srv']['ansible_host'] }}"
+    wazuh_manager_address: "{{ hostvars['XDR-01-SRV']['ansible_host'] }}"
     wazuh_api_port: 55000
     wazuh_api_proto: "https"
     wazuh_api_user: "wazuh"
@@ -59,7 +59,7 @@
         - "'already exist' not in create_group_response.json.detail | default('')"
 
 - name: Install Wazuh Agent on Linux Hosts
-  hosts: linux:!xdr-01-srv
+  hosts: linux:!XDR-01-SRV
   become: yes
   gather_facts: yes
   vars_files:
@@ -75,12 +75,12 @@
     - name: Set target groups for Linux Servers
       ansible.builtin.set_fact:
         wazuh_target_groups: "default,linux-server"
-      when: "'linux-server' in group_names or inventory_hostname in ['fleet-01-srv', 'siem-01-srv']"
+      when: "'linux-server' in group_names or inventory_hostname in ['FLEET-01-SRV', 'SIEM-01-SRV']"
 
     - name: Set target groups for Linux Workstations
       ansible.builtin.set_fact:
         wazuh_target_groups: "default,linux-workstation"
-      when: "'linux-workstation' in group_names or inventory_hostname in ['lin-01-ws']"
+      when: "'linux-workstation' in group_names or inventory_hostname in ['LIN-01-WS']"
   roles:
     - wazuh_agent_setup
   tags:
@@ -108,12 +108,12 @@
     - name: Set target groups for Windows Servers
       ansible.builtin.set_fact:
         wazuh_target_groups: "default,windows-server"
-      when: "'windows-server' in group_names or inventory_hostname in ['dc-01-srv']"
+      when: "'windows-server' in group_names or inventory_hostname in ['DC-01-SRV']"
 
     - name: Set target groups for Windows Workstations
       ansible.builtin.set_fact:
         wazuh_target_groups: "default,windows-workstation"
-      when: "'windows-workstation' in group_names or inventory_hostname in ['win-01-ws']"
+      when: "'windows-workstation' in group_names or inventory_hostname in ['WIN-01-WS']"
   roles:
     - wazuh_agent_setup
   tags:

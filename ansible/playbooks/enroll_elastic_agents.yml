@@ -1,8 +1,8 @@
 ---
 - name: Enroll Elastic Agents (Windows)
   hosts:
-    - dc-01-srv
-    - win-01-ws
+    - DC-01-SRV
+    - WIN-01-WS
   gather_facts: yes
   vars:
     ansible_user: ".\\{{ win_username }}"
@@ -17,8 +17,8 @@
 
 - name: Enroll Elastic Agents (Linux)
   hosts:
-    - lin-01-ws
-    - xdr-01-srv
+    - LIN-01-WS
+    - XDR-01-SRV
   become: yes
   vars_files:
     - ../inventory/group_vars/secret_vault.yml

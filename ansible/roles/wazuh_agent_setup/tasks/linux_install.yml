@@ -20,13 +20,7 @@
     state: present
     update_cache: yes
 
-- name: Create Wazuh authd password file
-  ansible.builtin.copy:
-    content: "{{ wazuh_api_password }}"
-    dest: /var/ossec/etc/authd.pass
-    owner: root
-    group: wazuh
-    mode: '0640'
+
 
 - name: Configure Wazuh agent - Set manager address
   ansible.builtin.replace:
@@ -48,46 +42,6 @@
     path: /var/ossec/etc/ossec.conf
     regexp: '^    <protocol>(.*)</protocol>'
     replace: '    <protocol>{{ wazuh_manager_protocol }}</protocol>'
-    backup: yes
-  when: wazuh_manager_protocol is defined
-
-- name: Check if enrollment block exists
-  ansible.builtin.shell: grep -q "<enrollment>" /var/ossec/etc/ossec.conf
-  register: enrollment_check
-  failed_when: false
-  changed_when: false
-
-- name: Add enrollment block if missing
-  ansible.builtin.replace:
-    path: /var/ossec/etc/ossec.conf
-    # Insert enrollment block before </client>
-    regexp: '(\s*)</client>'
-    replace: |
-      \1  <enrollment>
-      \1    <enabled>yes</enabled>
-      \1    <groups>{{ wazuh_target_groups }}</groups>
-      \1  </enrollment>
-      \1</client>
-  when: enrollment_check.rc != 0
-
-- name: Configure Wazuh agent - Enable enrollment (if block exists)
-  ansible.builtin.replace:
-    path: /var/ossec/etc/ossec.conf
-    regexp: '(<enrollment>[\s\S]*?)<enabled>no</enabled>'
-    replace: '\1<enabled>yes</enabled>'
-  when: enrollment_check.rc == 0
-
-- name: Configure Wazuh agent - Set enrollment groups (if block exists)
-  ansible.builtin.replace:
-    path: /var/ossec/etc/ossec.conf
-    # Be specific to avoid syscollector
-    regexp: '(<enrollment>[\s\S]*?)<groups>.*</groups>'
-    replace: '\1<groups>{{ wazuh_target_groups }}</groups>'
-  when: enrollment_check.rc == 0 and wazuh_target_groups is defined
-
-
-
-
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:
@@ -95,11 +49,14 @@
     enabled: yes
     state: started
 
-- name: Check Wazuh agent status
-  ansible.builtin.command: systemctl status wazuh-agent
-  register: agent_status
-  changed_when: false
-  failed_when: false
+- name: Import client key via manage_agents
+  ansible.builtin.command: /var/ossec/bin/manage_agents -i {{ wazuh_client_key }}
+  register: import_key_result
+  failed_when: 
+    - import_key_result.rc != 0
+    - '"Duplicate agent" not in import_key_result.stdout'
+  when: wazuh_client_key is defined
+
 
 - name: Display agent status
   ansible.builtin.debug:
