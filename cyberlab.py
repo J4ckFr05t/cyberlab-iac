@@ -727,8 +727,9 @@ wazuh_admin_password: {wazuh_admin_password}
             print("2. Run Specific Playbook")
             print("3. Step-by-Step Execution (Interactive)")
             print("4. Return to Main Menu")
+            print("5. Exit Application")
             
-            choice = input(f"\n{YELLOW}Select an option (1-4): {RESET}")
+            choice = input(f"\n{YELLOW}Select an option (1-5): {RESET}")
             
             if choice == '1':
                 # Run All
@@ -799,6 +800,9 @@ wazuh_admin_password: {wazuh_admin_password}
 
             elif choice == '4':
                 return
+            elif choice == '5':
+                print("Exiting...")
+                sys.exit(0)
             else:
                 print("Invalid option.")
 
