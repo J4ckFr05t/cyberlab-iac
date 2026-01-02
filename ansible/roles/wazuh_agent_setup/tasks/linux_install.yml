@@ -58,6 +58,11 @@
     replace: '\1<enabled>yes</enabled>'
     backup: yes
 
+- name: Read ossec.conf for idempotency checks
+  ansible.builtin.slurp:
+    src: /var/ossec/etc/ossec.conf
+  register: ossec_conf_b64
+
 - name: Configure Wazuh agent - Set enrollment groups
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
@@ -70,7 +75,7 @@
     path: /var/ossec/etc/ossec.conf
     regexp: '(</enrollment>)'
     replace: '    <groups>{{ wazuh_target_groups }}</groups>\n  \1'
-  when: wazuh_target_groups is defined and lookup("file", "/var/ossec/etc/ossec.conf") is not search("<groups>")
+  when: wazuh_target_groups is defined and "<groups>" not in (ossec_conf_b64['content'] | b64decode)
 
 - name: Configure Wazuh agent - Set enrollment password path
   ansible.builtin.replace:
@@ -83,7 +88,7 @@
     path: /var/ossec/etc/ossec.conf
     regexp: '(</enrollment>)'
     replace: '    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>\n  \1'
-  when: lookup("file", "/var/ossec/etc/ossec.conf") is not search("authorization_pass_path")
+  when: "authorization_pass_path" not in (ossec_conf_b64['content'] | b64decode)
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:
