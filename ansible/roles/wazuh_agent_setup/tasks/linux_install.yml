@@ -51,44 +51,48 @@
     backup: yes
   when: wazuh_manager_protocol is defined
 
-- name: Configure Wazuh agent - Enable enrollment
+- name: Check if enrollment block exists
+  ansible.builtin.shell: grep -q "<enrollment>" /var/ossec/etc/ossec.conf
+  register: enrollment_check
+  failed_when: false
+  changed_when: false
+
+- name: Add enrollment block if missing
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
-    regexp: '(<enrollment>\s*\n\s*)<enabled>no</enabled>'
+    # Insert enrollment block before </client>
+    regexp: '(\s*)</client>'
+    replace: |
+      \1  <enrollment>
+      \1    <enabled>yes</enabled>
+      \1    <groups>{{ wazuh_target_groups }}</groups>
+      \1    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>
+      \1    <manager_address>{{ wazuh_manager_address }}</manager_address>
+      \1  </enrollment>
+      \1</client>
+  when: enrollment_check.rc != 0
+
+- name: Configure Wazuh agent - Enable enrollment (if block exists)
+  ansible.builtin.replace:
+    path: /var/ossec/etc/ossec.conf
+    regexp: '(<enrollment>[\s\S]*?)<enabled>no</enabled>'
     replace: '\1<enabled>yes</enabled>'
-    backup: yes
+  when: enrollment_check.rc == 0
 
-- name: Read ossec.conf for idempotency checks
-  ansible.builtin.slurp:
-    src: /var/ossec/etc/ossec.conf
-  register: ossec_conf_b64
-
-- name: Configure Wazuh agent - Set enrollment groups
+- name: Configure Wazuh agent - Set enrollment groups (if block exists)
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
-    regexp: '(\s*)<groups>.*</groups>'
+    # Be specific to avoid syscollector
+    regexp: '(<enrollment>[\s\S]*?)<groups>.*</groups>'
     replace: '\1<groups>{{ wazuh_target_groups }}</groups>'
-  when: wazuh_target_groups is defined
+  when: enrollment_check.rc == 0 and wazuh_target_groups is defined
 
-- name: Configure Wazuh agent - Add enrollment groups if missing
+- name: Configure Wazuh agent - Set enrollment pass path (if block exists)
   ansible.builtin.replace:
     path: /var/ossec/etc/ossec.conf
-    regexp: '(</enrollment>)'
-    replace: '    <groups>{{ wazuh_target_groups }}</groups>\n  \1'
-  when: wazuh_target_groups is defined and "<groups>" not in (ossec_conf_b64['content'] | b64decode)
-
-- name: Configure Wazuh agent - Set enrollment password path
-  ansible.builtin.replace:
-    path: /var/ossec/etc/ossec.conf
-    regexp: '(\s*)<authorization_pass_path>.*</authorization_pass_path>'
+    regexp: '(<enrollment>[\s\S]*?)<authorization_pass_path>.*</authorization_pass_path>'
     replace: '\1<authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>'
-
-- name: Configure Wazuh agent - Add enrollment password path if missing
-  ansible.builtin.replace:
-    path: /var/ossec/etc/ossec.conf
-    regexp: '(</enrollment>)'
-    replace: '    <authorization_pass_path>/var/ossec/etc/authd.pass</authorization_pass_path>\n  \1'
-  when: '"authorization_pass_path" not in (ossec_conf_b64["content"] | b64decode)'
+  when: enrollment_check.rc == 0
 
 - name: Start and enable Wazuh agent service
   ansible.builtin.systemd:
