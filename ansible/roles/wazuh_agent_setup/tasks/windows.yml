@@ -4,6 +4,19 @@
     url: "{{ wazuh_agent_windows_url }}"
     dest: "{{ wazuh_agent_windows_dest }}"
 
+- name: Check for Bad Config (Quotes in Address)
+  ansible.windows.win_shell: type "C:\Program Files (x86)\ossec-agent\ossec.conf" | findstr "<address>'"
+  register: bad_config_check
+  failed_when: false
+  changed_when: false
+  ignore_errors: yes
+
+- name: Uninstall Wazuh Agent (If Bad Config Detected)
+  ansible.windows.win_package:
+    path: "{{ wazuh_agent_windows_dest }}"
+    state: absent
+  when: bad_config_check.rc == 0
+
 - name: Install Wazuh Agent with Group Assignment (Windows)
   ansible.windows.win_package:
     path: "{{ wazuh_agent_windows_dest }}"
