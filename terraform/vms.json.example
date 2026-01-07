@@ -15,8 +15,8 @@
         "sockets": 1,
         "type": "host"
       },
-      "memory": 2048,
-      "balloon": 1024,
+      "memory": 1024,
+      "balloon": 512,
       "scsihw": "virtio-scsi-single",
       "bootdisk": "scsi0",
       "disks": [
