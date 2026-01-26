@@ -114,7 +114,7 @@ resource "proxmox_vm_qemu" "tier_0" {
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? "${each.value.cloudinit.sshkeys}\n" : null
+  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
 }
 
 # --- TIER 1 RESOURCES (Depend on Tier 0) ---
@@ -202,7 +202,7 @@ resource "proxmox_vm_qemu" "tier_1" {
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? "${each.value.cloudinit.sshkeys}\n" : null
+  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
 
   depends_on = [proxmox_vm_qemu.tier_0]
 }
@@ -292,7 +292,7 @@ resource "proxmox_vm_qemu" "tier_2" {
   cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? "${each.value.cloudinit.sshkeys}\n" : null
+  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
 
   depends_on = [proxmox_vm_qemu.tier_1]
 }
