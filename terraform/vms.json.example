@@ -161,7 +161,10 @@
         "enabled": true,
         "nameserver": "172.16.10.100",
         "searchdomain": "yourdomain.com",
-        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
+        "sshkeys": [
+          "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
+          "ssh-ed25519 AAAAC...another-key== user@backup-host"
+        ],
         "ipconfig": [
           {
             "interface": "net0",
