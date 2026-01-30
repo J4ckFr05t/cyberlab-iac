@@ -1,4 +1,6 @@
----
+- include_vars: "{{ playbook_dir }}/../inventory/group_vars/secret_vault.yml"
+  tags: always
+
 - import_tasks: prerequisites.yml
   tags: prerequisites
 
@@ -13,3 +15,6 @@
 
 - import_tasks: install_thehive.yml
   tags: install_thehive
+
+- import_tasks: secure_thehive.yml
+  tags: secure_thehive
