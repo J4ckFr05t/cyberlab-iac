@@ -1,0 +1,90 @@
+---
+- name: Add Cassandra GPG key
+  shell: |
+    wget -qO - https://downloads.apache.org/cassandra/KEYS | gpg --dearmor -o /usr/share/keyrings/cassandra-archive.gpg
+  args:
+    creates: /usr/share/keyrings/cassandra-archive.gpg
+
+- name: Add Cassandra repository
+  copy:
+    dest: /etc/apt/sources.list.d/cassandra.sources.list
+    content: |
+      deb [signed-by=/usr/share/keyrings/cassandra-archive.gpg] https://debian.cassandra.apache.org 41x main
+
+- name: Update apt cache
+  apt:
+    update_cache: yes
+
+- name: Install Cassandra
+  apt:
+    name: cassandra
+    state: present
+
+- name: Set permissions for /var/lib/cassandra
+  file:
+    path: /var/lib/cassandra
+    owner: cassandra
+    group: cassandra
+    recurse: yes
+    state: directory
+
+- name: Configure Cassandra - cluster_name
+  replace:
+    path: /etc/cassandra/cassandra.yaml
+    regexp: "cluster_name: 'Test Cluster'"
+    replace: "cluster_name: 'thp'"
+  register: config_cluster
+
+- name: Configure Cassandra - authenticator
+  replace:
+    path: /etc/cassandra/cassandra.yaml
+    regexp: 'authenticator: AllowAllAuthenticator'
+    replace: 'authenticator: PasswordAuthenticator'
+  register: config_auth
+
+- name: Configure Cassandra - authorizer
+  replace:
+    path: /etc/cassandra/cassandra.yaml
+    regexp: 'authorizer: AllowAllAuthorizer'
+    replace: 'authorizer: CassandraAuthorizer'
+  register: config_authorizer
+
+- name: Set permissions for specific Cassandra directories
+  file:
+    path: "{{ item }}"
+    owner: cassandra
+    group: cassandra
+    recurse: yes
+    state: directory
+  loop:
+    - /var/lib/cassandra/data
+    - /var/lib/cassandra/commitlog
+    - /var/lib/cassandra/saved_caches
+    - /var/lib/cassandra/hints
+
+- name: Reset Cassandra data if configuration changed
+  block:
+    - name: Stop Cassandra service
+      service:
+        name: cassandra
+        state: stopped
+
+    - name: Clear Cassandra data directories
+      shell: rm -rf /var/lib/cassandra/*
+
+    - name: Ensure Cassandra directories exist and have correct permissions (re-apply after wipe)
+      file:
+        path: /var/lib/cassandra
+        owner: cassandra
+        group: cassandra
+        state: directory
+        mode: '0750' # Default safer permissions
+
+    # The subdirectories will be recreated by Cassandra on start usually, but ensuring owner on parent is key.
+  when: config_cluster.changed or config_auth.changed or config_authorizer.changed
+
+- name: Start and enable Cassandra service
+  service:
+    name: cassandra
+    state: started
+    enabled: yes

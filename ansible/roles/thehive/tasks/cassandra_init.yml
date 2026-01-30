@@ -1,0 +1,97 @@
+---
+- name: Install cassandra-driver pip package
+  pip:
+    name: cassandra-driver
+    extra_args: --break-system-packages
+    state: present
+
+- name: Set CQLSH_NO_BUNDLED environment variable globally (optional but good for shell usage)
+  lineinfile:
+    path: /etc/environment
+    regexp: '^CQLSH_NO_BUNDLED='
+    line: 'CQLSH_NO_BUNDLED=true'
+
+- name: Wait for Cassandra to be up
+  wait_for:
+    port: 9042
+    delay: 10
+    timeout: 300
+
+# Try to connect as 'admin' first. If this works, we are already initialized.
+- name: Check if admin user exists and works
+  command: cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DESCRIBE KEYSPACES"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  register: admin_login_check
+  failed_when: false
+  changed_when: false
+
+# If admin login failed, assume default 'cassandra' user works
+- name: Check if default cassandra user works (only if admin failed)
+  command: cqlsh -u cassandra -p cassandra -e "DESCRIBE KEYSPACES"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  register: default_login_check
+  failed_when: false
+  changed_when: false
+  when: admin_login_check.rc != 0
+
+- name: Fail if neither admin nor default creds work
+  fail:
+    msg: "Could not connect to Cassandra with admin or default credentials."
+  when: 
+    - admin_login_check.rc != 0
+    - default_login_check.rc | default(1) != 0
+
+# If default user works, we need to set up admin and change default password
+- name: Alter cassandra user password
+  command: >
+    cqlsh -u cassandra -p cassandra -e "ALTER USER cassandra WITH PASSWORD '{{ authentication_cassandra_password }}';"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  no_log: true
+  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+
+- name: Create admin role
+  command: >
+    cqlsh -u cassandra -p "{{ authentication_cassandra_password }}" -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  no_log: true
+  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+
+# Now we should be able to use admin user.
+# The user asked to DROP ROLE cassandra.
+- name: Drop default cassandra role
+  command: >
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DROP ROLE IF EXISTS cassandra;"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  when: admin_login_check.rc != 0 # Only do this if we just migrated. If admin already existed, cassandra might already be gone.
+  # But technically we can try to drop it anyway if it is still there. Let's make it always try if admin works.
+
+- name: Ensure cassandra role is dropped (always try with admin creds)
+  command: >
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DROP ROLE IF EXISTS cassandra;"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+
+# Setup TheHive Keyspace and Role
+- name: Create TheHive keyspace
+  command: >
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "CREATE KEYSPACE IF NOT EXISTS thehive WITH replication = {'class': 'SimpleStrategy', 'replication_factor': 1};"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+
+- name: Create TheHive role
+  command: >
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "CREATE ROLE IF NOT EXISTS thehive WITH LOGIN = true AND PASSWORD = '{{ thehive_password }}';"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  no_log: true
+
+- name: Grant permissions to TheHive role
+  command: >
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "GRANT ALL PERMISSIONS ON KEYSPACE thehive TO 'thehive';"
+  environment:
+    CQLSH_NO_BUNDLED: "true"

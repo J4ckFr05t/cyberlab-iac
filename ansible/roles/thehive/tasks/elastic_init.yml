@@ -1,0 +1,34 @@
+---
+- name: Create TheHive role in Elasticsearch
+  uri:
+    url: "https://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:9200/_security/role/thehive_role"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+    body_format: json
+    body:
+      cluster: ["manage"]
+      indices:
+        - names: ["thehive*"]
+          privileges: ["all"]
+    status_code: 200
+  register: create_es_role
+  changed_when: create_es_role.json.role.created | default(false)
+
+- name: Create TheHive user in Elasticsearch
+  uri:
+    url: "https://{{ hostvars['SIEM-01-SRV']['ansible_host'] }}:9200/_security/user/thehive"
+    method: POST
+    user: elastic
+    password: "{{ elastic_custom_password }}"
+    force_basic_auth: yes
+    validate_certs: no
+    body_format: json
+    body:
+      password: "{{ thehive_password }}"
+      roles: ["thehive_role"]
+    status_code: 200
+  register: create_es_user
+  changed_when: create_es_user.json.created | default(false)

@@ -1,0 +1,8 @@
+---
+- name: Setup TheHive
+  hosts: thehive
+  become: true
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+  roles:
+    - thehive

@@ -1,0 +1,85 @@
+---
+- name: Download TheHive 5.5.14
+  get_url:
+    url: https://thehive.download.strangebee.com/5.5/deb/thehive_5.5.14-2_all.deb
+    dest: /tmp/thehive_5.5.14-2_all.deb
+    mode: '0644'
+
+- name: Download TheHive SHA256 checksum
+  get_url:
+    url: https://thehive.download.strangebee.com/5.5/sha256/thehive_5.5.14-2_all.deb.sha256
+    dest: /tmp/thehive_5.5.14-2_all.deb.sha256
+    mode: '0644'
+
+- name: Download TheHive ASC signature
+  get_url:
+    url: https://thehive.download.strangebee.com/5.5/asc/thehive_5.5.14-2_all.deb.asc
+    dest: /tmp/thehive_5.5.14-2_all.deb.asc
+    mode: '0644'
+
+- name: Install TheHive package
+  apt:
+    deb: /tmp/thehive_5.5.14-2_all.deb
+    state: present
+
+- name: Retrieve Elasticsearch certificate
+  shell: |
+    echo -n | openssl s_client -connect {{ hostvars['SIEM-01-SRV']['ansible_host'] }}:9200 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p'
+  register: elastic_cert
+  changed_when: false
+
+- name: Save Elasticsearch certificate to file
+  copy:
+    content: "{{ elastic_cert.stdout }}"
+    dest: /etc/thehive/elastic.crt
+    owner: thehive
+    group: thehive
+    mode: '0644'
+
+- name: Check if certificate already exists in keystore
+  shell: |
+    keytool -list -keystore /etc/thehive/thehive-truststore.jks -storepass {{ thehive_truststore_password }} -alias elastic-node
+  register: keystore_check
+  failed_when: false
+  changed_when: false
+
+- name: Import Elasticsearch certificate into truststore
+  shell: |
+    keytool -import -alias elastic-node -file /etc/thehive/elastic.crt -keystore /etc/thehive/thehive-truststore.jks -storepass {{ thehive_truststore_password }} -noprompt
+  when: keystore_check.rc != 0
+
+- name: Set permissions for truststore
+  file:
+    path: /etc/thehive/thehive-truststore.jks
+    owner: thehive
+    group: thehive
+    mode: '0640'
+
+- name: Configure Java options in /etc/default/thehive
+  lineinfile:
+    path: /etc/default/thehive
+    regexp: '^JAVA_OPTS='
+    line: 'JAVA_OPTS="-Dconfig.file=/etc/thehive/application.conf -Dlogger.file=/etc/thehive/logback.xml -Dpidfile.path=/dev/null -Djavax.net.ssl.trustStore=/etc/thehive/thehive-truststore.jks -Djavax.net.ssl.trustStorePassword={{ thehive_truststore_password }}"'
+
+- name: configure application.conf
+  template:
+    src: application.conf.j2
+    dest: /etc/thehive/application.conf
+    owner: thehive
+    group: thehive
+    mode: '0600'
+  notify: Restart TheHive
+
+- name: Create storage directory
+  file:
+    path: /opt/thp/thehive/files
+    state: directory
+    owner: thehive
+    group: thehive
+    mode: '0700'
+
+- name: Start and enable TheHive service
+  service:
+    name: thehive
+    state: started
+    enabled: yes
