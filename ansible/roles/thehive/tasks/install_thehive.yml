@@ -83,3 +83,35 @@
     name: thehive
     state: started
     enabled: yes
+
+- name: Check TheHive service status
+  command: systemctl is-active thehive
+  register: service_status
+  failed_when: false
+  changed_when: false
+
+- name: Restart TheHive service if failed
+  service:
+    name: thehive
+    state: restarted
+  when: service_status.rc != 0
+
+- name: Wait for TheHive service to be active
+  command: systemctl is-active thehive
+  register: service_wait
+  until: service_wait.rc == 0
+  retries: 30
+  delay: 5
+  changed_when: false
+
+- name: Verify TheHive API is reachable (Health Check)
+  uri:
+    url: http://localhost:9000/api/v1/user/current
+    user: "admin@thehive.local"
+    password: "secret"
+    force_basic_auth: yes
+    status_code: [200, 401] # 200=Default creds work, 401=Service up but creds changed
+  register: api_health_check
+  until: api_health_check.status in [200, 401]
+  retries: 60
+  delay: 10

@@ -17,6 +17,18 @@
     delay: 10
     timeout: 300
 
+- name: Wait for Cassandra authentication to be available
+  shell: |
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DESCRIBE KEYSPACES" || \
+    cqlsh -u cassandra -p cassandra -e "DESCRIBE KEYSPACES"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  register: cql_auth_wait
+  until: cql_auth_wait.rc == 0
+  retries: 30
+  delay: 10
+  changed_when: false
+
 # Try to connect as 'admin' first. If this works, we are already initialized.
 - name: Check if admin user exists and works
   command: cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DESCRIBE KEYSPACES"

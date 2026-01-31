@@ -35,3 +35,38 @@
     status_code: [200, 204]
   when: default_auth_check.status == 200
   register: password_change
+
+# --- API Key Generation Section ---
+
+- name: Get current user info with NEW password (to get ID)
+  uri:
+    url: http://localhost:9000/api/v1/user/current
+    user: "admin@thehive.local"
+    password: "{{ thehive_password }}"
+    force_basic_auth: yes
+    status_code: 200
+  register: current_user_info
+
+- name: Generate/Get API Key for admin (using GET as requested)
+  uri:
+    url: "http://localhost:9000/api/v1/user/{{ current_user_info.json._id }}/key"
+    method: GET
+    user: "admin@thehive.local"
+    password: "{{ thehive_password }}"
+    force_basic_auth: yes
+    status_code: [200, 201]
+  register: api_key_response
+
+- name: Ensure local directory exists for API key
+  file:
+    path: "{{ playbook_dir }}/../files/thehive"
+    state: directory
+  delegate_to: localhost
+  become: false
+
+- name: Save API Key to file
+  copy:
+    content: "{{ api_key_response.json.key }}"
+    dest: "{{ playbook_dir }}/../files/thehive/api_key.txt"
+  delegate_to: localhost
+  become: false
