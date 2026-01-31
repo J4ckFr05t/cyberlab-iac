@@ -47,13 +47,14 @@
     status_code: 200
   register: current_user_info
 
-- name: Generate/Get API Key for admin (using GET as requested)
+- name: Generate API Key for admin (using POST /renew as requested)
   uri:
-    url: "http://localhost:9000/api/v1/user/{{ current_user_info.json._id }}/key"
-    method: GET
+    url: "http://localhost:9000/api/v1/user/{{ current_user_info.json._id }}/key/renew"
+    method: POST
     user: "admin@thehive.local"
     password: "{{ thehive_password }}"
     force_basic_auth: yes
+    return_content: yes
     status_code: [200, 201]
   register: api_key_response
 
@@ -66,7 +67,7 @@
 
 - name: Save API Key to file
   copy:
-    content: "{{ api_key_response.json.key }}"
+    content: "{{ api_key_response.content }}"
     dest: "{{ playbook_dir }}/../files/thehive/api_key.txt"
   delegate_to: localhost
   become: false
