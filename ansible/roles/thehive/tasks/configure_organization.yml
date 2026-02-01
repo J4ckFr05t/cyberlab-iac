@@ -1,0 +1,71 @@
+---
+- name: Create Organization
+  ansible.builtin.uri:
+    url: http://localhost:9000/api/v1/organisation
+    method: POST
+    user: "admin@thehive.local"
+    password: "{{ thehive_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      name: "{{ company_name }}"
+      description: "{{ company_name }}"
+    status_code: [200, 201, 409]
+    validate_certs: no
+  register: create_org_result
+  changed_when: create_org_result.status == 201
+
+- name: Create SOC Manager User
+  ansible.builtin.uri:
+    url: http://localhost:9000/api/v1/user
+    method: POST
+    user: "admin@thehive.local"
+    password: "{{ thehive_password }}"
+    force_basic_auth: yes
+    body_format: json
+    body:
+      login: "{{ soc_manager_login }}"
+      name: "SOC Manager"
+      password: "{{ thehive_soc_manager_password }}"
+      organisation: "{{ company_name }}"
+      profile: "analyst"
+    status_code: [200, 201, 409]
+    validate_certs: no
+  register: create_user_result
+  changed_when: create_user_result.status == 201
+
+- name: Get SOC Manager User Info (as SOC Manager)
+  ansible.builtin.uri:
+    url: http://localhost:9000/api/v1/user/current
+    user: "{{ soc_manager_login }}"
+    password: "{{ thehive_soc_manager_password }}"
+    force_basic_auth: yes
+    status_code: 200
+    validate_certs: no
+  register: soc_manager_info
+
+- name: Generate API Key for SOC Manager (as SOC Manager)
+  ansible.builtin.uri:
+    url: "http://localhost:9000/api/v1/user/{{ soc_manager_info.json._id }}/key/renew"
+    method: POST
+    user: "{{ soc_manager_login }}"
+    password: "{{ thehive_soc_manager_password }}"
+    force_basic_auth: yes
+    return_content: yes
+    status_code: [200, 201]
+    validate_certs: no
+  register: api_key_response
+
+- name: Ensure local directory exists for API key
+  file:
+    path: "{{ playbook_dir }}/../files/thehive"
+    state: directory
+  delegate_to: localhost
+  become: false
+
+- name: Save SOC Manager API Key to file
+  copy:
+    content: "{{ api_key_response.content }}"
+    dest: "{{ playbook_dir }}/../files/thehive/soc_manager_api_key.txt"
+  delegate_to: localhost
+  become: false

@@ -18,3 +18,7 @@
 
 - import_tasks: secure_thehive.yml
   tags: secure_thehive
+
+- import_tasks: configure_organization.yml
+  tags: configure_organization
+

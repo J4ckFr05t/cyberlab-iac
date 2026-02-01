@@ -1,0 +1,45 @@
+---
+- name: Install thehive4py python module
+  ansible.builtin.pip:
+    name: thehive4py
+    version: 1.8.1
+    executable: /var/ossec/framework/python/bin/pip3
+
+- name: Copy custom-w2thive.py integration script
+  ansible.builtin.copy:
+    src: custom-w2thive.py
+    dest: /var/ossec/integrations/custom-w2thive.py
+    owner: root
+    group: wazuh
+    mode: '0755'
+
+- name: Copy custom-w2thive bash wrapper script
+  ansible.builtin.copy:
+    src: custom-w2thive
+    dest: /var/ossec/integrations/custom-w2thive
+    owner: root
+    group: wazuh
+    mode: '0755'
+
+- name: Read TheHive API key from controller
+  ansible.builtin.set_fact:
+    thehive_api_key: "{{ lookup('file', '{{ playbook_dir }}/../files/thehive/soc_manager_api_key.txt') }}"
+  delegate_to: localhost
+
+- name: Display TheHive IP (debug)
+  ansible.builtin.debug:
+    msg: "TheHive IP is {{ hostvars['SOC-01-SRV']['ansible_host'] }}"
+
+- name: Configure ossec.conf for TheHive integration
+  ansible.builtin.blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK: TheHive Integration -->"
+    insertbefore: "</ossec_config>"
+    block: |
+      <integration>
+        <name>custom-w2thive</name>
+        <hook_url>http://{{ hostvars['SOC-01-SRV']['ansible_host'] }}:9000</hook_url>
+        <api_key>{{ thehive_api_key }}</api_key>
+        <alert_format>json</alert_format>
+      </integration>
+  notify: Restart wazuh-manager

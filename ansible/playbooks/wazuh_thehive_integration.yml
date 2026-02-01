@@ -1,0 +1,13 @@
+---
+- name: Setup Wazuh-TheHive Integration
+  hosts: XDR-01-SRV
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    # Attempt to load secrets if available. 
+    # User must ensure this file exists
+    - ../inventory/group_vars/secret_vault.yml
+
+  roles:
+    - wazuh_thehive_integration
