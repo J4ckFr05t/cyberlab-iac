@@ -22,6 +22,8 @@ ansible/
 │   ├── enroll_elastic_agents.yml# Elastic Agent enrollment
 │   ├── setup_wazuh.yml          # Wazuh Manager setup
 │   ├── enroll_wazuh_agents.yml  # Wazuh Agent enrollment
+│   ├── setup_thehive.yml        # TheHive Setup & SOC Manager config
+│   ├── wazuh_thehive_integration.yml # Wazuh-TheHive Integration
 │   └── check_connectivity.yml   # Connectivity test
 └── README.md                    # This file
 ```
@@ -135,6 +137,20 @@ Installs Wazuh Agent on endpoints and enrolls them with the Wazuh Manager.
 
 ```bash
 ansible-playbook -i inventory/hosts.ini playbooks/enroll_wazuh_agents.yml
+```
+
+### 8. Setup TheHive (`setup_thehive.yml`)
+Deploys TheHive, creates the "FrostSec Corp" organization, and the SOC Manager user/API Key.
+
+```bash
+ansible-playbook -i inventory/hosts.ini playbooks/setup_thehive.yml
+```
+
+### 9. Wazuh-TheHive Integration (`wazuh_thehive_integration.yml`)
+Configures Wazuh to send alerts to TheHive using the `custom-w2thive` script.
+
+```bash
+ansible-playbook -i inventory/hosts.ini playbooks/wazuh_thehive_integration.yml
 ```
 
 ## Troubleshooting

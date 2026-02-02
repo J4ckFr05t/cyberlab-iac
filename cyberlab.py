@@ -27,7 +27,9 @@ class CyberLabManager:
             ("siem_stack.yml", "SIEM Stack (ELK & Fleet)"),
             ("enroll_elastic_agents.yml", "Enroll Elastic Agents"),
             ("setup_wazuh.yml", "Wazuh Manager Setup"),
-            ("enroll_wazuh_agents.yml", "Enroll Wazuh Agents")
+            ("enroll_wazuh_agents.yml", "Enroll Wazuh Agents"),
+            ("setup_thehive.yml", "Setup TheHive & SOC Manager"),
+            ("wazuh_thehive_integration.yml", "Wazuh-TheHive Integration")
         ]
 
     def print_status(self, message, status="INFO"):

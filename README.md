@@ -39,6 +39,8 @@ Configure services and security tools.
     5.  **Enroll Elastic Agents** (`enroll_elastic_agents.yml`)
     6.  **Setup Wazuh** (`setup_wazuh.yml`)
     7.  **Enroll Wazuh Agents** (`enroll_wazuh_agents.yml`)
+    8.  **Setup TheHive** (`setup_thehive.yml`)
+    9.  **Wazuh-TheHive Integration** (`wazuh_thehive_integration.yml`)
 
 👉 **[Detailed Ansible Instructions](ansible/README.md)**
 
