@@ -31,6 +31,7 @@ wazuh_agent_assignments:
   - { agent_name: "FLEET-01-SRV", group: ["linux", "linux-servers"] }
   - { agent_name: "LIN-01-WS", group: ["linux", "linux-workstations"] }
   - { agent_name: "SIEM-01-SRV", group: ["linux", "linux-servers"] }
+  - { agent_name: "SOC-01-SRV", group: ["linux", "linux-servers"] }
   - { agent_name: "WIN-01-WS", group: ["windows", "windows-workstations"] }
 
 # Groups to create via API
