@@ -21,3 +21,4 @@ host_policy_mapping:
   "WIN-01-WS": "Windows Workstation Agent Policy"
   "LIN-01-WS": "Linux Workstation Agent Policy"
   "XDR-01-SRV": "Linux Server Agent Policy"
+  "SOC-01-SRV": "Linux Server Agent Policy"
