@@ -24,10 +24,17 @@
     line: 'default-rule-path: /etc/suricata/rules'
 
 - name: Configure rule-files
-  ansible.builtin.blockinfile:
+  ansible.builtin.replace:
     path: /etc/suricata/suricata.yaml
-    regexp: '^rule-files:'
-    block: |
+    regexp: '(?m)^rule-files:(\n\s+-[^\n]+)*'
+    replace: |
       rule-files:
         - "*.rules"
+
+- name: Configure af-packet interface
+  ansible.builtin.replace:
+    path: /etc/suricata/suricata.yaml
+    regexp: 'interface: eth0'
+    replace: 'interface: {{ suricata_interface }}'
+  notify: restart suricata
 
