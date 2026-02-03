@@ -20,10 +20,4 @@
   ansible.builtin.shell: mv /tmp/rules/*.rules /etc/suricata/rules/
 
 - name: Set permissions for rules (chmod 777 as requested)
-  ansible.builtin.command: chmod 777 /etc/suricata/rules/*.rules
-  # Using shell wildcards inside command module usually doesn't work well without `shell`, but let's use shell for safety with wildcard here if needed, or precise command.
-  # Actually `chmod 777 /etc/suricata/rules/*.rules` requires shell expansion.
-  # User specifically asked for: sudo chmod 777 /etc/suricata/rules/*.rules
-  
-- name: Apply chmod 777 to rules
   ansible.builtin.shell: chmod 777 /etc/suricata/rules/*.rules
