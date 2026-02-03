@@ -14,22 +14,8 @@
 - name: Enable stats
   ansible.builtin.replace:
     path: /etc/suricata/suricata.yaml
-    regexp: '# stats:\n# enabled: yes' # This is a guess at the default commented out state. 
-    # A safer bet for YAML config editing without a parser is tough.
-    # The user request:
-    #   stats:
-    #   enabled: yes
-    # If it's already there but disabled or commented.
-    # I'll assume we can search for 'stats:' block.
-    # Let's try to just ensure the block exists using blockinfile or lineinfile if we can match context.
-    # But lineinfile is line-based.
-    # Let's use a simple approach: Ensure 'enabled: yes' is under 'stats:'
-    # This is tricky with lineinfile.
-    # I will simply use lineinfile to uncomment 'enabled: yes' if it follows 'stats:'.
-    # Or better, just print instructions if complex editing is needed, but I must automate it.
-    # I'll try to match specific lines.
-    regexp: '  enabled: no'
-    replace: '  enabled: yes'
+    regexp: '(# Global stats configuration\n\s*stats:\n\s*)enabled: no'
+    replace: '\1enabled: yes'
     # This assumes 'stats' block has 'enabled: no' by default or I'm editing it.
     # The user instruction implies:
     #   stats:
