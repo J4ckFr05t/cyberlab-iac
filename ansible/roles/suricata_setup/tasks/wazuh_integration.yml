@@ -1,0 +1,12 @@
+---
+- name: Add Suricata log configuration to Wazuh agent
+  ansible.builtin.blockinfile:
+    path: /var/ossec/etc/ossec.conf
+    marker: "<!-- {mark} ANSIBLE MANAGED BLOCK: Suricata -->"
+    insertafter: "<ossec_config>"
+    block: |
+      <localfile>
+        <log_format>json</log_format>
+        <location>/var/log/suricata/eve.json</location>
+      </localfile>
+  notify: restart wazuh-agent

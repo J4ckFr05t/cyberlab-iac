@@ -1,0 +1,11 @@
+---
+- name: restart suricata
+  ansible.builtin.service:
+    name: suricata
+    state: restarted
+    enabled: yes
+
+- name: restart wazuh-agent
+  ansible.builtin.service:
+    name: wazuh-agent
+    state: restarted

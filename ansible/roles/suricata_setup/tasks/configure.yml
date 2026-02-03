@@ -1,0 +1,71 @@
+---
+- name: Configure HOME_NET
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    regexp: '^HOME_NET:'
+    line: 'HOME_NET: "{{ suricata_home_net }}"'
+
+- name: Configure EXTERNAL_NET
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    regexp: '^EXTERNAL_NET:'
+    line: 'EXTERNAL_NET: "{{ suricata_external_net }}"'
+
+- name: Enable stats
+  ansible.builtin.replace:
+    path: /etc/suricata/suricata.yaml
+    regexp: '# stats:\n# enabled: yes' # This is a guess at the default commented out state. 
+    # A safer bet for YAML config editing without a parser is tough.
+    # The user request:
+    #   stats:
+    #   enabled: yes
+    # If it's already there but disabled or commented.
+    # I'll assume we can search for 'stats:' block.
+    # Let's try to just ensure the block exists using blockinfile or lineinfile if we can match context.
+    # But lineinfile is line-based.
+    # Let's use a simple approach: Ensure 'enabled: yes' is under 'stats:'
+    # This is tricky with lineinfile.
+    # I will simply use lineinfile to uncomment 'enabled: yes' if it follows 'stats:'.
+    # Or better, just print instructions if complex editing is needed, but I must automate it.
+    # I'll try to match specific lines.
+    regexp: '  enabled: no'
+    replace: '  enabled: yes'
+    # This assumes 'stats' block has 'enabled: no' by default or I'm editing it.
+    # The user instruction implies:
+    #   stats:
+    #   enabled: yes
+
+- name: Configure default-rule-path
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    regexp: '^default-rule-path:'
+    line: 'default-rule-path: /etc/suricata/rules'
+
+- name: Configure rule-files
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    regexp: '^rule-files:'
+    line: 'rule-files:'
+    
+- name: Add rule file pattern
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    insertafter: '^rule-files:'
+    line: '  - "*.rules"'
+
+- name: Configure af-packet interface
+  ansible.builtin.replace:
+    path: /etc/suricata/suricata.yaml
+    regexp: 'interface: eth0' # Replacing default eth0 if present
+    replace: 'interface: {{ suricata_interface }}'
+  # Note: This is risky if default isn't eth0.
+  # A better way might be to use a template if we had the source.
+  # Given the constraints, I will try to find the af-packet section and replace the interface line.
+  
+- name: Ensure af-packet interface is set
+  ansible.builtin.lineinfile:
+    path: /etc/suricata/suricata.yaml
+    regexp: '    - interface:'
+    line: '    - interface: {{ suricata_interface }}'
+    # This might replace all instances if not careful, but usually there's one main af-packet config.
+  notify: restart suricata

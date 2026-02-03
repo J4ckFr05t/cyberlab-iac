@@ -1,0 +1,14 @@
+---
+- name: Add Suricata PPA
+  ansible.builtin.apt_repository:
+    repo: ppa:oisf/suricata-stable
+    state: present
+    update_cache: yes
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - software-properties-common
+      - net-tools
+      - suricata
+    state: present

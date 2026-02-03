@@ -1,0 +1,5 @@
+---
+- import_tasks: install.yml
+- import_tasks: rules.yml
+- import_tasks: configure.yml
+- import_tasks: wazuh_integration.yml
