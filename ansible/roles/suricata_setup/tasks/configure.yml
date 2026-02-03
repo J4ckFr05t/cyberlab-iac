@@ -16,10 +16,6 @@
     path: /etc/suricata/suricata.yaml
     regexp: '(# Global stats configuration\n\s*stats:\n\s*)enabled: no'
     replace: '\1enabled: yes'
-    # This assumes 'stats' block has 'enabled: no' by default or I'm editing it.
-    # The user instruction implies:
-    #   stats:
-    #   enabled: yes
 
 - name: Configure default-rule-path
   ansible.builtin.lineinfile:
@@ -32,7 +28,7 @@
     path: /etc/suricata/suricata.yaml
     regexp: '^rule-files:'
     line: 'rule-files:'
-    
+
 - name: Add rule file pattern
   ansible.builtin.lineinfile:
     path: /etc/suricata/suricata.yaml
@@ -42,16 +38,6 @@
 - name: Configure af-packet interface
   ansible.builtin.replace:
     path: /etc/suricata/suricata.yaml
-    regexp: 'interface: eth0' # Replacing default eth0 if present
+    regexp: 'interface: eth0'
     replace: 'interface: {{ suricata_interface }}'
-  # Note: This is risky if default isn't eth0.
-  # A better way might be to use a template if we had the source.
-  # Given the constraints, I will try to find the af-packet section and replace the interface line.
-  
-- name: Ensure af-packet interface is set
-  ansible.builtin.lineinfile:
-    path: /etc/suricata/suricata.yaml
-    regexp: '    - interface:'
-    line: '    - interface: {{ suricata_interface }}'
-    # This might replace all instances if not careful, but usually there's one main af-packet config.
   notify: restart suricata

@@ -1,0 +1,6 @@
+---
+- name: Setup Suricata on SOC-01-SRV
+  hosts: SOC-01-SRV
+  become: yes
+  roles:
+    - suricata_setup

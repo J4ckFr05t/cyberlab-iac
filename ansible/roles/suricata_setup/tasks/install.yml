@@ -5,10 +5,13 @@
     state: present
     update_cache: yes
 
-- name: Install required packages
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+- name: Install Suricata and dependencies
   ansible.builtin.apt:
     name:
-      - software-properties-common
-      - net-tools
       - suricata
+      - net-tools
     state: present
