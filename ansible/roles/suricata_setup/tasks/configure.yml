@@ -2,14 +2,14 @@
 - name: Configure HOME_NET
   ansible.builtin.lineinfile:
     path: /etc/suricata/suricata.yaml
-    regexp: '^HOME_NET:'
-    line: 'HOME_NET: "{{ suricata_home_net }}"'
+    regexp: '^\s*HOME_NET:'
+    line: '    HOME_NET: "{{ suricata_home_net }}"'
 
 - name: Configure EXTERNAL_NET
   ansible.builtin.lineinfile:
     path: /etc/suricata/suricata.yaml
-    regexp: '^EXTERNAL_NET:'
-    line: 'EXTERNAL_NET: "{{ suricata_external_net }}"'
+    regexp: '^\s*EXTERNAL_NET:'
+    line: '    EXTERNAL_NET: "{{ suricata_external_net }}"'
 
 - name: Enable stats
   ansible.builtin.replace:
@@ -24,20 +24,10 @@
     line: 'default-rule-path: /etc/suricata/rules'
 
 - name: Configure rule-files
-  ansible.builtin.lineinfile:
+  ansible.builtin.blockinfile:
     path: /etc/suricata/suricata.yaml
     regexp: '^rule-files:'
-    line: 'rule-files:'
+    block: |
+      rule-files:
+        - "*.rules"
 
-- name: Add rule file pattern
-  ansible.builtin.lineinfile:
-    path: /etc/suricata/suricata.yaml
-    insertafter: '^rule-files:'
-    line: '  - "*.rules"'
-
-- name: Configure af-packet interface
-  ansible.builtin.replace:
-    path: /etc/suricata/suricata.yaml
-    regexp: 'interface: eth0'
-    replace: 'interface: {{ suricata_interface }}'
-  notify: restart suricata
