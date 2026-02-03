@@ -64,3 +64,9 @@
         identity: "XDR-01-SRV$"
         path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
         state: present
+
+    - name: Ensure SOC-01-SRV is in Linux Servers OU
+      microsoft.ad.computer:
+        identity: "SOC-01-SRV$"
+        path: "OU=Linux Servers,OU=Servers,DC=frostsec,DC=corp"
+        state: present
