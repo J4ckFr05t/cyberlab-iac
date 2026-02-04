@@ -5,7 +5,7 @@
   # This matches the new configuration in configure.yml.
 
 - name: Reload Suricata rules
-  ansible.builtin.command: suricatasct -c reload-rules
+  ansible.builtin.command: suricatasc -c reload-rules
   ignore_errors: yes
   # Optional: reload rules without restarting if suricata is running.
   # But we have a handler for restart in configure.yml usually.
