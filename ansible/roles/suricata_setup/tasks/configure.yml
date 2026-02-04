@@ -21,7 +21,7 @@
   ansible.builtin.lineinfile:
     path: /etc/suricata/suricata.yaml
     regexp: '^default-rule-path:'
-    line: 'default-rule-path: /etc/suricata/rules'
+    line: 'default-rule-path: /var/lib/suricata/rules'
 
 - name: Configure rule-files
   ansible.builtin.replace:
@@ -29,7 +29,7 @@
     regexp: '(?m)^rule-files:(\n\s+-[^\n]+)*'
     replace: |
       rule-files:
-        - "*.rules"
+        - suricata.rules
 
 - name: Configure af-packet interface
   ansible.builtin.replace:

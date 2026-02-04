@@ -1,23 +1,12 @@
 ---
-- name: Download Emerging Threats rules
-  ansible.builtin.command: curl -LO https://rules.emergingthreats.net/open/suricata-6.0.8/emerging.rules.tar.gz
-  args:
-    chdir: /tmp/
-    creates: /tmp/emerging.rules.tar.gz
+- name: Update Suricata rules
+  ansible.builtin.command: suricata-update
+  # This command updates the rules and saves them to /var/lib/suricata/rules/suricata.rules by default.
+  # This matches the new configuration in configure.yml.
 
-- name: Extract rules
-  ansible.builtin.command: tar -xvzf emerging.rules.tar.gz
-  args:
-    chdir: /tmp/
+- name: Reload Suricata rules
+  ansible.builtin.command: suricatasct -c reload-rules
+  ignore_errors: yes
+  # Optional: reload rules without restarting if suricata is running.
+  # But we have a handler for restart in configure.yml usually.
 
-- name: Create rules directory
-  ansible.builtin.file:
-    path: /etc/suricata/rules
-    state: directory
-    mode: '0755'
-
-- name: Move rules to /etc/suricata/rules
-  ansible.builtin.shell: mv /tmp/rules/*.rules /etc/suricata/rules/
-
-- name: Set permissions for rules (chmod 777 as requested)
-  ansible.builtin.shell: chmod 777 /etc/suricata/rules/*.rules
