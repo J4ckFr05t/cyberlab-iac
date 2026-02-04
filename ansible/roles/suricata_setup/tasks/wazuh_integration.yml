@@ -10,3 +10,15 @@
         <location>/var/log/suricata/eve.json</location>
       </localfile>
   notify: restart wazuh-agent
+
+- name: Flush handlers to restart Wazuh agent immediately
+  ansible.builtin.meta: flush_handlers
+
+- name: Check Wazuh logs for Suricata
+  ansible.builtin.shell: grep -i "suricata" /var/ossec/logs/ossec.log
+  register: wazuh_suricata_logs
+  ignore_errors: yes
+
+- name: Display Wazuh Suricata logs
+  ansible.builtin.debug:
+    var: wazuh_suricata_logs.stdout_lines
