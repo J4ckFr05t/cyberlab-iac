@@ -2,7 +2,13 @@
 - name: Update Suricata rules
   ansible.builtin.command: suricata-update
   # This command updates the rules and saves them to /var/lib/suricata/rules/suricata.rules by default.
-  # This matches the new configuration in configure.yml.
+
+- name: Fix permissions for Suricata rules
+  ansible.builtin.file:
+    path: /var/lib/suricata/rules
+    owner: suricata
+    group: suricata
+    recurse: yes
 
 - name: Reload Suricata rules
   ansible.builtin.command: suricatasc -c reload-rules
