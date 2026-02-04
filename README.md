@@ -41,6 +41,7 @@ Configure services and security tools.
     7.  **Enroll Wazuh Agents** (`enroll_wazuh_agents.yml`)
     8.  **Setup TheHive** (`setup_thehive.yml`)
     9.  **Wazuh-TheHive Integration** (`wazuh_thehive_integration.yml`)
+    10. **Setup Suricata** (`suricata_setup.yml`)
 
 👉 **[Detailed Ansible Instructions](ansible/README.md)**
 

@@ -22,9 +22,10 @@ ansible/
 │   ├── enroll_elastic_agents.yml# Elastic Agent enrollment
 │   ├── setup_wazuh.yml          # Wazuh Manager setup
 │   ├── enroll_wazuh_agents.yml  # Wazuh Agent enrollment
-│   ├── setup_thehive.yml        # TheHive Setup & SOC Manager config
-│   ├── wazuh_thehive_integration.yml # Wazuh-TheHive Integration
-│   └── check_connectivity.yml   # Connectivity test
+│    ├── setup_thehive.yml        # TheHive Setup & SOC Manager config
+    ├── wazuh_thehive_integration.yml # Wazuh-TheHive Integration
+    ├── suricata_setup.yml       # Suricata Setup on SOC-01-SRV
+    └── check_connectivity.yml   # Connectivity test
 └── README.md                    # This file
 ```
 
@@ -151,6 +152,13 @@ Configures Wazuh to send alerts to TheHive using the `custom-w2thive` script.
 
 ```bash
 ansible-playbook -i inventory/hosts.ini playbooks/wazuh_thehive_integration.yml
+```
+
+### 10. Setup Suricata (`suricata_setup.yml`)
+Installs and configures Suricata IDS on `SOC-01-SRV` and integrates it with Wazuh.
+
+```bash
+ansible-playbook -i inventory/hosts.ini playbooks/suricata_setup.yml
 ```
 
 ## Troubleshooting

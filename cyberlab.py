@@ -29,7 +29,8 @@ class CyberLabManager:
             ("setup_wazuh.yml", "Wazuh Manager Setup"),
             ("enroll_wazuh_agents.yml", "Enroll Wazuh Agents"),
             ("setup_thehive.yml", "Setup TheHive & SOC Manager"),
-            ("wazuh_thehive_integration.yml", "Wazuh-TheHive Integration")
+            ("wazuh_thehive_integration.yml", "Wazuh-TheHive Integration"),
+            ("suricata_setup.yml", "Suricata Setup on SOC-01-SRV")
         ]
 
     def print_status(self, message, status="INFO"):
