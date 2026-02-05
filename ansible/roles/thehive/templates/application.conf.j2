@@ -42,18 +42,21 @@ db.janusgraph {
     index-name = thehive
 
     elasticsearch {
-        # CRITICAL: This line forces HTTPS
-        ssl.enabled = true
+      #CRITICAL: This line forces HTTPS
+      ssl.enabled = true
 
-        http {
+      http {
         auth {
-            type = basic
-            basic {
+          type = basic
+          basic {
             username = "thehive"
             password = "{{ thehive_password }}"
-            }
+          }
         }
-        }
+      }
+      socket-timeout = 180000
+      connect-timeout = 180000
+      request-timeout = 180000
     }
 }
 }
