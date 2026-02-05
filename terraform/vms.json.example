@@ -162,8 +162,8 @@
         "nameserver": "172.16.10.100",
         "searchdomain": "yourdomain.com",
         "sshkeys": [
-          "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
-          "ssh-ed25519 AAAAC...another-key== user@backup-host"
+            "ssh-rsa AAAA...== johndoe@mgmt-01-srv",
+            "ssh-rsa AAAAB3...vQ== johndoe@johns-MacBook-Pro.local"
         ],
         "ipconfig": [
           {
@@ -229,7 +229,10 @@
         "enabled": true,
         "nameserver": "172.16.10.100",
         "searchdomain": "yourdomain.com",
-        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
+        "sshkeys": [
+            "ssh-rsa AAAA...== johndoe@mgmt-01-srv",
+            "ssh-rsa AAAAB3...vQ== johndoe@johns-MacBook-Pro.local"
+        ],
         "ipconfig": [
           {
             "interface": "net0",
@@ -294,7 +297,10 @@
         "enabled": true,
         "nameserver": "172.16.10.100",
         "searchdomain": "yourdomain.com",
-        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
+        "sshkeys": [
+            "ssh-rsa AAAA...== johndoe@mgmt-01-srv",
+            "ssh-rsa AAAAB3...vQ== johndoe@johns-MacBook-Pro.local"
+        ],
         "ipconfig": [
           {
             "interface": "net0",
@@ -308,6 +314,74 @@
         "PF-01-RTR",
         "DC-01-SRV"
       ]
+    },
+    {
+        "name": "SOC-01-SRV",
+        "vmid": 207,
+        "target_node": "proxmox",
+        "clone": "ubuntu-server-template",
+        "full_clone": true,
+        "onboot": true,
+        "tags": [
+            "Lab"
+        ],
+        "cpu": {
+            "cores": 4,
+            "sockets": 1,
+            "type": "host"
+        },
+        "memory": 8192,
+        "balloon": 4096,
+        "serial": {
+            "id": 0,
+            "type": "socket"
+        },
+        "scsihw": "virtio-scsi-pci",
+        "bootdisk": "scsi0",
+        "disks": [
+            {
+                "slot": "scsi0",
+                "size": "32G",
+                "type": "disk",
+                "storage": "Internal",
+                "discard": true,
+                "cache": "writeback"
+            },
+            {
+                "slot": "ide2",
+                "type": "cloudinit",
+                "storage": "local"
+            }
+        ],
+        "networks": [
+            {
+                "id": 0,
+                "model": "virtio",
+                "bridge": "vmbr1",
+                "firewall": true
+            }
+        ],
+        "cloudinit": {
+            "enabled": true,
+            "nameserver": "172.16.10.100",
+            "searchdomain": "frostsec.corp",
+            "sshkeys": [
+                "ssh-rsa AAAA...== johndoe@mgmt-01-srv",
+                "ssh-rsa AAAAB3...vQ== johndoe@johns-MacBook-Pro.local"
+            ],
+            "ipconfig": [
+                {
+                    "interface": "net0",
+                    "ip": "172.16.10.240/24",
+                    "gateway": "172.16.10.1"
+                }
+            ]
+        },
+        "agent": 1,
+        "depends_on": [
+            "PF-01-RTR",
+            "DC-01-SRV"
+        ]
     },
     {
       "name": "LIN-01-WS",
@@ -355,7 +429,10 @@
         "enabled": true,
         "nameserver": "172.16.10.100",
         "searchdomain": "yourdomain.com",
-        "sshkeys": "ssh-rsa AAAAB...Glj5kQ== username@management-hostname",
+        "sshkeys": [
+            "ssh-rsa AAAA...== johndoe@mgmt-01-srv",
+            "ssh-rsa AAAAB3...vQ== johndoe@johns-MacBook-Pro.local"
+        ],
         "ipconfig": [
           {
             "interface": "net0",
