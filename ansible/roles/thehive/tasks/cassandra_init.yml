@@ -69,7 +69,7 @@
     cqlsh -u cassandra -p "{{ authentication_cassandra_password }}" -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
   environment:
     CQLSH_NO_BUNDLED: "true"
-  no_log: true
+  # no_log: true
   when: admin_login_check.rc != 0 and default_login_check.rc == 0
 
 # Now we should be able to use admin user.
