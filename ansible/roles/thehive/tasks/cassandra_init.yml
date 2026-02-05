@@ -48,12 +48,26 @@
   changed_when: false
   when: admin_login_check.rc != 0
 
-- name: Fail if neither admin nor default creds work
+# Check if the NEW password works (fail handling for partial runs)
+- name: Check if new cassandra user password works (only if admin and default failed)
+  command: cqlsh -u cassandra -p "{{ authentication_cassandra_password }}" -e "DESCRIBE KEYSPACES"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  register: new_password_check
+  failed_when: false
+  changed_when: false
+  no_log: true
+  when: 
+    - admin_login_check.rc != 0
+    - default_login_check.rc != 0
+
+- name: Fail if neither admin, default, nor new creds work
   fail:
-    msg: "Could not connect to Cassandra with admin or default credentials."
+    msg: "Could not connect to Cassandra with admin, default, or new credentials."
   when: 
     - admin_login_check.rc != 0
     - default_login_check.rc | default(1) != 0
+    - new_password_check.rc | default(1) != 0
 
 # If default user works, we need to set up admin and change default password
 - name: Alter cassandra user password
@@ -64,13 +78,20 @@
   no_log: true
   when: admin_login_check.rc != 0 and default_login_check.rc == 0
 
+- name: Wait for password change to propagate
+  pause:
+    seconds: 10
+  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+
 - name: Create admin role
   command: >
     cqlsh -u cassandra -p "{{ authentication_cassandra_password }}" -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
   environment:
     CQLSH_NO_BUNDLED: "true"
-  # no_log: true
-  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+  no_log: true
+  when: 
+    - admin_login_check.rc != 0
+    - (default_login_check.rc == 0 or new_password_check.rc == 0)
 
 # Now we should be able to use admin user.
 # The user asked to DROP ROLE cassandra.
