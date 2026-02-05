@@ -17,60 +17,51 @@
     delay: 10
     timeout: 300
 
-# Try to connect as 'admin' first. If this works, we are already initialized.
-- name: Check if admin user exists and works
-  command: cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DESCRIBE KEYSPACES"
+# Robust Wait for Cassandra Authentication (Check all 3 possible states)
+- name: Wait for Cassandra authentication to be available
+  shell: |
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DESCRIBE KEYSPACES" && echo "admin_ok" && exit 0
+    cqlsh -u cassandra -p cassandra -e "DESCRIBE KEYSPACES" && echo "default_ok" && exit 0
+    cqlsh -u cassandra -p "{{ authentication_cassandra_password }}" -e "DESCRIBE KEYSPACES" && echo "new_pass_ok" && exit 0
+    exit 1
   environment:
     CQLSH_NO_BUNDLED: "true"
-  register: admin_login_check
-  failed_when: false
+  register: auth_check
+  until: auth_check.rc == 0
+  retries: 30
+  delay: 10
   changed_when: false
 
-# If admin login failed, assume default 'cassandra' user works
-- name: Check if default cassandra user works (only if admin failed)
-  command: cqlsh -u cassandra -p cassandra -e "DESCRIBE KEYSPACES"
-  environment:
-    CQLSH_NO_BUNDLED: "true"
-  register: default_login_check
-  failed_when: false
-  changed_when: false
-  when: admin_login_check.rc != 0
+# Determine valid credentials for bootstrapping (if admin not ready)
+- name: Set bootstrapping credentials
+  set_fact:
+    bootstrap_user: "cassandra"
+    bootstrap_pass: "{{ 'cassandra' if 'default_ok' in auth_check.stdout else authentication_cassandra_password }}"
+  when: "'admin_ok' not in auth_check.stdout"
 
-- name: Fail if neither admin nor default creds work
-  fail:
-    msg: "Could not connect to Cassandra with admin or default credentials."
-  when: 
-    - admin_login_check.rc != 0
-    - default_login_check.rc | default(1) != 0
-
+# Step 1: Create Admin Role if it doesn't exist (using whatever credentials work)
 - name: Create admin role
   command: >
-    cqlsh -u cassandra -p cassandra -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
+    cqlsh -u {{ bootstrap_user }} -p "{{ bootstrap_pass }}" -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
   environment:
     CQLSH_NO_BUNDLED: "true"
-  # no_log: true
-  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+  when: "'admin_ok' not in auth_check.stdout"
 
-# If default user works, we need to set up admin and change default password (optional if we drop it, but good practice if drop fails)
+# Step 2: Now Admin exists. Use Admin for everything else.
+
+# Check off security requirement: Change Default Cassandra Password
 - name: Alter cassandra user password
   command: >
-    cqlsh -u cassandra -p cassandra -e "ALTER USER cassandra WITH PASSWORD '{{ authentication_cassandra_password }}';"
+    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "ALTER USER cassandra WITH PASSWORD '{{ authentication_cassandra_password }}';"
   environment:
     CQLSH_NO_BUNDLED: "true"
   no_log: true
-  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+  # Always run this to ensure state, but idempotent roughly. 
+  # Actually, if we just created admin, we should run this. 
+  # If admin already existed, we might assume it's done, but re-running is safer to ensure compliance.
 
-# Now we should be able to use admin user.
 # The user asked to DROP ROLE cassandra.
 - name: Drop default cassandra role
-  command: >
-    cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DROP ROLE IF EXISTS cassandra;"
-  environment:
-    CQLSH_NO_BUNDLED: "true"
-  when: admin_login_check.rc != 0 # Only do this if we just migrated. If admin already existed, cassandra might already be gone.
-  # But technically we can try to drop it anyway if it is still there. Let's make it always try if admin works.
-
-- name: Ensure cassandra role is dropped (always try with admin creds)
   command: >
     cqlsh -u admin -p "{{ authentication_cassandra_admin_password }}" -e "DROP ROLE IF EXISTS cassandra;"
   environment:
