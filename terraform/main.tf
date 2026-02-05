@@ -115,6 +115,10 @@ resource "proxmox_vm_qemu" "tier_0" {
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
   sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
+
+  timeouts {
+    create = "40m"
+  }
 }
 
 # --- TIER 1 RESOURCES (Depend on Tier 0) ---
@@ -203,6 +207,10 @@ resource "proxmox_vm_qemu" "tier_1" {
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
   sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
+
+  timeouts {
+    create = "40m"
+  }
 
   depends_on = [proxmox_vm_qemu.tier_0]
 }
@@ -293,6 +301,10 @@ resource "proxmox_vm_qemu" "tier_2" {
   nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
   sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
+
+  timeouts {
+    create = "40m"
+  }
 
   depends_on = [proxmox_vm_qemu.tier_1]
 }
