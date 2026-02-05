@@ -10,9 +10,9 @@ from thehive4py.models import Alert, AlertArtifact
 #start user config
 # Global vars
 #threshold for wazuh rules level
-lvl_threshold=9
+lvl_threshold=10
 #threshold for suricata rules level
-suricata_lvl_threshold=3
+suricata_lvl_threshold=2
 debug_enabled = False
 #info about created alert
 info_enabled = True
