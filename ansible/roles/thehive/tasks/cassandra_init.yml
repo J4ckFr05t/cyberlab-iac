@@ -55,21 +55,21 @@
     - admin_login_check.rc != 0
     - default_login_check.rc | default(1) != 0
 
-# If default user works, we need to set up admin and change default password
+- name: Create admin role
+  command: >
+    cqlsh -u cassandra -p cassandra -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
+  environment:
+    CQLSH_NO_BUNDLED: "true"
+  # no_log: true
+  when: admin_login_check.rc != 0 and default_login_check.rc == 0
+
+# If default user works, we need to set up admin and change default password (optional if we drop it, but good practice if drop fails)
 - name: Alter cassandra user password
   command: >
     cqlsh -u cassandra -p cassandra -e "ALTER USER cassandra WITH PASSWORD '{{ authentication_cassandra_password }}';"
   environment:
     CQLSH_NO_BUNDLED: "true"
   no_log: true
-  when: admin_login_check.rc != 0 and default_login_check.rc == 0
-
-- name: Create admin role
-  command: >
-    cqlsh -u cassandra -p "{{ authentication_cassandra_password }}" -e "CREATE ROLE IF NOT EXISTS admin WITH PASSWORD = '{{ authentication_cassandra_admin_password }}' AND LOGIN = true AND SUPERUSER = true;"
-  environment:
-    CQLSH_NO_BUNDLED: "true"
-  # no_log: true
   when: admin_login_check.rc != 0 and default_login_check.rc == 0
 
 # Now we should be able to use admin user.
