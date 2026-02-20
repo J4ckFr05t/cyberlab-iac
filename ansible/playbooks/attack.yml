@@ -1,0 +1,214 @@
+---
+###############################################################################
+# attack.yml - Atomic Red Team Test Execution Playbook
+###############################################################################
+#
+# Dynamically executes Atomic Red Team tests on mixed Windows/Linux hosts.
+# Accepts MITRE ATT&CK technique IDs at runtime via JSON extra variables.
+#
+# Windows: Uses Invoke-AtomicTest PowerShell module.
+# Linux:   Uses native bash (atomic-operator or direct script execution).
+#
+# Techniques not applicable to a host's OS are silently skipped.
+# No technique IDs are hardcoded in this playbook.
+#
+# USAGE:
+#   cd /Users/jibingeorge/Documents/cyberlab-iac/ansible
+#
+#   # Run specific techniques across all hosts:
+#   ansible-playbook playbooks/attack.yml \
+#     -e '{"techniques": ["T1003.001", "T1003.008"]}'
+#
+#   # Run a single technique:
+#   ansible-playbook playbooks/attack.yml \
+#     -e '{"techniques": ["T1059.001"]}'
+#
+#   # Dry-run to preview task execution:
+#   ansible-playbook playbooks/attack.yml \
+#     -e '{"techniques": ["T1003.001", "T1003.008"]}' --check
+#
+#   # Limit to specific hosts:
+#   ansible-playbook playbooks/attack.yml \
+#     -e '{"techniques": ["T1059.001"]}' --limit windows
+#
+# PREREQUISITES:
+#   Windows — Invoke-AtomicRedTeam PowerShell module installed:
+#     Install-Module -Name invoke-atomicredteam -Scope CurrentUser -Force
+#     Install-Module -Name powershell-yaml -Scope CurrentUser -Force
+#     Install-AtomicRedTeam -getAtomics -Force
+#
+#   Linux — One of the following:
+#     Option A (recommended): atomic-operator (Python)
+#       pip3 install atomic-operator
+#       atomic-operator get_atomics
+#     Option B: Manually clone the atomics repo
+#       git clone https://github.com/redcanaryco/atomic-red-team.git /opt/AtomicRedTeam
+#
+###############################################################################
+
+###############################################################################
+# PLAY 1: Execute Atomic Red Team tests on WINDOWS hosts
+###############################################################################
+- name: "Atomic Red Team - Windows Execution"
+  hosts: dc,windows
+  gather_facts: true
+
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+
+  vars:
+    ansible_user: "{{ win_username }}"
+    ansible_password: "{{ win_password }}"
+
+  tasks:
+    # Validate that techniques were passed at runtime
+    - name: "Validate 'techniques' variable is provided"
+      ansible.builtin.assert:
+        that:
+          - techniques is defined
+          - techniques | length > 0
+        fail_msg: >-
+          ERROR: Pass technique IDs at runtime.
+          Example: -e '{"techniques": ["T1003.001", "T1003.008"]}'
+      run_once: true
+      tags: [always]
+
+    - name: "Display Windows execution plan"
+      ansible.builtin.debug:
+        msg: "[{{ inventory_hostname }}] Running {{ techniques | length }} technique(s): {{ techniques | join(', ') }}"
+      when: ansible_os_family == 'Windows'
+      tags: [always]
+
+    # Execute each technique — Invoke-AtomicTest natively skips techniques
+    # that have no tests for Windows (e.g., Linux-only techniques like T1003.008)
+    - name: "Execute Atomic Test: {{ item }}"
+      ansible.windows.win_shell: |
+        Import-Module "C:\AtomicRedTeam\invoke-atomicredteam\Invoke-AtomicRedTeam.psd1" -Force
+        Invoke-AtomicTest {{ item }} -GetPrereqs -ErrorAction SilentlyContinue
+        Invoke-AtomicTest {{ item }} -Confirm:$false
+      loop: "{{ techniques }}"
+      loop_control:
+        label: "{{ item }}"
+      when: ansible_os_family == 'Windows'
+      register: windows_results
+      ignore_errors: true
+      failed_when: false
+      tags: [attack, windows]
+
+    # Save results for summary
+    - name: "Store Windows results"
+      ansible.builtin.set_fact:
+        attack_results: "{{ windows_results.results | default([]) }}"
+      when: ansible_os_family == 'Windows'
+      tags: [always]
+
+###############################################################################
+# PLAY 2: Execute Atomic Red Team tests on LINUX hosts
+###############################################################################
+- name: "Atomic Red Team - Linux Execution"
+  hosts: linux
+  gather_facts: true
+
+  tasks:
+    - name: "Display Linux execution plan"
+      ansible.builtin.debug:
+        msg: "[{{ inventory_hostname }}] Running {{ techniques | length }} technique(s): {{ techniques | join(', ') }}"
+      when: ansible_os_family != 'Windows'
+      tags: [always]
+
+    # Execute each technique using native bash
+    # Uses atomic-operator if installed, otherwise runs test scripts
+    # from the cloned atomics directory. Techniques without Linux tests
+    # are silently skipped (exit 0).
+    - name: "Execute Atomic Test: {{ item }}"
+      ansible.builtin.shell: |
+        ATOMICS_DIR="/opt/AtomicRedTeam/atomics"
+
+        # Option A: Use atomic-operator if available (pip3 install atomic-operator)
+        if command -v atomic-operator &>/dev/null; then
+          echo "[*] Running {{ item }} via atomic-operator"
+          atomic-operator run --techniques {{ item }} --atomics-path "$ATOMICS_DIR" 2>&1
+          exit $?
+        fi
+
+        # Option B: Run bash test scripts from the cloned atomics repo
+        TECHNIQUE_DIR="$ATOMICS_DIR/{{ item }}"
+        if [ ! -d "$TECHNIQUE_DIR" ]; then
+          echo "[INFO] No atomics found for {{ item }} on this platform — skipping"
+          exit 0
+        fi
+
+        echo "[*] Running {{ item }} from $TECHNIQUE_DIR"
+
+        # Find and execute any shell-based test scripts
+        FOUND_SCRIPTS=0
+        for script in "$TECHNIQUE_DIR"/src/*.sh "$TECHNIQUE_DIR"/src/**/*.sh; do
+          if [ -f "$script" ]; then
+            echo "[*] Executing: $script"
+            bash "$script" 2>&1 || true
+            FOUND_SCRIPTS=1
+          fi
+        done
+
+        if [ "$FOUND_SCRIPTS" -eq 0 ]; then
+          echo "[INFO] {{ item }} has no bash test scripts — may require manual execution"
+        fi
+
+        echo "[*] Completed {{ item }}"
+      args:
+        executable: /bin/bash
+      loop: "{{ techniques }}"
+      loop_control:
+        label: "{{ item }}"
+      when: ansible_os_family != 'Windows'
+      register: linux_results
+      ignore_errors: true
+      failed_when: false
+      become: true
+      tags: [attack, linux]
+
+    # Save results for summary
+    - name: "Store Linux results"
+      ansible.builtin.set_fact:
+        attack_results: "{{ linux_results.results | default([]) }}"
+      when: ansible_os_family != 'Windows'
+      tags: [always]
+
+###############################################################################
+# PLAY 3: Summary — Clean per-host execution report
+###############################################################################
+- name: "Atomic Red Team - Execution Summary"
+  hosts: all
+  gather_facts: false
+
+  vars_files:
+    - ../inventory/group_vars/secret_vault.yml
+
+  vars:
+    ansible_user: "{{ win_username | default(omit) }}"
+    ansible_password: "{{ win_password | default(omit) }}"
+
+  tasks:
+    - name: "Execution Report for {{ inventory_hostname }}"
+      ansible.builtin.debug:
+        msg: |
+          ╔══════════════════════════════════════════════════════════════════╗
+          ║           ATOMIC RED TEAM — EXECUTION REPORT                   ║
+          ╠══════════════════════════════════════════════════════════════════╣
+          ║  Host:     {{ inventory_hostname }}
+          ║  OS:       {{ ansible_os_family | default('Unknown') }}
+          ║  ──────────────────────────────────────────────────────────────
+          {% for result in attack_results | default([]) %}
+          {% if result.skipped | default(false) %}
+          ║  ⏭  SKIPPED   {{ result.item }}
+          {% elif result.rc | default(0) == 0 %}
+          ║  ✅ SUCCESS   {{ result.item }}
+          {% else %}
+          ║  ❌ FAILED    {{ result.item }}  (exit code: {{ result.rc | default('?') }})
+          {% endif %}
+          {% endfor %}
+          {% if attack_results | default([]) | length == 0 %}
+          ║  ℹ️  No techniques were evaluated on this host.
+          {% endif %}
+          ╚══════════════════════════════════════════════════════════════════╝
+      tags: [always, summary]
