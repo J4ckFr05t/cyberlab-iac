@@ -6,8 +6,8 @@
 # Dynamically executes Atomic Red Team tests on mixed Windows/Linux hosts.
 # Accepts MITRE ATT&CK technique IDs at runtime via JSON extra variables.
 #
-# Windows: Uses Invoke-AtomicTest PowerShell module.
-# Linux:   Uses native bash (atomic-operator or direct script execution).
+# Windows: Uses Invoke-AtomicTest PowerShell module via win_shell.
+# Linux:   Uses Invoke-AtomicTest PowerShell module via pwsh (PowerShell Core).
 #
 # Techniques not applicable to a host's OS are silently skipped.
 # No technique IDs are hardcoded in this playbook.
@@ -37,12 +37,13 @@
 #     Install-Module -Name powershell-yaml -Scope CurrentUser -Force
 #     Install-AtomicRedTeam -getAtomics -Force
 #
-#   Linux — One of the following:
-#     Option A (recommended): atomic-operator (Python)
-#       pip3 install atomic-operator
-#       atomic-operator get_atomics
-#     Option B: Manually clone the atomics repo
-#       git clone https://github.com/redcanaryco/atomic-red-team.git /opt/AtomicRedTeam
+#   Linux — PowerShell Core (pwsh) + Invoke-AtomicRedTeam module:
+#     1. Install PowerShell:
+#        ansible-playbook playbooks/install_powershell.yml
+#     2. Install Invoke-AtomicRedTeam module:
+#        pwsh -Command "Install-Module -Name invoke-atomicredteam -Scope CurrentUser -Force"
+#        pwsh -Command "Install-Module -Name powershell-yaml -Scope CurrentUser -Force"
+#        pwsh -Command "Install-AtomicRedTeam -getAtomics -Force"
 #
 ###############################################################################
 
@@ -103,7 +104,7 @@
       tags: [always]
 
 ###############################################################################
-# PLAY 2: Execute Atomic Red Team tests on LINUX hosts
+# PLAY 2: Execute Atomic Red Team tests on LINUX hosts (via PowerShell Core)
 ###############################################################################
 - name: "Atomic Red Team - Linux Execution"
   hosts: linux
@@ -116,47 +117,16 @@
       when: ansible_os_family != 'Windows'
       tags: [always]
 
-    # Execute each technique using native bash
-    # Uses atomic-operator if installed, otherwise runs test scripts
-    # from the cloned atomics directory. Techniques without Linux tests
-    # are silently skipped (exit 0).
+    # Execute each technique using Invoke-AtomicTest via PowerShell Core (pwsh).
+    # This mirrors the Windows execution approach for consistency.
+    # Techniques without Linux tests are silently skipped by Invoke-AtomicTest.
     - name: "Execute Atomic Test: {{ item }}"
       ansible.builtin.shell: |
-        ATOMICS_DIR="/opt/AtomicRedTeam/atomics"
-
-        # Option A: Use atomic-operator if available (pip3 install atomic-operator)
-        if command -v atomic-operator &>/dev/null; then
-          echo "[*] Running {{ item }} via atomic-operator"
-          atomic-operator run --techniques {{ item }} --atomics-path "$ATOMICS_DIR" 2>&1
-          exit $?
-        fi
-
-        # Option B: Run bash test scripts from the cloned atomics repo
-        TECHNIQUE_DIR="$ATOMICS_DIR/{{ item }}"
-        if [ ! -d "$TECHNIQUE_DIR" ]; then
-          echo "[INFO] No atomics found for {{ item }} on this platform — skipping"
-          exit 0
-        fi
-
-        echo "[*] Running {{ item }} from $TECHNIQUE_DIR"
-
-        # Find and execute any shell-based test scripts
-        FOUND_SCRIPTS=0
-        for script in "$TECHNIQUE_DIR"/src/*.sh "$TECHNIQUE_DIR"/src/**/*.sh; do
-          if [ -f "$script" ]; then
-            echo "[*] Executing: $script"
-            bash "$script" 2>&1 || true
-            FOUND_SCRIPTS=1
-          fi
-        done
-
-        if [ "$FOUND_SCRIPTS" -eq 0 ]; then
-          echo "[INFO] {{ item }} has no bash test scripts — may require manual execution"
-        fi
-
-        echo "[*] Completed {{ item }}"
-      args:
-        executable: /bin/bash
+        pwsh -Command '
+          Import-Module "/root/AtomicRedTeam/invoke-atomicredteam/Invoke-AtomicRedTeam.psd1" -Force
+          Invoke-AtomicTest {{ item }} -GetPrereqs -ErrorAction SilentlyContinue
+          Invoke-AtomicTest {{ item }} -Confirm:$false
+        '
       loop: "{{ techniques }}"
       loop_control:
         label: "{{ item }}"
