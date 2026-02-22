@@ -1,6 +1,6 @@
 ---
 ###############################################################################
-# attack.yml - Atomic Red Team Test Execution Playbook
+# atomic_red_team_attack.yml - Atomic Red Team Test Execution Playbook
 ###############################################################################
 #
 # Dynamically executes Atomic Red Team tests on mixed Windows/Linux hosts.
@@ -16,19 +16,19 @@
 #   cd /Users/jibingeorge/Documents/cyberlab-iac/ansible
 #
 #   # Run specific techniques across all hosts:
-#   ansible-playbook playbooks/attack.yml \
+#   ansible-playbook playbooks/atomic_red_team_attack.yml \
 #     -e '{"techniques": ["T1003.001", "T1003.008"]}'
 #
 #   # Run a single technique:
-#   ansible-playbook playbooks/attack.yml \
+#   ansible-playbook playbooks/atomic_red_team_attack.yml \
 #     -e '{"techniques": ["T1059.001"]}'
 #
 #   # Dry-run to preview task execution:
-#   ansible-playbook playbooks/attack.yml \
+#   ansible-playbook playbooks/atomic_red_team_attack.yml \
 #     -e '{"techniques": ["T1003.001", "T1003.008"]}' --check
 #
 #   # Limit to specific hosts:
-#   ansible-playbook playbooks/attack.yml \
+#   ansible-playbook playbooks/atomic_red_team_attack.yml \
 #     -e '{"techniques": ["T1059.001"]}' --limit windows
 #
 # PREREQUISITES:
