@@ -1,13 +1,24 @@
 #!/usr/bin/env python3
 import html
 import re
-import streamlit as st
 import subprocess
 import os
 import json
 import shutil
+import sys
 import tempfile
-import yaml
+
+try:
+    import streamlit as st
+except ImportError:
+    print("Missing dependency: streamlit. Install with: pip install -r requirements.txt", file=sys.stderr)
+    raise
+
+try:
+    import yaml
+except ImportError:
+    print("Missing dependency: PyYAML (import yaml). Install with: pip install -r requirements.txt", file=sys.stderr)
+    raise
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TERRAFORM_DIR = os.path.join(BASE_DIR, "terraform")

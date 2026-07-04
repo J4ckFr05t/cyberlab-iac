@@ -13,7 +13,18 @@ This project automates the deployment of a complete cybersecurity lab using **Te
 ### 1. Prerequisites
 - A running Proxmox VE server.
 - Terraform and Ansible installed on your control machine.
+- Python 3.10+ with UI dependencies installed:
+  ```bash
+  pip install -r requirements.txt
+  ```
 - Local VM templates created in Proxmox (see [`terraform/README.md`](terraform/README.md#prerequisites)).
+
+### Web UI (optional)
+Run the Streamlit control panel from the repo root (after `pip install -r requirements.txt`):
+
+```bash
+streamlit run cyberlab_ui.py
+```
 
 ### 2. Infrastructure Layer (Terraform)
 Provision the virtual machines.
