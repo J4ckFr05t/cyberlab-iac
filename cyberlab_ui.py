@@ -1,12 +1,18 @@
 #!/usr/bin/env python3
+import os
+import sys
+
+# macOS: Streamlit loads ObjC; fork() in subprocess without this aborts the parent (SIGABRT).
+if sys.platform == "darwin":
+    os.environ.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
+
 import html
 import re
 import subprocess
-import os
 import json
 import shutil
-import sys
 import tempfile
+import time
 
 try:
     import streamlit as st
@@ -477,6 +483,23 @@ div[data-testid="stForm"] {
     font-family: 'JetBrains Mono', monospace;
 }
 
+.term-window.term-in-card {
+    margin: 0;
+}
+
+.pb-term-wrap {
+    padding: 12px 12px 16px 12px;
+    box-sizing: border-box;
+}
+
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner):has(.pb-term-wrap) {
+    overflow: visible !important;
+}
+
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner):has(.pb-term-wrap) > div[data-testid="stVerticalBlock"] {
+    padding-bottom: 4px !important;
+}
+
 .term-titlebar {
     display: flex;
     align-items: center;
@@ -618,6 +641,13 @@ def file_exists(path: str) -> bool:
     return os.path.exists(path)
 
 
+def subprocess_env() -> dict[str, str]:
+    env = os.environ.copy()
+    if sys.platform == "darwin":
+        env.setdefault("OBJC_DISABLE_INITIALIZE_FORK_SAFETY", "YES")
+    return env
+
+
 def run_clean_known_hosts(placeholder):
     if not file_exists(CLEAN_HOSTS_SCRIPT):
         return 1, f"Script not found: {CLEAN_HOSTS_SCRIPT}"
@@ -672,13 +702,14 @@ def highlight_terminal_output(text: str) -> str:
     return "".join(lines)
 
 
-def render_deploy_terminal(placeholder, text: str = "", state: str | None = None, footer: str | None = None):
-    session_state, session_footer = st.session_state.get("deploy_status", ("idle", "ready"))
-    if state is None:
-        state = session_state
-    if footer is None:
-        footer = session_footer
-
+def render_terminal(
+    placeholder,
+    text: str = "",
+    state: str = "idle",
+    footer: str = "ready",
+    title: str = "cyberlab@deploy — zsh",
+    extra_class: str = "",
+):
     if not text:
         body = (
             '<div class="term-line">'
@@ -692,46 +723,79 @@ def render_deploy_terminal(placeholder, text: str = "", state: str | None = None
 
     footer_text = html.escape(footer) if footer else "ready"
     footer_prefix = {"running": "▶", "success": "✓", "error": "✕", "idle": "○"}.get(state, "○")
+    window_class = f"term-window term-{state} {extra_class}".strip()
 
-    placeholder.markdown(
-        f'''<div class="term-window term-{state}">
+    terminal_html = f'''<div class="{window_class}">
 <div class="term-titlebar">
   <div class="term-dots">
     <span class="term-dot red"></span>
     <span class="term-dot yellow"></span>
     <span class="term-dot green"></span>
   </div>
-  <div class="term-title">cyberlab@deploy — zsh</div>
+  <div class="term-title">{html.escape(title)}</div>
   <div class="term-status-dot"></div>
 </div>
 <div class="term-body"><div class="term-content">{body}</div></div>
 <div class="term-footer">{footer_prefix} {footer_text}</div>
-</div>''',
-        unsafe_allow_html=True,
+</div>'''
+
+    if "term-in-card" in extra_class:
+        terminal_html = f'<div class="pb-term-wrap">{terminal_html}</div>'
+
+    placeholder.markdown(terminal_html, unsafe_allow_html=True)
+
+
+def render_deploy_terminal(placeholder, text: str = "", state: str | None = None, footer: str | None = None):
+    session_state, session_footer = st.session_state.get("deploy_status", ("idle", "ready"))
+    render_terminal(
+        placeholder,
+        text,
+        state=session_state if state is None else state,
+        footer=session_footer if footer is None else footer,
     )
 
 
-def run_command(cmd: str, cwd: str, placeholder, save_output=None, render=None):
+def run_command(cmd: str, cwd: str, placeholder, save_output=None, render=None, render_interval: float = 0.15):
     render_fn = render or (lambda ph, t: ph.code(t, language="bash"))
     output_lines = [f"$ {cmd}\n\n"]
     text = "".join(output_lines)
     render_fn(placeholder, text)
     if save_output:
         save_output(text)
-    proc = subprocess.Popen(
-        cmd, shell=True, cwd=cwd,
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
-        bufsize=1,
-    )
-    for line in proc.stdout:
-        if line and not line.endswith("\n"):
-            line += "\n"
-        output_lines.append(line)
-        text = "".join(output_lines)
-        render_fn(placeholder, text)
-        if save_output:
-            save_output(text)
-    proc.wait()
+
+    popen_kwargs: dict = {
+        "shell": True,
+        "cwd": cwd,
+        "env": subprocess_env(),
+        "stdout": subprocess.PIPE,
+        "stderr": subprocess.STDOUT,
+        "text": True,
+        "bufsize": 1,
+    }
+    if sys.platform == "darwin":
+        popen_kwargs["start_new_session"] = True
+
+    proc = subprocess.Popen(cmd, **popen_kwargs)
+    last_render = time.monotonic()
+    try:
+        for line in proc.stdout:
+            if line and not line.endswith("\n"):
+                line += "\n"
+            output_lines.append(line)
+            text = "".join(output_lines)
+            if save_output:
+                save_output(text)
+            now = time.monotonic()
+            if now - last_render >= render_interval:
+                render_fn(placeholder, text)
+                last_render = now
+    finally:
+        proc.wait()
+
+    text = "".join(output_lines)
+    render_fn(placeholder, text)
+    if save_output:
+        save_output(text)
     return proc.returncode, text
 
 
@@ -986,7 +1050,7 @@ def page_vm_editor():
 
 def _decrypt_vault(vault_path: str, vault_pass_path: str) -> dict | None:
     cmd = f'ansible-vault view --vault-password-file "{vault_pass_path}" "{vault_path}"'
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ANSIBLE_DIR)
+    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ANSIBLE_DIR, env=subprocess_env())
     if result.returncode != 0:
         return None
     try:
@@ -1087,7 +1151,7 @@ def page_ansible_secrets():
                     tmp_path = tmp.name
                 try:
                     cmd = f'ansible-vault encrypt --encrypt-vault-id default --vault-password-file "{vault_pass_path}" "{tmp_path}"'
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ANSIBLE_DIR)
+                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True, cwd=ANSIBLE_DIR, env=subprocess_env())
                     if result.returncode != 0:
                         st.error(f"Encryption failed: {result.stderr}")
                         os.unlink(tmp_path)
@@ -1117,16 +1181,22 @@ def page_ansible_secrets():
                     st.rerun()
 
 
-@st.dialog("Destroy infrastructure?")
+def _close_destroy_dialog():
+    st.session_state.show_destroy_dialog = False
+
+
+@st.dialog("Destroy infrastructure?", on_dismiss=_close_destroy_dialog)
 def destroy_confirm_dialog():
     st.warning("This will permanently delete all Terraform-managed VMs from Proxmox.")
     st.caption("This action cannot be undone.")
     cancel_col, confirm_col = st.columns(2)
     with cancel_col:
         if st.button("Cancel", use_container_width=True):
+            _close_destroy_dialog()
             st.rerun()
     with confirm_col:
         if st.button("Yes, destroy", type="primary", use_container_width=True):
+            _close_destroy_dialog()
             st.session_state.pending_destroy = True
             st.rerun()
 
@@ -1139,6 +1209,8 @@ def page_deploy():
         st.session_state.deploy_output = ""
     if "deploy_status" not in st.session_state:
         st.session_state.deploy_status = ("idle", "ready")
+    if "show_destroy_dialog" not in st.session_state:
+        st.session_state.show_destroy_dialog = False
 
     vms_path = os.path.join(TERRAFORM_DIR, "vms.json")
     if not file_exists(vms_path):
@@ -1146,6 +1218,7 @@ def page_deploy():
         return
 
     tf_init = file_exists(os.path.join(TERRAFORM_DIR, ".terraform"))
+    pending_destroy = st.session_state.pop("pending_destroy", False)
 
     section("terraform actions")
     tf_cols = st.columns(4, gap="small")
@@ -1158,7 +1231,10 @@ def page_deploy():
     with tf_cols[3]:
         destroy_btn = st.button("Destroy", type="primary", key="deploy_destroy", use_container_width=True, disabled=not tf_init)
 
-    if destroy_btn:
+    if destroy_btn and not pending_destroy:
+        st.session_state.show_destroy_dialog = True
+
+    if st.session_state.show_destroy_dialog and not pending_destroy:
         destroy_confirm_dialog()
 
     section("ssh")
@@ -1183,7 +1259,10 @@ def page_deploy():
         render_deploy_terminal(output_ph, text)
         return rc
 
-    if init_btn:
+    if pending_destroy:
+        st.session_state.show_destroy_dialog = False
+        deploy_exec("terraform destroy -auto-approve -no-color", TERRAFORM_DIR, "Destroyed", "Destroy failed")
+    elif init_btn:
         deploy_exec("terraform init -upgrade -no-color", TERRAFORM_DIR, "Init complete", "Init failed")
     elif plan_btn:
         deploy_exec("terraform plan -no-color", TERRAFORM_DIR, "Plan complete", "Plan failed")
@@ -1199,13 +1278,38 @@ def page_deploy():
         else:
             os.chmod(CLEAN_HOSTS_SCRIPT, 0o755)
             deploy_exec(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, "SSH keys cleared", "Failed to clear SSH keys")
-    elif st.session_state.pop("pending_destroy", False):
-        deploy_exec("terraform destroy -auto-approve -no-color", TERRAFORM_DIR, "Destroyed", "Destroy failed")
 
 
 def page_ansible():
     st.markdown(hero("Ansible"), unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Configure software & security stack</div>', unsafe_allow_html=True)
+
+    if "playbook_outputs" not in st.session_state:
+        st.session_state.playbook_outputs = {}
+    if "playbook_status" not in st.session_state:
+        st.session_state.playbook_status = {}
+
+    def playbook_exec(pb_file: str, term_ph) -> int:
+        cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
+        title = f"cyberlab@ansible — {pb_file}"
+
+        def save(text: str):
+            st.session_state.playbook_outputs[pb_file] = text
+
+        def render_live(ph, t):
+            pb_state, pb_footer = st.session_state.playbook_status.get(
+                pb_file, ("running", f"running: {pb_file}…")
+            )
+            render_terminal(ph, t, state=pb_state, footer=pb_footer, title=title, extra_class="term-in-card")
+
+        st.session_state.playbook_status[pb_file] = ("running", f"running: {pb_file}…")
+        render_live(term_ph, f"$ {cmd}\n\n")
+        rc, text = run_command(cmd, ANSIBLE_DIR, term_ph, save_output=save, render=render_live)
+        st.session_state.playbook_status[pb_file] = (
+            ("success", "complete") if rc == 0 else ("error", "failed")
+        )
+        render_live(term_ph, text)
+        return rc
 
     section("ssh")
     st.caption("Clear stale SSH host keys before connecting to redeployed Linux VMs.")
@@ -1223,11 +1327,22 @@ def page_ansible():
                 with card_col:
                     st.markdown(pb_card_html(i + 1, pb_desc, pb_file, color), unsafe_allow_html=True)
                 with run_col:
-                    if st.button("Run", key=f"run_{pb_file}", use_container_width=True):
-                        out = st.empty()
-                        cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
-                        rc, _ = run_command(cmd, ANSIBLE_DIR, out)
-                        st.success("Done") if rc == 0 else st.error("Failed")
+                    run_btn = st.button("Run", key=f"run_{pb_file}", use_container_width=True)
+
+                if run_btn or pb_file in st.session_state.playbook_outputs:
+                    term_ph = st.empty()
+                    if run_btn:
+                        playbook_exec(pb_file, term_ph)
+                    else:
+                        pb_state, pb_footer = st.session_state.playbook_status.get(pb_file, ("idle", "ready"))
+                        render_terminal(
+                            term_ph,
+                            st.session_state.playbook_outputs.get(pb_file, ""),
+                            state=pb_state,
+                            footer=pb_footer,
+                            title=f"cyberlab@ansible — {pb_file}",
+                            extra_class="term-in-card",
+                        )
 
     with tab2:
         section("batch execution")
@@ -1251,15 +1366,13 @@ def page_ansible():
                     st.info(f"Skipped {pb_desc}")
                     continue
                 section(pb_desc)
-                out = st.empty()
-                cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
-                rc, _ = run_command(cmd, ANSIBLE_DIR, out)
+                term_ph = st.empty()
+                rc = playbook_exec(pb_file, term_ph)
                 done += 1
                 progress.progress(done / total)
                 if rc != 0:
                     st.error(f"{pb_desc} failed. Stopping.")
                     break
-                st.success("Done")
             else:
                 st.success("All playbooks complete")
                 st.balloons()

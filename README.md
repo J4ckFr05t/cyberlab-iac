@@ -23,6 +23,11 @@ This project automates the deployment of a complete cybersecurity lab using **Te
 Run the Streamlit control panel from the repo root (after `pip install -r requirements.txt`):
 
 ```bash
+# macOS: use the launcher so subprocess runs (ansible/terraform) don't crash Python
+./scripts/run_ui.sh
+
+# or directly (Linux / after exporting on macOS):
+export OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES  # macOS only
 streamlit run cyberlab_ui.py
 ```
 
