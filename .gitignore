@@ -50,3 +50,5 @@ ansible/inventory/group_vars/all.yml
 ansible/inventory/group_vars/dc.yml
 # Credentials and Certs
 ansible/files/*
+
+venv/
