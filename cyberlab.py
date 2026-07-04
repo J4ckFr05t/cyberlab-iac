@@ -809,6 +809,23 @@ wazuh_admin_password: {wazuh_admin_password}
             else:
                 print("Invalid option.")
 
+    def destroy_infra(self):
+        print(f"\n{CYAN}=== Destroy Infrastructure (Terraform) ==={RESET}")
+        print(f"{RED}WARNING: This will destroy ALL Terraform-managed infrastructure!{RESET}")
+
+        confirm = input(f"\n{YELLOW}Type 'destroy' to confirm: {RESET}").strip()
+        if confirm != 'destroy':
+            self.print_status("Destroy cancelled by user.", "WARN")
+            input("\nPress Enter to return to menu...")
+            return
+
+        if self.run_command_stream("terraform destroy -auto-approve", self.terraform_dir, "Terraform Destroy"):
+            self.print_status("Infrastructure destroyed successfully.", "SUCCESS")
+        else:
+            self.print_status("Terraform Destroy failed.", "ERROR")
+
+        input("\nPress Enter to return to menu...")
+
     def menu(self):
         while True:
             # os.system('clear' if os.name == 'posix' else 'cls') # Commented out clear for better scrolling history during dev
@@ -816,10 +833,11 @@ wazuh_admin_password: {wazuh_admin_password}
             print("1. Run Prerequisites Checks")
             print("2. Deploy Infrastructure (Terraform)")
             print("3. Configure Software (Ansible)")
-            print("4. Exit")
+            print(f"4. {RED}Destroy Infrastructure (Terraform){RESET}")
+            print("5. Exit")
             
             try:
-                choice = input(f"\n{YELLOW}Select an option (1-4): {RESET}")
+                choice = input(f"\n{YELLOW}Select an option (1-5): {RESET}")
             except EOFError:
                 break
             
@@ -830,6 +848,8 @@ wazuh_admin_password: {wazuh_admin_password}
             elif choice == '3':
                 self.configure_vms()
             elif choice == '4':
+                self.destroy_infra()
+            elif choice == '5':
                 print("Exiting...")
                 sys.exit(0)
             else:
