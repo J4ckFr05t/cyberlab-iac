@@ -1,9 +1,47 @@
 ---
+- name: Check Wazuh embedded Python candidates
+  ansible.builtin.stat:
+    path: "{{ item }}"
+  loop: "{{ wazuh_python_candidates }}"
+  register: wazuh_python_stats
+
+- name: Select Wazuh embedded Python interpreter
+  ansible.builtin.set_fact:
+    wazuh_python_bin: "{{ (wazuh_python_stats.results | selectattr('stat.exists') | map(attribute='item') | list | first) | default('', true) }}"
+
+- name: Fail when Wazuh embedded Python is missing
+  ansible.builtin.fail:
+    msg: >-
+      Wazuh embedded Python was not found under /var/ossec/framework/python/bin/.
+      Run setup_wazuh.yml on {{ inventory_hostname }} before this integration.
+  when: wazuh_python_bin | length == 0
+
+- name: Check python3 symlink for integration wrapper
+  ansible.builtin.stat:
+    path: /var/ossec/framework/python/bin/python3
+  register: wazuh_python3_link
+
+- name: Create python3 symlink for integration wrapper
+  ansible.builtin.file:
+    src: "{{ wazuh_python_bin | basename }}"
+    dest: /var/ossec/framework/python/bin/python3
+    state: link
+    force: true
+  when:
+    - not wazuh_python3_link.stat.exists
+    - wazuh_python_bin != '/var/ossec/framework/python/bin/python3'
+
 - name: Install thehive4py python module
-  ansible.builtin.pip:
-    name: thehive4py
-    version: 1.8.1
-    executable: /var/ossec/framework/python/bin/pip3
+  ansible.builtin.command:
+    argv:
+      - "{{ wazuh_python_bin }}"
+      - -m
+      - pip
+      - install
+      - "thehive4py=={{ thehive4py_version }}"
+  register: thehive4py_install
+  changed_when: "'Successfully installed' in (thehive4py_install.stdout | default(''))"
+  failed_when: thehive4py_install.rc != 0
 
 - name: Copy custom-w2thive.py integration script
   ansible.builtin.copy:
@@ -12,6 +50,12 @@
     owner: root
     group: wazuh
     mode: '0755'
+
+- name: Point integration script shebang at Wazuh Python
+  ansible.builtin.lineinfile:
+    path: /var/ossec/integrations/custom-w2thive.py
+    regexp: '^#!'
+    line: "#!{{ wazuh_python_bin }}"
 
 - name: Copy custom-w2thive bash wrapper script
   ansible.builtin.copy:
@@ -23,12 +67,9 @@
 
 - name: Read TheHive API key from controller
   ansible.builtin.set_fact:
-    thehive_api_key: "{{ lookup('file', '{{ playbook_dir }}/../files/thehive/soc_manager_api_key.txt') }}"
+    thehive_api_key: "{{ lookup('file', playbook_dir ~ '/../files/thehive/soc_manager_api_key.txt') }}"
   delegate_to: localhost
-
-- name: Display TheHive IP (debug)
-  ansible.builtin.debug:
-    msg: "TheHive IP is {{ hostvars['SOC-01-SRV']['ansible_host'] }}"
+  become: false
 
 - name: Configure ossec.conf for TheHive integration
   ansible.builtin.blockinfile:

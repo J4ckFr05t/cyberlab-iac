@@ -1,0 +1,9 @@
+---
+wazuh_python_candidates:
+  - /var/ossec/framework/python/bin/python3
+  - /var/ossec/framework/python/bin/python3.12
+  - /var/ossec/framework/python/bin/python3.11
+  - /var/ossec/framework/python/bin/python3.10
+  - /var/ossec/framework/python/bin/python3.9
+
+thehive4py_version: "1.8.1"
