@@ -25,8 +25,7 @@ ansible/
 │    ├── setup_thehive.yml        # TheHive Setup & SOC Manager config
     ├── wazuh_thehive_integration.yml # Wazuh-TheHive Integration
     ├── suricata_setup.yml       # Suricata Setup on SOC-01-SRV
-    ├── check_connectivity.yml   # Connectivity test
-    └── bulk_lab_snapshot.yml    # Bulk snapshot lab VMs on Proxmox
+    └── check_connectivity.yml   # Connectivity test
 └── README.md                    # This file
 ```
 
@@ -77,9 +76,6 @@ elastic_custom_password: YourElasticPassword
 # Wazuh
 wazuh_api_password: YourWazuhApiPassword
 wazuh_admin_password: YourWazuhAdminPassword
-
-# Proxmox host SSH (optional if using SSH keys)
-proxmox_root_password: YourProxmoxRootPassword
 ```
 
 ### 3. Vault Password File
@@ -94,17 +90,6 @@ chmod 600 .vault_pass
 ## Workflow (Strict Order)
 
 Follow this order exactly for a successful deployment.
-
-### 0. Bulk Lab Snapshot (`bulk_lab_snapshot.yml`) — optional
-SSH to the Proxmox host (IP parsed from `terraform/terraform.tfvars` → `proxmox_api_url`) and run `/root/bulk_lab_snapshot.sh` with snapshot name `freshClone`. Use before or after VM changes to capture a restore point.
-
-```bash
-ansible-playbook -i inventory/hosts.ini playbooks/bulk_lab_snapshot.yml
-# Custom snapshot name:
-ansible-playbook -i inventory/hosts.ini playbooks/bulk_lab_snapshot.yml -e lab_snapshot_name=mySnapshot
-```
-
-Requires root SSH access to Proxmox (password in `secret_vault.yml` as `proxmox_root_password`, or SSH keys).
 
 ### 1. Domain Controller Setup (`dc_setup.yml`)
 Promotes the Windows Server to a Domain Controller for `frostsec.corp`.

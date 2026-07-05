@@ -1,8 +1,0 @@
----
-# Proxmox host SSH settings (optional — omit password if using SSH keys)
-proxmox_ssh_user: root
-# proxmox_root_password: set in secret_vault.yml
-
-# Defaults for bulk_lab_snapshot.yml
-lab_snapshot_name: freshClone
-proxmox_bulk_snapshot_script: /root/bulk_lab_snapshot.sh
