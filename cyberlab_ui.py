@@ -13,6 +13,7 @@ import json
 import shutil
 import tempfile
 import time
+from datetime import timedelta
 
 try:
     import streamlit as st
@@ -30,6 +31,12 @@ except ImportError:
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TERRAFORM_DIR = os.path.join(BASE_DIR, "terraform")
 ANSIBLE_DIR = os.path.join(BASE_DIR, "ansible")
+CYBERLAB_DIR = os.path.join(BASE_DIR, ".cyberlab")
+PLAYBOOKS_JOB_DIR = os.path.join(CYBERLAB_DIR, "playbooks")
+BATCH_PLAYBOOK_KEY = "batch"
+DEPLOY_LOG = os.path.join(CYBERLAB_DIR, "deploy.log")
+DEPLOY_STATUS_FILE = os.path.join(CYBERLAB_DIR, "deploy.status.json")
+DEPLOY_EXIT_FILE = os.path.join(CYBERLAB_DIR, "deploy.exit")
 CLEAN_HOSTS_SCRIPT = os.path.join(BASE_DIR, "scripts", "clean_known_hosts.sh")
 
 TEMPLATES = [
@@ -655,6 +662,312 @@ def subprocess_env() -> dict[str, str]:
     return env
 
 
+def ensure_cyberlab_dir():
+    os.makedirs(CYBERLAB_DIR, exist_ok=True)
+
+
+def process_running(pid: int | None) -> bool:
+    if not pid:
+        return False
+    try:
+        os.kill(pid, 0)
+        return True
+    except OSError:
+        return False
+
+
+def read_deploy_status() -> dict:
+    if not file_exists(DEPLOY_STATUS_FILE):
+        return {"state": "idle", "footer": "ready"}
+    try:
+        with open(DEPLOY_STATUS_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {"state": "idle", "footer": "ready"}
+
+
+def write_deploy_status(
+    state: str,
+    footer: str,
+    *,
+    pid: int | None = None,
+    cmd: str | None = None,
+    ok_msg: str = "",
+    err_msg: str = "",
+):
+    ensure_cyberlab_dir()
+    payload = {
+        "state": state,
+        "footer": footer,
+        "pid": pid,
+        "cmd": cmd,
+        "ok_msg": ok_msg,
+        "err_msg": err_msg,
+    }
+    with open(DEPLOY_STATUS_FILE, "w") as f:
+        json.dump(payload, f)
+
+
+def read_deploy_log() -> str:
+    if not file_exists(DEPLOY_LOG):
+        return ""
+    with open(DEPLOY_LOG) as f:
+        return f.read()
+
+
+def count_deployed_vms(state_file: str) -> int:
+    if not file_exists(state_file):
+        return 0
+    try:
+        with open(state_file) as f:
+            state = json.load(f)
+        return sum(
+            len(r.get("instances", []))
+            for r in state.get("resources", [])
+            if r.get("type") == "proxmox_vm_qemu"
+        )
+    except Exception:
+        return 0
+
+
+def is_deploy_job_running() -> bool:
+    status = read_deploy_status()
+    if status.get("state") != "running":
+        return False
+    return process_running(status.get("pid"))
+
+
+def poll_deploy_job() -> dict:
+    """Reconcile background deploy job; update status file when process exits."""
+    status = read_deploy_status()
+    if status.get("state") != "running":
+        return status
+
+    pid = status.get("pid")
+    if process_running(pid):
+        return status
+
+    rc = 1
+    if file_exists(DEPLOY_EXIT_FILE):
+        try:
+            rc = int(open(DEPLOY_EXIT_FILE).read().strip())
+        except Exception:
+            rc = 1
+
+    ok_msg = status.get("ok_msg") or "complete"
+    err_msg = status.get("err_msg") or "failed"
+    if rc == 0:
+        write_deploy_status("success", ok_msg, cmd=status.get("cmd"), ok_msg=ok_msg, err_msg=err_msg)
+    else:
+        write_deploy_status("error", err_msg, cmd=status.get("cmd"), ok_msg=ok_msg, err_msg=err_msg)
+    return read_deploy_status()
+
+
+def sync_deploy_from_disk():
+    status = poll_deploy_job()
+    st.session_state.deploy_output = read_deploy_log()
+    st.session_state.deploy_status = (status.get("state", "idle"), status.get("footer", "ready"))
+
+
+def start_deploy_job(cmd: str, cwd: str, ok_msg: str, err_msg: str) -> bool:
+    if is_deploy_job_running() or is_any_playbook_job_running():
+        return False
+
+    ensure_cyberlab_dir()
+    with open(DEPLOY_LOG, "w") as f:
+        f.write(f"$ {cmd}\n\n")
+    if file_exists(DEPLOY_EXIT_FILE):
+        os.remove(DEPLOY_EXIT_FILE)
+
+    wrapper = f'({cmd}) >> "{DEPLOY_LOG}" 2>&1; echo $? > "{DEPLOY_EXIT_FILE}"'
+    popen_kwargs: dict = {
+        "shell": True,
+        "cwd": cwd,
+        "env": subprocess_env(),
+        "start_new_session": True,
+    }
+    proc = subprocess.Popen(wrapper, **popen_kwargs)
+    write_deploy_status(
+        "running",
+        f"running: {cmd.split()[0]}…",
+        pid=proc.pid,
+        cmd=cmd,
+        ok_msg=ok_msg,
+        err_msg=err_msg,
+    )
+    st.session_state.deploy_output = read_deploy_log()
+    st.session_state.deploy_status = ("running", f"running: {cmd.split()[0]}…")
+    return True
+
+
+def playbook_job_key(pb_file: str) -> str:
+    return pb_file.replace("/", "_")
+
+
+def playbook_job_paths(key: str) -> dict[str, str]:
+    job_dir = os.path.join(PLAYBOOKS_JOB_DIR, key)
+    return {
+        "dir": job_dir,
+        "log": os.path.join(job_dir, "run.log"),
+        "status": os.path.join(job_dir, "status.json"),
+        "exit": os.path.join(job_dir, "exit"),
+    }
+
+
+def read_playbook_status(key: str) -> dict:
+    paths = playbook_job_paths(key)
+    if not file_exists(paths["status"]):
+        return {"state": "idle", "footer": "ready"}
+    try:
+        with open(paths["status"]) as f:
+            return json.load(f)
+    except Exception:
+        return {"state": "idle", "footer": "ready"}
+
+
+def write_playbook_status(
+    key: str,
+    state: str,
+    footer: str,
+    *,
+    pid: int | None = None,
+    cmd: str | None = None,
+    ok_msg: str = "",
+    err_msg: str = "",
+    pb_file: str | None = None,
+):
+    paths = playbook_job_paths(key)
+    os.makedirs(paths["dir"], exist_ok=True)
+    payload = {
+        "state": state,
+        "footer": footer,
+        "pid": pid,
+        "cmd": cmd,
+        "ok_msg": ok_msg,
+        "err_msg": err_msg,
+        "pb_file": pb_file,
+    }
+    with open(paths["status"], "w") as f:
+        json.dump(payload, f)
+
+
+def read_playbook_log(key: str) -> str:
+    paths = playbook_job_paths(key)
+    if not file_exists(paths["log"]):
+        return ""
+    with open(paths["log"]) as f:
+        return f.read()
+
+
+def is_playbook_job_running(key: str) -> bool:
+    status = read_playbook_status(key)
+    if status.get("state") != "running":
+        return False
+    return process_running(status.get("pid"))
+
+
+def is_any_playbook_job_running() -> bool:
+    if is_playbook_job_running(BATCH_PLAYBOOK_KEY):
+        return True
+    return any(is_playbook_job_running(playbook_job_key(pb_file)) for pb_file, _, _ in PLAYBOOKS)
+
+
+def poll_playbook_job(key: str) -> dict:
+    status = read_playbook_status(key)
+    if status.get("state") != "running":
+        return status
+
+    pid = status.get("pid")
+    if process_running(pid):
+        return status
+
+    paths = playbook_job_paths(key)
+    rc = 1
+    if file_exists(paths["exit"]):
+        try:
+            rc = int(open(paths["exit"]).read().strip())
+        except Exception:
+            rc = 1
+
+    ok_msg = status.get("ok_msg") or "complete"
+    err_msg = status.get("err_msg") or "failed"
+    if rc == 0:
+        write_playbook_status(
+            key, "success", ok_msg,
+            cmd=status.get("cmd"), ok_msg=ok_msg, err_msg=err_msg, pb_file=status.get("pb_file"),
+        )
+    else:
+        write_playbook_status(
+            key, "error", err_msg,
+            cmd=status.get("cmd"), ok_msg=ok_msg, err_msg=err_msg, pb_file=status.get("pb_file"),
+        )
+    return read_playbook_status(key)
+
+
+def sync_playbook_from_disk(pb_file: str):
+    key = playbook_job_key(pb_file)
+    poll_playbook_job(key)
+    paths = playbook_job_paths(key)
+    if file_exists(paths["log"]) or file_exists(paths["status"]):
+        st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
+        status = read_playbook_status(key)
+        st.session_state.playbook_status[pb_file] = (
+            status.get("state", "idle"), status.get("footer", "ready")
+        )
+
+
+def sync_all_playbooks_from_disk():
+    for pb_file, _, _ in PLAYBOOKS:
+        sync_playbook_from_disk(pb_file)
+
+
+def playbook_has_output(pb_file: str) -> bool:
+    key = playbook_job_key(pb_file)
+    paths = playbook_job_paths(key)
+    return file_exists(paths["log"]) or pb_file in st.session_state.get("playbook_outputs", {})
+
+
+def start_playbook_job(
+    key: str,
+    cmd: str,
+    cwd: str,
+    ok_msg: str,
+    err_msg: str,
+    *,
+    pb_file: str | None = None,
+    running_label: str | None = None,
+) -> bool:
+    if is_playbook_job_running(key):
+        return False
+
+    paths = playbook_job_paths(key)
+    os.makedirs(paths["dir"], exist_ok=True)
+    with open(paths["log"], "w") as f:
+        f.write(f"$ {cmd}\n\n")
+    if file_exists(paths["exit"]):
+        os.remove(paths["exit"])
+
+    wrapper = f'({cmd}) >> "{paths["log"]}" 2>&1; echo $? > "{paths["exit"]}"'
+    proc = subprocess.Popen(
+        wrapper, shell=True, cwd=cwd, env=subprocess_env(), start_new_session=True,
+    )
+    label = running_label or pb_file or key
+    write_playbook_status(
+        key,
+        "running",
+        f"running: {label}…",
+        pid=proc.pid,
+        cmd=cmd,
+        ok_msg=ok_msg,
+        err_msg=err_msg,
+        pb_file=pb_file,
+    )
+    if pb_file:
+        st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
+        st.session_state.playbook_status[pb_file] = ("running", f"running: {label}…")
+    return True
+
+
 def run_clean_known_hosts(placeholder):
     if not file_exists(CLEAN_HOSTS_SCRIPT):
         return 1, f"Script not found: {CLEAN_HOSTS_SCRIPT}"
@@ -914,15 +1227,7 @@ def page_dashboard():
     cards += '</div>'
     st.markdown(cards, unsafe_allow_html=True)
 
-    vm_count = 0
-    state_file = os.path.join(TERRAFORM_DIR, "terraform.tfstate")
-    if file_exists(state_file):
-        try:
-            with open(state_file) as f:
-                state = json.load(f)
-            vm_count = sum(1 for r in state.get("resources", []) if r.get("type") == "proxmox_vm_qemu")
-        except Exception:
-            pass
+    vm_count = count_deployed_vms(os.path.join(TERRAFORM_DIR, "terraform.tfstate"))
 
     vms_path = os.path.join(TERRAFORM_DIR, "vms.json")
     vms = []
@@ -1267,6 +1572,16 @@ def destroy_confirm_dialog():
             st.rerun()
 
 
+def _deploy_terminal_fragment():
+    status = poll_deploy_job()
+    text = read_deploy_log()
+    state = status.get("state", "idle")
+    footer = status.get("footer", "ready")
+    st.session_state.deploy_output = text
+    st.session_state.deploy_status = (state, footer)
+    render_deploy_terminal(st.empty(), text, state=state, footer=footer)
+
+
 def page_deploy():
     st.markdown(hero("Deploy"), unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Provision infrastructure on Proxmox</div>', unsafe_allow_html=True)
@@ -1278,6 +1593,8 @@ def page_deploy():
     if "show_destroy_dialog" not in st.session_state:
         st.session_state.show_destroy_dialog = False
 
+    sync_deploy_from_disk()
+
     vms_path = os.path.join(TERRAFORM_DIR, "vms.json")
     if not file_exists(vms_path):
         st.error("vms.json missing. Configure VMs first.")
@@ -1285,17 +1602,21 @@ def page_deploy():
 
     tf_init = file_exists(os.path.join(TERRAFORM_DIR, ".terraform"))
     run_destroy = st.session_state.get("run_destroy", False)
+    job_running = is_deploy_job_running() or is_any_playbook_job_running()
 
     section("terraform actions")
     tf_cols = st.columns(4, gap="small")
     with tf_cols[0]:
-        init_btn = st.button("Initialize", use_container_width=True)
+        init_btn = st.button("Initialize", use_container_width=True, disabled=job_running)
     with tf_cols[1]:
-        plan_btn = st.button("Plan", use_container_width=True, disabled=not tf_init)
+        plan_btn = st.button("Plan", use_container_width=True, disabled=not tf_init or job_running)
     with tf_cols[2]:
-        apply_btn = st.button("Apply", type="primary", use_container_width=True, disabled=not tf_init)
+        apply_btn = st.button("Apply", type="primary", use_container_width=True, disabled=not tf_init or job_running)
     with tf_cols[3]:
-        destroy_btn = st.button("Destroy", type="primary", key="deploy_destroy", use_container_width=True, disabled=not tf_init)
+        destroy_btn = st.button(
+            "Destroy", type="primary", key="deploy_destroy",
+            use_container_width=True, disabled=not tf_init or job_running,
+        )
 
     if destroy_btn and not run_destroy:
         st.session_state.show_destroy_dialog = True
@@ -1305,25 +1626,20 @@ def page_deploy():
 
     section("ssh")
     st.caption("After redeploying VMs, clear stale SSH host keys so Ansible can reconnect.")
-    clean_btn = st.button("Clear SSH keys", key="deploy_clean_hosts")
+    clean_btn = st.button("Clear SSH keys", key="deploy_clean_hosts", disabled=job_running)
 
     section("output")
-    output_ph = st.empty()
-    render_deploy_terminal(output_ph, st.session_state.deploy_output)
+    if job_running:
+        st.caption("Job running on server — safe to refresh or reconnect; output updates automatically.")
 
-    def deploy_exec(cmd: str, cwd: str, ok_msg: str, err_msg: str) -> int:
-        def save(text: str):
-            st.session_state.deploy_output = text
+    deploy_terminal = st.fragment(run_every=timedelta(seconds=2))(_deploy_terminal_fragment)
+    deploy_terminal()
 
-        st.session_state.deploy_status = ("running", f"running: {cmd.split()[0]}…")
-        render_deploy_terminal(output_ph, f"$ {cmd}\n\n", state="running", footer=f"running: {cmd.split()[0]}…")
-        rc, text = run_command(cmd, cwd, output_ph, save_output=save, render=render_deploy_terminal)
-        if rc == 0:
-            st.session_state.deploy_status = ("success", ok_msg)
+    def queue_deploy(cmd: str, cwd: str, ok_msg: str, err_msg: str):
+        if not start_deploy_job(cmd, cwd, ok_msg, err_msg):
+            st.warning("A deploy job is already running.")
         else:
-            st.session_state.deploy_status = ("error", err_msg)
-        render_deploy_terminal(output_ph, text)
-        return rc
+            st.rerun()
 
     if run_destroy:
         st.session_state.show_destroy_dialog = False
@@ -1332,23 +1648,126 @@ def page_deploy():
             st.rerun()
         st.session_state.pop("run_destroy", None)
         st.session_state.pop("destroy_ui_flushed", None)
-        deploy_exec("terraform destroy -auto-approve -no-color", TERRAFORM_DIR, "Destroyed", "Destroy failed")
+        queue_deploy("terraform destroy -auto-approve -no-color", TERRAFORM_DIR, "Destroyed", "Destroy failed")
     elif init_btn:
-        deploy_exec("terraform init -upgrade -no-color", TERRAFORM_DIR, "Init complete", "Init failed")
+        queue_deploy("terraform init -upgrade -no-color", TERRAFORM_DIR, "Init complete", "Init failed")
     elif plan_btn:
-        deploy_exec("terraform plan -no-color", TERRAFORM_DIR, "Plan complete", "Plan failed")
+        queue_deploy("terraform plan -no-color", TERRAFORM_DIR, "Plan complete", "Plan failed")
     elif apply_btn:
-        rc = deploy_exec("terraform apply -auto-approve -no-color", TERRAFORM_DIR, "Infrastructure deployed", "Apply failed")
-        if rc == 0:
-            st.balloons()
+        queue_deploy("terraform apply -auto-approve -no-color", TERRAFORM_DIR, "Infrastructure deployed", "Apply failed")
     elif clean_btn:
         if not file_exists(CLEAN_HOSTS_SCRIPT):
             st.session_state.deploy_output = f"$ Clear SSH keys\n\nScript not found: {CLEAN_HOSTS_SCRIPT}\n"
             st.session_state.deploy_status = ("error", "Script not found")
-            render_deploy_terminal(output_ph, st.session_state.deploy_output)
+            write_deploy_status("error", "Script not found")
+            with open(DEPLOY_LOG, "w") as f:
+                f.write(st.session_state.deploy_output)
+            st.rerun()
         else:
             os.chmod(CLEAN_HOSTS_SCRIPT, 0o755)
-            deploy_exec(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, "SSH keys cleared", "Failed to clear SSH keys")
+            queue_deploy(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, "SSH keys cleared", "Failed to clear SSH keys")
+
+
+def _playbooks_tab():
+    sync_all_playbooks_from_disk()
+    jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
+
+    if jobs_busy:
+        st.caption("Playbook running on server — safe to refresh or reconnect; output updates automatically.")
+
+    for i, (pb_file, pb_desc, color) in enumerate(PLAYBOOKS):
+        key = playbook_job_key(pb_file)
+        with st.container(border=True):
+            card_col, run_col = st.columns([6, 1], gap="small", vertical_alignment="center")
+            with card_col:
+                st.markdown(pb_card_html(i + 1, pb_desc, pb_file, color), unsafe_allow_html=True)
+            with run_col:
+                run_btn = st.button(
+                    "Run", key=f"run_{pb_file}", use_container_width=True,
+                    disabled=jobs_busy and not is_playbook_job_running(key),
+                )
+
+            if run_btn:
+                cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
+                if start_playbook_job(key, cmd, ANSIBLE_DIR, "complete", "failed", pb_file=pb_file):
+                    st.rerun()
+                else:
+                    st.warning("A playbook is already running.")
+
+            if playbook_has_output(pb_file) or is_playbook_job_running(key):
+                status = read_playbook_status(key)
+                render_terminal(
+                    st.empty(),
+                    read_playbook_log(key) or st.session_state.playbook_outputs.get(pb_file, ""),
+                    state=status.get("state", "idle"),
+                    footer=status.get("footer", "ready"),
+                    title=f"cyberlab@ansible — {pb_file}",
+                    extra_class="term-in-card",
+                    term_id=f"pb:{pb_file}",
+                )
+
+
+def _batch_playbooks_tab():
+    poll_playbook_job(BATCH_PLAYBOOK_KEY)
+    batch_status = read_playbook_status(BATCH_PLAYBOOK_KEY)
+    batch_log = read_playbook_log(BATCH_PLAYBOOK_KEY)
+    batch_running = is_playbook_job_running(BATCH_PLAYBOOK_KEY)
+    jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
+
+    section("batch execution")
+    clean_first = st.checkbox("Clear SSH keys before running", value=True)
+    exclude = st.multiselect("Exclude", options=[d for _, d, _ in PLAYBOOKS])
+    run_all = st.button(
+        "Execute All", type="primary", use_container_width=True,
+        disabled=jobs_busy and not batch_running,
+    )
+
+    if batch_log or batch_running:
+        if batch_running:
+            st.caption("Batch job running on server — safe to refresh or reconnect.")
+        render_terminal(
+            st.empty(),
+            batch_log,
+            state=batch_status.get("state", "idle"),
+            footer=batch_status.get("footer", "ready"),
+            title="cyberlab@ansible — batch",
+            extra_class="term-in-card",
+            term_id="pb:batch",
+        )
+
+    if run_all:
+        if jobs_busy and not batch_running:
+            st.warning("Another job is already running.")
+            return
+
+        pb_files = [f for f, d, _ in PLAYBOOKS if d not in exclude]
+        if not pb_files:
+            st.warning("No playbooks selected.")
+            return
+
+        if clean_first:
+            if not file_exists(CLEAN_HOSTS_SCRIPT):
+                st.error(f"Script not found: {CLEAN_HOSTS_SCRIPT}")
+                return
+            os.chmod(CLEAN_HOSTS_SCRIPT, 0o755)
+            rc, _ = run_command(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, st.empty())
+            if rc != 0:
+                st.error("Failed to clear SSH keys. Stopping.")
+                return
+            st.success("SSH keys cleared")
+
+        parts = []
+        for pb in pb_files:
+            parts.append(f'echo "" && echo "=== {pb} ==="')
+            parts.append(f"ansible-playbook -i inventory/hosts.ini playbooks/{pb}")
+        batch_cmd = " && ".join(parts)
+        if start_playbook_job(
+            BATCH_PLAYBOOK_KEY, batch_cmd, ANSIBLE_DIR,
+            "All playbooks complete", "Batch failed", running_label="batch",
+        ):
+            st.rerun()
+        else:
+            st.warning("A playbook job is already running.")
 
 
 def page_ansible():
@@ -1360,34 +1779,14 @@ def page_ansible():
     if "playbook_status" not in st.session_state:
         st.session_state.playbook_status = {}
 
-    def playbook_exec(pb_file: str, term_ph) -> int:
-        cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
-        title = f"cyberlab@ansible — {pb_file}"
-
-        def save(text: str):
-            st.session_state.playbook_outputs[pb_file] = text
-
-        def render_live(ph, t):
-            pb_state, pb_footer = st.session_state.playbook_status.get(
-                pb_file, ("running", f"running: {pb_file}…")
-            )
-            render_terminal(
-                ph, t, state=pb_state, footer=pb_footer, title=title,
-                extra_class="term-in-card", term_id=f"pb:{pb_file}",
-            )
-
-        st.session_state.playbook_status[pb_file] = ("running", f"running: {pb_file}…")
-        render_live(term_ph, f"$ {cmd}\n\n")
-        rc, text = run_command(cmd, ANSIBLE_DIR, term_ph, save_output=save, render=render_live)
-        st.session_state.playbook_status[pb_file] = (
-            ("success", "complete") if rc == 0 else ("error", "failed")
-        )
-        render_live(term_ph, text)
-        return rc
+    sync_all_playbooks_from_disk()
 
     section("ssh")
     st.caption("Clear stale SSH host keys before connecting to redeployed Linux VMs.")
-    if st.button("Clear SSH keys", key="ansible_clean_hosts"):
+    if st.button(
+        "Clear SSH keys", key="ansible_clean_hosts",
+        disabled=is_any_playbook_job_running() or is_deploy_job_running(),
+    ):
         out = st.empty()
         rc, _ = run_clean_known_hosts(out)
         st.success("SSH keys cleared") if rc == 0 else st.error("Failed to clear SSH keys")
@@ -1395,62 +1794,12 @@ def page_ansible():
     tab1, tab2 = st.tabs(["Playbooks", "Run All"])
 
     with tab1:
-        for i, (pb_file, pb_desc, color) in enumerate(PLAYBOOKS):
-            with st.container(border=True):
-                card_col, run_col = st.columns([6, 1], gap="small", vertical_alignment="center")
-                with card_col:
-                    st.markdown(pb_card_html(i + 1, pb_desc, pb_file, color), unsafe_allow_html=True)
-                with run_col:
-                    run_btn = st.button("Run", key=f"run_{pb_file}", use_container_width=True)
-
-                if run_btn or pb_file in st.session_state.playbook_outputs:
-                    term_ph = st.empty()
-                    if run_btn:
-                        playbook_exec(pb_file, term_ph)
-                    else:
-                        pb_state, pb_footer = st.session_state.playbook_status.get(pb_file, ("idle", "ready"))
-                        render_terminal(
-                            term_ph,
-                            st.session_state.playbook_outputs.get(pb_file, ""),
-                            state=pb_state,
-                            footer=pb_footer,
-                            title=f"cyberlab@ansible — {pb_file}",
-                            extra_class="term-in-card",
-                            term_id=f"pb:{pb_file}",
-                        )
+        playbooks_tab = st.fragment(run_every=timedelta(seconds=2))(_playbooks_tab)
+        playbooks_tab()
 
     with tab2:
-        section("batch execution")
-        clean_first = st.checkbox("Clear SSH keys before running", value=True)
-        exclude = st.multiselect("Exclude", options=[d for _, d, _ in PLAYBOOKS])
-        if st.button("Execute All", type="primary", use_container_width=True):
-            if clean_first:
-                section("clear ssh keys")
-                out = st.empty()
-                rc, _ = run_clean_known_hosts(out)
-                if rc != 0:
-                    st.error("Failed to clear SSH keys. Stopping.")
-                    return
-                st.success("SSH keys cleared")
-            excluded_files = {f for f, d, _ in PLAYBOOKS if d in exclude}
-            progress = st.progress(0)
-            total = sum(1 for f, _, _ in PLAYBOOKS if f not in excluded_files)
-            done = 0
-            for pb_file, pb_desc, _ in PLAYBOOKS:
-                if pb_file in excluded_files:
-                    st.info(f"Skipped {pb_desc}")
-                    continue
-                section(pb_desc)
-                term_ph = st.empty()
-                rc = playbook_exec(pb_file, term_ph)
-                done += 1
-                progress.progress(done / total)
-                if rc != 0:
-                    st.error(f"{pb_desc} failed. Stopping.")
-                    break
-            else:
-                st.success("All playbooks complete")
-                st.balloons()
+        batch_tab = st.fragment(run_every=timedelta(seconds=2))(_batch_playbooks_tab)
+        batch_tab()
 
 
 # ---------------------------------------------------------------------------

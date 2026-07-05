@@ -52,3 +52,5 @@ ansible/inventory/group_vars/dc.yml
 ansible/files/*
 
 venv/
+.cyberlab/
+__pycache__/
