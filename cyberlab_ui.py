@@ -67,6 +67,14 @@ PLAYBOOKS = [
     ("suricata_setup.yml", "Suricata IDS on SOC-01", "#ff7b72"),
 ]
 
+PLAYBOOK_TITLES = {pb_file: desc for pb_file, desc, _ in PLAYBOOKS}
+
+
+def playbook_title(pb_file: str | None) -> str | None:
+    if not pb_file:
+        return None
+    return PLAYBOOK_TITLES.get(pb_file)
+
 THEME_CSS = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700&display=swap');
@@ -1603,11 +1611,11 @@ def start_playbook_job(
     proc = subprocess.Popen(
         wrapper, shell=True, cwd=cwd, env=subprocess_env(), start_new_session=True,
     )
-    label = running_label or pb_file or key
+    label = running_label or playbook_title(pb_file) or pb_file or key
     write_playbook_status(
         key,
         "running",
-        f"running: {label}…",
+        label,
         pid=proc.pid,
         cmd=cmd,
         ok_msg=ok_msg,
@@ -1616,7 +1624,7 @@ def start_playbook_job(
     )
     if pb_file:
         st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
-        st.session_state.playbook_status[pb_file] = ("running", f"running: {label}…")
+        st.session_state.playbook_status[pb_file] = ("running", label)
     st.session_state.pop(f"term_cache_pb_{key}", None)
     return True
 
@@ -2754,7 +2762,7 @@ def _batch_playbooks_tab():
         batch_cmd = " && ".join(parts)
         if start_playbook_job(
             BATCH_PLAYBOOK_KEY, batch_cmd, ANSIBLE_DIR,
-            "All playbooks complete", "Batch failed", running_label="batch",
+            "All playbooks complete", "Batch failed", running_label="Run All",
         ):
             set_ansible_terminal_focus(BATCH_PLAYBOOK_KEY, "cyberlab@ansible — batch")
             st.rerun()
@@ -2812,7 +2820,7 @@ def page_ansible():
                 BASE_DIR,
                 "SSH keys cleared",
                 "Failed to clear SSH keys",
-                running_label="clean ssh keys",
+                running_label="Clear SSH keys",
             ):
                 set_ansible_terminal_focus(CLEAN_HOSTS_KEY, "cyberlab@ansible — clean ssh keys")
                 st.rerun()
