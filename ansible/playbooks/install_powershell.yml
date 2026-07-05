@@ -1,0 +1,54 @@
+---
+- name: Install PowerShell on All Linux Machines
+  hosts: linux
+  become: true
+  gather_facts: true
+
+  vars:
+    powershell_version: "7.5.4"
+    powershell_deb: "powershell_{{ powershell_version }}-1.deb_amd64.deb"
+    powershell_url: "https://github.com/PowerShell/PowerShell/releases/download/v{{ powershell_version }}/{{ powershell_deb }}"
+
+  tasks:
+    - name: Update apt package cache
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install prerequisite packages
+      ansible.builtin.apt:
+        name: wget
+        state: present
+
+    - name: Download PowerShell .deb package
+      ansible.builtin.get_url:
+        url: "{{ powershell_url }}"
+        dest: "/tmp/{{ powershell_deb }}"
+        mode: "0644"
+
+    - name: Install PowerShell package
+      ansible.builtin.apt:
+        deb: "/tmp/{{ powershell_deb }}"
+        state: present
+
+    - name: Resolve missing dependencies
+      ansible.builtin.apt:
+        autoremove: no
+      environment:
+        DEBIAN_FRONTEND: noninteractive
+      register: fix_deps
+      changed_when: fix_deps.changed
+
+    - name: Clean up downloaded .deb file
+      ansible.builtin.file:
+        path: "/tmp/{{ powershell_deb }}"
+        state: absent
+
+    - name: Verify PowerShell installation
+      ansible.builtin.command: pwsh --version
+      register: pwsh_version
+      changed_when: false
+
+    - name: Display PowerShell version
+      ansible.builtin.debug:
+        msg: "PowerShell installed successfully: {{ pwsh_version.stdout }}"
