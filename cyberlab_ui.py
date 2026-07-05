@@ -16,6 +16,7 @@ import time
 
 try:
     import streamlit as st
+    import streamlit.components.v1 as components
 except ImportError:
     print("Missing dependency: streamlit. Install with: pip install -r requirements.txt", file=sys.stderr)
     raise
@@ -556,12 +557,18 @@ div[data-testid="stForm"] {
 .term-body {
     height: 300px;
     overflow: auto;
+    overflow-anchor: none;
     padding: 14px 16px;
     background-color: #010409;
     background-image:
         linear-gradient(rgba(88, 166, 255, 0.03) 1px, transparent 1px),
         linear-gradient(90deg, rgba(88, 166, 255, 0.03) 1px, transparent 1px);
     background-size: 20px 20px;
+}
+
+.term-scroll-anchor {
+    height: 1px;
+    overflow-anchor: auto;
 }
 
 .term-body::-webkit-scrollbar { width: 8px; }
@@ -702,6 +709,62 @@ def highlight_terminal_output(text: str) -> str:
     return "".join(lines)
 
 
+def inject_terminal_autoscroll():
+    components.html(
+        """<script>
+(function () {
+  const doc = window.parent.document;
+  if (doc.__cyberlabTermScrollInit) return;
+  doc.__cyberlabTermScrollInit = true;
+  doc.__cyberlabTermPinState = doc.__cyberlabTermPinState || {};
+
+  function nearBottom(el) {
+    return el.scrollHeight - el.scrollTop - el.clientHeight < 48;
+  }
+
+  function scrollToBottom(el) {
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+  }
+
+  function termId(el) {
+    return el.dataset.termId || "default";
+  }
+
+  function isPinned(el) {
+    const id = termId(el);
+    return doc.__cyberlabTermPinState[id] !== false;
+  }
+
+  function syncTerminals() {
+    doc.querySelectorAll(".term-body[data-term-autoscroll]").forEach((el) => {
+      if (isPinned(el)) {
+        scrollToBottom(el);
+      }
+    });
+  }
+
+  doc.addEventListener(
+    "scroll",
+    (e) => {
+      const el = e.target;
+      if (!el.classList || !el.classList.contains("term-body")) return;
+      doc.__cyberlabTermPinState[termId(el)] = nearBottom(el);
+    },
+    true
+  );
+
+  const obs = new MutationObserver(() => syncTerminals());
+  obs.observe(doc.body, { childList: true, subtree: true, characterData: true });
+  syncTerminals();
+})();
+</script>""",
+        height=0,
+        width=0,
+    )
+
+
 def render_terminal(
     placeholder,
     text: str = "",
@@ -709,6 +772,7 @@ def render_terminal(
     footer: str = "ready",
     title: str = "cyberlab@deploy — zsh",
     extra_class: str = "",
+    term_id: str | None = None,
 ):
     if not text:
         body = (
@@ -724,6 +788,7 @@ def render_terminal(
     footer_text = html.escape(footer) if footer else "ready"
     footer_prefix = {"running": "▶", "success": "✓", "error": "✕", "idle": "○"}.get(state, "○")
     window_class = f"term-window term-{state} {extra_class}".strip()
+    tid = html.escape(term_id or title)
 
     terminal_html = f'''<div class="{window_class}">
 <div class="term-titlebar">
@@ -735,7 +800,7 @@ def render_terminal(
   <div class="term-title">{html.escape(title)}</div>
   <div class="term-status-dot"></div>
 </div>
-<div class="term-body"><div class="term-content">{body}</div></div>
+<div class="term-body" data-term-autoscroll="true" data-term-id="{tid}"><div class="term-content">{body}</div><div class="term-scroll-anchor"></div></div>
 <div class="term-footer">{footer_prefix} {footer_text}</div>
 </div>'''
 
@@ -752,6 +817,7 @@ def render_deploy_terminal(placeholder, text: str = "", state: str | None = None
         text,
         state=session_state if state is None else state,
         footer=session_footer if footer is None else footer,
+        term_id="deploy",
     )
 
 
@@ -1300,7 +1366,10 @@ def page_ansible():
             pb_state, pb_footer = st.session_state.playbook_status.get(
                 pb_file, ("running", f"running: {pb_file}…")
             )
-            render_terminal(ph, t, state=pb_state, footer=pb_footer, title=title, extra_class="term-in-card")
+            render_terminal(
+                ph, t, state=pb_state, footer=pb_footer, title=title,
+                extra_class="term-in-card", term_id=f"pb:{pb_file}",
+            )
 
         st.session_state.playbook_status[pb_file] = ("running", f"running: {pb_file}…")
         render_live(term_ph, f"$ {cmd}\n\n")
@@ -1342,6 +1411,7 @@ def page_ansible():
                             footer=pb_footer,
                             title=f"cyberlab@ansible — {pb_file}",
                             extra_class="term-in-card",
+                            term_id=f"pb:{pb_file}",
                         )
 
     with tab2:
@@ -1384,6 +1454,7 @@ def page_ansible():
 
 st.set_page_config(page_title="CyberLab", page_icon="terminal", layout="wide", initial_sidebar_state="expanded")
 st.markdown(THEME_CSS, unsafe_allow_html=True)
+inject_terminal_autoscroll()
 
 with st.sidebar:
     st.markdown("""<div style="padding: 8px 0 16px 0;">
