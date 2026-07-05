@@ -47,6 +47,7 @@ TEMPLATES = [
 ]
 
 PLAYBOOKS = [
+    ("bulk_lab_snapshot.yml", "Bulk Lab Snapshot (Proxmox)", "#ffa657"),
     ("check_connectivity.yml", "Check Connectivity", "#3fb950"),
     ("dc_setup.yml", "Domain Controller Setup", "#58a6ff"),
     ("join_to_domain.yml", "Join to Domain", "#58a6ff"),

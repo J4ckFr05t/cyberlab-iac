@@ -21,6 +21,7 @@ class CyberLabManager:
         
         # Define playbooks centrally
         self.playbooks = [
+            ("bulk_lab_snapshot.yml", "Bulk Lab Snapshot (Proxmox)"),
             ("check_connectivity.yml", "Check Connectivity"),
             ("dc_setup.yml", "Domain Controller Setup"),
             ("join_to_domain.yml", "Join to Domain"),
@@ -432,6 +433,7 @@ ansible_become_method: runas
             elastic_custom_password = input("Elastic Custom Password: ").strip()
             wazuh_api_password = input("Wazuh API Password: ").strip()
             wazuh_admin_password = input("Wazuh Admin Password: ").strip()
+            proxmox_root_password = input("Proxmox root SSH Password (optional, press Enter to skip): ").strip()
             
             # Build the YAML content
             vault_content = """---
@@ -460,8 +462,10 @@ wazuh_admin_password: {wazuh_admin_password}
                 sophia_password=sophia_password,
                 elastic_custom_password=elastic_custom_password,
                 wazuh_api_password=wazuh_api_password,
-                wazuh_admin_password=wazuh_admin_password
+                wazuh_admin_password=wazuh_admin_password,
             )
+            if proxmox_root_password:
+                vault_content += f"\n# Proxmox host SSH\nproxmox_root_password: {proxmox_root_password}\n"
             
             # Create a temporary file with the content
             import tempfile
