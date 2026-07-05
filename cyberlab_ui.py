@@ -1263,7 +1263,7 @@ def destroy_confirm_dialog():
     with confirm_col:
         if st.button("Yes, destroy", type="primary", use_container_width=True):
             _close_destroy_dialog()
-            st.session_state.pending_destroy = True
+            st.session_state.run_destroy = True
             st.rerun()
 
 
@@ -1284,7 +1284,7 @@ def page_deploy():
         return
 
     tf_init = file_exists(os.path.join(TERRAFORM_DIR, ".terraform"))
-    pending_destroy = st.session_state.pop("pending_destroy", False)
+    run_destroy = st.session_state.get("run_destroy", False)
 
     section("terraform actions")
     tf_cols = st.columns(4, gap="small")
@@ -1297,10 +1297,10 @@ def page_deploy():
     with tf_cols[3]:
         destroy_btn = st.button("Destroy", type="primary", key="deploy_destroy", use_container_width=True, disabled=not tf_init)
 
-    if destroy_btn and not pending_destroy:
+    if destroy_btn and not run_destroy:
         st.session_state.show_destroy_dialog = True
 
-    if st.session_state.show_destroy_dialog and not pending_destroy:
+    if st.session_state.show_destroy_dialog and not run_destroy:
         destroy_confirm_dialog()
 
     section("ssh")
@@ -1325,8 +1325,13 @@ def page_deploy():
         render_deploy_terminal(output_ph, text)
         return rc
 
-    if pending_destroy:
+    if run_destroy:
         st.session_state.show_destroy_dialog = False
+        if not st.session_state.get("destroy_ui_flushed"):
+            st.session_state.destroy_ui_flushed = True
+            st.rerun()
+        st.session_state.pop("run_destroy", None)
+        st.session_state.pop("destroy_ui_flushed", None)
         deploy_exec("terraform destroy -auto-approve -no-color", TERRAFORM_DIR, "Destroyed", "Destroy failed")
     elif init_btn:
         deploy_exec("terraform init -upgrade -no-color", TERRAFORM_DIR, "Init complete", "Init failed")
