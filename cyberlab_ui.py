@@ -334,7 +334,13 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     flex-shrink: 0;
 }
 
-.pb-info { flex: 1; }
+.pb-info { flex: 1; min-width: 0; }
+
+.pb-card-inner .pb-state {
+    margin-left: auto;
+    align-self: center;
+    flex-shrink: 0;
+}
 
 .pb-name {
     font-family: 'JetBrains Mono', monospace;
@@ -371,6 +377,46 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     color: #484f58;
     text-transform: uppercase;
     letter-spacing: 0.1em;
+}
+
+.metric-big.metric-pass { color: #3fb950; }
+.metric-big.metric-fail { color: #f85149; }
+.metric-big.metric-warn { color: #d29922; }
+.metric-big.metric-muted { color: #484f58; }
+
+.pb-state {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+}
+
+.pb-state.passed {
+    color: #3fb950;
+    border-color: rgba(63, 185, 80, 0.35);
+    background: rgba(63, 185, 80, 0.08);
+}
+
+.pb-state.failed {
+    color: #f85149;
+    border-color: rgba(248, 81, 73, 0.35);
+    background: rgba(248, 81, 73, 0.08);
+}
+
+.pb-state.running {
+    color: #d29922;
+    border-color: rgba(210, 153, 34, 0.35);
+    background: rgba(210, 153, 34, 0.08);
+}
+
+.pb-state.pending {
+    color: #6e7681;
+    border-color: rgba(48, 54, 61, 0.9);
+    background: rgba(255, 255, 255, 0.02);
 }
 
 .deploy-action-label {
@@ -983,6 +1029,73 @@ def playbook_has_output(pb_file: str) -> bool:
     return file_exists(paths["log"]) or pb_file in st.session_state.get("playbook_outputs", {})
 
 
+def playbook_run_state(pb_file: str) -> str:
+    key = playbook_job_key(pb_file)
+    state = read_playbook_status(key).get("state", "idle")
+    if state == "running" or is_playbook_job_running(key):
+        return "running"
+    if state in ("success", "error"):
+        return state
+    return "pending"
+
+
+def get_playbook_run_stats() -> dict:
+    passed = failed = pending = running = 0
+    for pb_file, _, _ in PLAYBOOKS:
+        state = playbook_run_state(pb_file)
+        if state == "success":
+            passed += 1
+        elif state == "error":
+            failed += 1
+        elif state == "running":
+            running += 1
+        else:
+            pending += 1
+    total = len(PLAYBOOKS)
+    ran = passed + failed
+    return {
+        "total": total,
+        "ran": ran,
+        "passed": passed,
+        "failed": failed,
+        "pending": pending,
+        "running": running,
+    }
+
+
+def render_playbook_stats():
+    stats = get_playbook_run_stats()
+    c1, c2, c3, c4, c5 = st.columns(5)
+    with c1:
+        st.markdown(
+            f'<div class="metric-big">{stats["total"]}</div><div class="metric-label">Total</div>',
+            unsafe_allow_html=True,
+        )
+    with c2:
+        st.markdown(
+            f'<div class="metric-big">{stats["ran"]}</div><div class="metric-label">Ran</div>',
+            unsafe_allow_html=True,
+        )
+    with c3:
+        st.markdown(
+            f'<div class="metric-big metric-pass">{stats["passed"]}</div><div class="metric-label">Passed</div>',
+            unsafe_allow_html=True,
+        )
+    with c4:
+        st.markdown(
+            f'<div class="metric-big metric-fail">{stats["failed"]}</div><div class="metric-label">Failed</div>',
+            unsafe_allow_html=True,
+        )
+    with c5:
+        pending_label = "Pending" if stats["running"] == 0 else "Pending / Running"
+        pending_value = stats["pending"] if stats["running"] == 0 else f'{stats["pending"]} / {stats["running"]}'
+        pending_class = "metric-muted" if stats["running"] == 0 else "metric-warn"
+        st.markdown(
+            f'<div class="metric-big {pending_class}">{pending_value}</div><div class="metric-label">{pending_label}</div>',
+            unsafe_allow_html=True,
+        )
+
+
 def start_playbook_job(
     key: str,
     cmd: str,
@@ -1257,7 +1370,14 @@ def section(title: str):
     st.markdown(f'<div class="section-header">{title}</div>', unsafe_allow_html=True)
 
 
-def pb_card_html(idx: int, name: str, filename: str, color: str) -> str:
+def pb_card_html(idx: int, name: str, filename: str, color: str, state: str = "pending") -> str:
+    state_labels = {
+        "success": ("passed", "passed"),
+        "error": ("failed", "failed"),
+        "running": ("running", "running"),
+        "pending": ("pending", "pending"),
+    }
+    label, css = state_labels.get(state, ("pending", "pending"))
     return f'''<div class="pb-card-inner">
         <div class="pb-idx">{idx:02d}</div>
         <div class="pb-dot" style="background:{color};"></div>
@@ -1265,6 +1385,7 @@ def pb_card_html(idx: int, name: str, filename: str, color: str) -> str:
             <div class="pb-name">{name}</div>
             <div class="pb-file">playbooks/{filename}</div>
         </div>
+        <span class="pb-state {css}">{label}</span>
     </div>'''
 
 
@@ -1762,7 +1883,10 @@ def _playbooks_tab():
         with st.container(border=True):
             card_col, run_col = st.columns([6, 1], gap="small", vertical_alignment="center")
             with card_col:
-                st.markdown(pb_card_html(i + 1, pb_desc, pb_file, color), unsafe_allow_html=True)
+                st.markdown(
+                    pb_card_html(i + 1, pb_desc, pb_file, color, playbook_run_state(pb_file)),
+                    unsafe_allow_html=True,
+                )
             with run_col:
                 run_btn = st.button(
                     "Run", key=f"run_{pb_file}", use_container_width=True,
@@ -1863,6 +1987,10 @@ def _batch_playbooks_tab():
             st.warning("A playbook job is already running.")
 
 
+def _ansible_stats_panel():
+    render_playbook_stats()
+
+
 def page_ansible():
     st.markdown(hero("Ansible"), unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Configure software & security stack</div>', unsafe_allow_html=True)
@@ -1873,6 +2001,15 @@ def page_ansible():
         st.session_state.playbook_status = {}
 
     sync_all_playbooks_from_disk()
+
+    ansible_jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
+    section("run summary")
+    stats_panel = (
+        st.fragment(run_every=timedelta(seconds=3))(_ansible_stats_panel)
+        if ansible_jobs_busy
+        else st.fragment(_ansible_stats_panel)
+    )
+    stats_panel()
 
     section("ssh")
     st.caption("Clear stale SSH host keys before connecting to redeployed Linux VMs.")
@@ -1885,7 +2022,6 @@ def page_ansible():
         st.success("SSH keys cleared") if rc == 0 else st.error("Failed to clear SSH keys")
 
     tab1, tab2 = st.tabs(["Playbooks", "Run All"])
-    ansible_jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
 
     with tab1:
         playbooks_tab = (
