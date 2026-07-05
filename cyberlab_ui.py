@@ -28,6 +28,8 @@ except ImportError:
     print("Missing dependency: PyYAML (import yaml). Install with: pip install -r requirements.txt", file=sys.stderr)
     raise
 
+from cyberlab_common import ansible_playbook_cmd
+
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TERRAFORM_DIR = os.path.join(BASE_DIR, "terraform")
 ANSIBLE_DIR = os.path.join(BASE_DIR, "ansible")
@@ -2537,7 +2539,7 @@ def _playbooks_tab():
                 )
 
             if run_btn:
-                cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
+                cmd = ansible_playbook_cmd(pb_file)
                 if start_playbook_job(
                     key, cmd, ANSIBLE_DIR,
                     f"{pb_desc} completed successfully",
@@ -2619,7 +2621,7 @@ def _batch_playbooks_tab():
         parts = []
         for pb in pb_files:
             parts.append(f'echo "" && echo "=== {pb} ==="')
-            parts.append(f"ansible-playbook -i inventory/hosts.ini playbooks/{pb}")
+            parts.append(ansible_playbook_cmd(pb))
         batch_cmd = " && ".join(parts)
         if start_playbook_job(
             BATCH_PLAYBOOK_KEY, batch_cmd, ANSIBLE_DIR,

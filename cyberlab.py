@@ -6,6 +6,8 @@ import shutil
 import json
 import yaml
 
+from cyberlab_common import ansible_playbook_cmd
+
 # ANSI Colors
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -394,6 +396,8 @@ domain_users:
 ansible_connection: winrm
 ansible_winrm_transport: ntlm
 ansible_winrm_server_cert_validation: ignore
+ansible_winrm_operation_timeout_sec: 1800
+ansible_winrm_read_timeout_sec: 1900
 ansible_port: 5985
 
 # Disable become (sudo) - not applicable for Windows
@@ -699,11 +703,8 @@ wazuh_admin_password: {wazuh_admin_password}
     def run_ansible_playbook(self, playbook_name, description, inventory_file="inventory/hosts.ini"):
         """Helper to run a single playbook."""
         print(f"\n{YELLOW}>> Starting: {description}{RESET}")
-        playbook_path = f"playbooks/{playbook_name}"
-        
-        # Construct command
-        cmd = f"ansible-playbook -i {inventory_file} {playbook_path}"
-        
+        cmd = ansible_playbook_cmd(playbook_name, inventory_file)
+
         if self.run_command_stream(cmd, self.ansible_dir, description):
             self.print_status(f"Finished: {description}", "SUCCESS")
             return True
