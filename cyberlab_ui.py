@@ -670,10 +670,55 @@ def process_running(pid: int | None) -> bool:
     if not pid:
         return False
     try:
+        cpid, _ = os.waitpid(pid, os.WNOHANG)
+        if cpid == pid:
+            return False
+    except ChildProcessError:
+        return False
+    try:
         os.kill(pid, 0)
-        return True
     except OSError:
         return False
+    return True
+
+
+def read_exit_code(exit_path: str) -> int | None:
+    if not file_exists(exit_path):
+        return None
+    try:
+        raw = open(exit_path).read().strip()
+        return int(raw) if raw != "" else None
+    except Exception:
+        return None
+
+
+def append_completion_log(log_path: str, rc: int, ok_msg: str, err_msg: str):
+    if not log_path:
+        return
+    marker = "--- cyberlab job complete ---"
+    if file_exists(log_path):
+        with open(log_path) as f:
+            if marker in f.read():
+                return
+    line = f"\n{marker}\n[OK] {ok_msg}\n" if rc == 0 else f"\n{marker}\n[ERROR] {err_msg}\n"
+    with open(log_path, "a") as f:
+        f.write(line)
+
+
+def render_terminal_cached(cache_key: str, placeholder, **kwargs):
+    sig = (
+        kwargs.get("text", ""),
+        kwargs.get("state"),
+        kwargs.get("footer"),
+        kwargs.get("title"),
+        kwargs.get("extra_class"),
+        kwargs.get("term_id"),
+    )
+    state_key = f"term_cache_{cache_key}"
+    if st.session_state.get(state_key) == sig:
+        return
+    st.session_state[state_key] = sig
+    render_terminal(placeholder, **kwargs)
 
 
 def read_deploy_status() -> dict:
@@ -743,19 +788,15 @@ def poll_deploy_job() -> dict:
     if status.get("state") != "running":
         return status
 
-    pid = status.get("pid")
-    if process_running(pid):
+    rc = read_exit_code(DEPLOY_EXIT_FILE)
+    if rc is None and process_running(status.get("pid")):
         return status
-
-    rc = 1
-    if file_exists(DEPLOY_EXIT_FILE):
-        try:
-            rc = int(open(DEPLOY_EXIT_FILE).read().strip())
-        except Exception:
-            rc = 1
+    if rc is None:
+        rc = 1
 
     ok_msg = status.get("ok_msg") or "complete"
     err_msg = status.get("err_msg") or "failed"
+    append_completion_log(DEPLOY_LOG, rc, ok_msg, err_msg)
     if rc == 0:
         write_deploy_status("success", ok_msg, cmd=status.get("cmd"), ok_msg=ok_msg, err_msg=err_msg)
     else:
@@ -763,10 +804,13 @@ def poll_deploy_job() -> dict:
     return read_deploy_status()
 
 
-def sync_deploy_from_disk():
+def sync_deploy_from_disk() -> bool:
+    before = read_deploy_status().get("state")
     status = poll_deploy_job()
     st.session_state.deploy_output = read_deploy_log()
     st.session_state.deploy_status = (status.get("state", "idle"), status.get("footer", "ready"))
+    after = status.get("state")
+    return before == "running" and after != "running"
 
 
 def start_deploy_job(cmd: str, cwd: str, ok_msg: str, err_msg: str) -> bool:
@@ -797,6 +841,7 @@ def start_deploy_job(cmd: str, cwd: str, ok_msg: str, err_msg: str) -> bool:
     )
     st.session_state.deploy_output = read_deploy_log()
     st.session_state.deploy_status = ("running", f"running: {cmd.split()[0]}…")
+    st.session_state.pop("term_cache_deploy", None)
     return True
 
 
@@ -877,20 +922,16 @@ def poll_playbook_job(key: str) -> dict:
     if status.get("state") != "running":
         return status
 
-    pid = status.get("pid")
-    if process_running(pid):
-        return status
-
     paths = playbook_job_paths(key)
-    rc = 1
-    if file_exists(paths["exit"]):
-        try:
-            rc = int(open(paths["exit"]).read().strip())
-        except Exception:
-            rc = 1
+    rc = read_exit_code(paths["exit"])
+    if rc is None and process_running(status.get("pid")):
+        return status
+    if rc is None:
+        rc = 1
 
     ok_msg = status.get("ok_msg") or "complete"
     err_msg = status.get("err_msg") or "failed"
+    append_completion_log(paths["log"], rc, ok_msg, err_msg)
     if rc == 0:
         write_playbook_status(
             key, "success", ok_msg,
@@ -904,21 +945,36 @@ def poll_playbook_job(key: str) -> dict:
     return read_playbook_status(key)
 
 
-def sync_playbook_from_disk(pb_file: str):
-    key = playbook_job_key(pb_file)
-    poll_playbook_job(key)
-    paths = playbook_job_paths(key)
-    if file_exists(paths["log"]) or file_exists(paths["status"]):
-        st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
-        status = read_playbook_status(key)
-        st.session_state.playbook_status[pb_file] = (
-            status.get("state", "idle"), status.get("footer", "ready")
-        )
+def clear_terminal_caches():
+    for k in list(st.session_state.keys()):
+        if isinstance(k, str) and k.startswith("term_cache_"):
+            del st.session_state[k]
 
 
-def sync_all_playbooks_from_disk():
+def sync_all_playbooks_from_disk() -> bool:
+    """Sync playbook state from disk. Returns True if a job just finished."""
+    finished = False
     for pb_file, _, _ in PLAYBOOKS:
-        sync_playbook_from_disk(pb_file)
+        key = playbook_job_key(pb_file)
+        before = read_playbook_status(key).get("state")
+        poll_playbook_job(key)
+        after = read_playbook_status(key).get("state")
+        if before == "running" and after != "running":
+            finished = True
+        paths = playbook_job_paths(key)
+        if file_exists(paths["log"]) or file_exists(paths["status"]):
+            st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
+            status = read_playbook_status(key)
+            st.session_state.playbook_status[pb_file] = (
+                status.get("state", "idle"), status.get("footer", "ready")
+            )
+
+    before = read_playbook_status(BATCH_PLAYBOOK_KEY).get("state")
+    poll_playbook_job(BATCH_PLAYBOOK_KEY)
+    after = read_playbook_status(BATCH_PLAYBOOK_KEY).get("state")
+    if before == "running" and after != "running":
+        finished = True
+    return finished
 
 
 def playbook_has_output(pb_file: str) -> bool:
@@ -965,6 +1021,7 @@ def start_playbook_job(
     if pb_file:
         st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
         st.session_state.playbook_status[pb_file] = ("running", f"running: {label}…")
+    st.session_state.pop(f"term_cache_pb_{key}", None)
     return True
 
 
@@ -999,6 +1056,10 @@ def highlight_terminal_output(text: str) -> str:
             elif stripped.startswith("~") or " ~ update" in line:
                 content = f'<span class="t-change">{html.escape(line)}</span>'
             elif "Error:" in line or "error:" in line.lower():
+                content = f'<span class="t-error">{html.escape(line)}</span>'
+            elif stripped.startswith("[OK]"):
+                content = f'<span class="t-add">{html.escape(line)}</span>'
+            elif stripped.startswith("[ERROR]"):
                 content = f'<span class="t-error">{html.escape(line)}</span>'
             elif "will be created" in line or "will be destroyed" in line or "will be updated" in line:
                 content = f'<span class="t-action">{html.escape(line)}</span>'
@@ -1058,6 +1119,12 @@ def inject_terminal_autoscroll():
     });
   }
 
+  let syncTimer;
+  function syncTerminalsDebounced() {
+    clearTimeout(syncTimer);
+    syncTimer = setTimeout(syncTerminals, 150);
+  }
+
   doc.addEventListener(
     "scroll",
     (e) => {
@@ -1068,7 +1135,7 @@ def inject_terminal_autoscroll():
     true
   );
 
-  const obs = new MutationObserver(() => syncTerminals());
+  const obs = new MutationObserver(() => syncTerminalsDebounced());
   obs.observe(doc.body, { childList: true, subtree: true, characterData: true });
   syncTerminals();
 })();
@@ -1573,13 +1640,21 @@ def destroy_confirm_dialog():
 
 
 def _deploy_terminal_fragment():
-    status = poll_deploy_job()
+    if sync_deploy_from_disk():
+        clear_terminal_caches()
+        st.rerun()
+    status = read_deploy_status()
     text = read_deploy_log()
     state = status.get("state", "idle")
     footer = status.get("footer", "ready")
-    st.session_state.deploy_output = text
-    st.session_state.deploy_status = (state, footer)
-    render_deploy_terminal(st.empty(), text, state=state, footer=footer)
+    render_terminal_cached(
+        "deploy",
+        st.empty(),
+        text=text,
+        state=state,
+        footer=footer,
+        term_id="deploy",
+    )
 
 
 def page_deploy():
@@ -1632,7 +1707,11 @@ def page_deploy():
     if job_running:
         st.caption("Job running on server — safe to refresh or reconnect; output updates automatically.")
 
-    deploy_terminal = st.fragment(run_every=timedelta(seconds=2))(_deploy_terminal_fragment)
+    deploy_terminal = (
+        st.fragment(run_every=timedelta(seconds=3))(_deploy_terminal_fragment)
+        if job_running
+        else st.fragment(_deploy_terminal_fragment)
+    )
     deploy_terminal()
 
     def queue_deploy(cmd: str, cwd: str, ok_msg: str, err_msg: str):
@@ -1669,7 +1748,10 @@ def page_deploy():
 
 
 def _playbooks_tab():
-    sync_all_playbooks_from_disk()
+    if sync_all_playbooks_from_disk():
+        clear_terminal_caches()
+        st.rerun()
+
     jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
 
     if jobs_busy:
@@ -1689,16 +1771,23 @@ def _playbooks_tab():
 
             if run_btn:
                 cmd = f"ansible-playbook -i inventory/hosts.ini playbooks/{pb_file}"
-                if start_playbook_job(key, cmd, ANSIBLE_DIR, "complete", "failed", pb_file=pb_file):
+                if start_playbook_job(
+                    key, cmd, ANSIBLE_DIR,
+                    f"{pb_desc} completed successfully",
+                    f"{pb_desc} failed",
+                    pb_file=pb_file,
+                ):
                     st.rerun()
                 else:
                     st.warning("A playbook is already running.")
 
             if playbook_has_output(pb_file) or is_playbook_job_running(key):
                 status = read_playbook_status(key)
-                render_terminal(
+                log_text = read_playbook_log(key) or st.session_state.playbook_outputs.get(pb_file, "")
+                render_terminal_cached(
+                    f"pb_{key}",
                     st.empty(),
-                    read_playbook_log(key) or st.session_state.playbook_outputs.get(pb_file, ""),
+                    text=log_text,
                     state=status.get("state", "idle"),
                     footer=status.get("footer", "ready"),
                     title=f"cyberlab@ansible — {pb_file}",
@@ -1708,7 +1797,10 @@ def _playbooks_tab():
 
 
 def _batch_playbooks_tab():
-    poll_playbook_job(BATCH_PLAYBOOK_KEY)
+    if sync_all_playbooks_from_disk():
+        clear_terminal_caches()
+        st.rerun()
+
     batch_status = read_playbook_status(BATCH_PLAYBOOK_KEY)
     batch_log = read_playbook_log(BATCH_PLAYBOOK_KEY)
     batch_running = is_playbook_job_running(BATCH_PLAYBOOK_KEY)
@@ -1725,9 +1817,10 @@ def _batch_playbooks_tab():
     if batch_log or batch_running:
         if batch_running:
             st.caption("Batch job running on server — safe to refresh or reconnect.")
-        render_terminal(
+        render_terminal_cached(
+            "pb_batch",
             st.empty(),
-            batch_log,
+            text=batch_log,
             state=batch_status.get("state", "idle"),
             footer=batch_status.get("footer", "ready"),
             title="cyberlab@ansible — batch",
@@ -1792,13 +1885,22 @@ def page_ansible():
         st.success("SSH keys cleared") if rc == 0 else st.error("Failed to clear SSH keys")
 
     tab1, tab2 = st.tabs(["Playbooks", "Run All"])
+    ansible_jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
 
     with tab1:
-        playbooks_tab = st.fragment(run_every=timedelta(seconds=2))(_playbooks_tab)
+        playbooks_tab = (
+            st.fragment(run_every=timedelta(seconds=3))(_playbooks_tab)
+            if ansible_jobs_busy
+            else st.fragment(_playbooks_tab)
+        )
         playbooks_tab()
 
     with tab2:
-        batch_tab = st.fragment(run_every=timedelta(seconds=2))(_batch_playbooks_tab)
+        batch_tab = (
+            st.fragment(run_every=timedelta(seconds=3))(_batch_playbooks_tab)
+            if ansible_jobs_busy
+            else st.fragment(_batch_playbooks_tab)
+        )
         batch_tab()
 
 
