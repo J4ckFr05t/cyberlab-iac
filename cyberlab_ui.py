@@ -1190,8 +1190,6 @@ def render_terminal_cached(cache_key: str, placeholder, *, force: bool = False, 
         kwargs.get("term_id"),
     )
     state_key = f"term_cache_{cache_key}"
-    if not force and st.session_state.get(state_key) == sig:
-        return
     st.session_state[state_key] = sig
     render_terminal(placeholder, **kwargs)
 
@@ -1226,12 +1224,6 @@ def resolve_ansible_terminal() -> tuple[str, dict, str]:
         if is_playbook_job_running(key):
             return read_playbook_log(key), read_playbook_status(key), title
 
-    for key, title in candidates:
-        status = read_playbook_status(key)
-        paths = playbook_job_paths(key)
-        if status.get("state") in ("running", "success", "error", "stopped") and file_exists(paths["log"]):
-            return read_playbook_log(key), status, title
-
     key = st.session_state.get("ansible_terminal_key", "")
     if key:
         paths = playbook_job_paths(key)
@@ -1241,6 +1233,12 @@ def resolve_ansible_terminal() -> tuple[str, dict, str]:
                 read_playbook_status(key),
                 st.session_state.get("ansible_terminal_title", "cyberlab@ansible"),
             )
+
+    for key, title in candidates:
+        status = read_playbook_status(key)
+        paths = playbook_job_paths(key)
+        if status.get("state") in ("running", "success", "error", "stopped") and file_exists(paths["log"]):
+            return read_playbook_log(key), status, title
 
     return "", {"state": "idle", "footer": "ready"}, "cyberlab@ansible — zsh"
 
@@ -2659,12 +2657,11 @@ def page_deploy():
 def _ansible_terminal_fragment():
     if sync_all_playbooks_from_disk():
         st.session_state.pop(f"term_cache_{ANSIBLE_TERMINAL_CACHE}", None)
+        st.rerun()
     text, status, title = resolve_ansible_terminal()
-    live = is_ansible_busy()
     render_terminal_cached(
         ANSIBLE_TERMINAL_CACHE,
         st.empty(),
-        force=live,
         text=text,
         state=status.get("state", "idle"),
         footer=status.get("footer", "ready"),
