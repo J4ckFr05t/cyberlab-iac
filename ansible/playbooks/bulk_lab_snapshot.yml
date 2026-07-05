@@ -2,10 +2,11 @@
 - name: Resolve Proxmox host from Terraform config
   hosts: localhost
   gather_facts: no
+  connection: local
+  vars_files:
+    - ../inventory/group_vars/proxmox.yml
   vars:
     terraform_tfvars: "{{ playbook_dir }}/../../terraform/terraform.tfvars"
-    lab_snapshot_name: "{{ lab_snapshot_name | default('freshClone') }}"
-    proxmox_bulk_snapshot_script: "{{ proxmox_bulk_snapshot_script | default('/root/bulk_lab_snapshot.sh') }}"
   tasks:
     - name: Ensure terraform.tfvars exists
       stat:
@@ -40,8 +41,9 @@
     - name: Show Proxmox snapshot target
       debug:
         msg:
+          - "Parsed from terraform.tfvars (this play runs locally on the control node)"
           - "Proxmox API URL: {{ proxmox_api_url }}"
-          - "Proxmox host: {{ proxmox_host }}"
+          - "Proxmox SSH target: {{ proxmox_host }}"
           - "Snapshot name: {{ lab_snapshot_name }}"
           - "Script: {{ proxmox_bulk_snapshot_script }}"
 
@@ -50,6 +52,7 @@
         name: proxmox
         groups: proxmox
         ansible_host: "{{ proxmox_host }}"
+        ansible_connection: ssh
         ansible_user: "{{ proxmox_ssh_user | default('root') }}"
         ansible_password: "{{ proxmox_root_password | default(omit, true) }}"
         lab_snapshot_name: "{{ lab_snapshot_name }}"
@@ -59,11 +62,16 @@
   hosts: proxmox
   gather_facts: no
   vars_files:
+    - ../inventory/group_vars/proxmox.yml
     - ../inventory/group_vars/secret_vault.yml
   vars:
     ansible_user: "{{ proxmox_ssh_user | default('root') }}"
     ansible_password: "{{ proxmox_root_password | default(omit, true) }}"
   tasks:
+    - name: Confirm SSH target
+      debug:
+        msg: "Running bulk snapshot on {{ inventory_hostname }} ({{ ansible_host }})"
+
     - name: Verify bulk snapshot script exists
       stat:
         path: "{{ proxmox_bulk_snapshot_script }}"
