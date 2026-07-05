@@ -38,6 +38,8 @@ CYBERLAB_DIR = os.path.join(BASE_DIR, ".cyberlab")
 UI_CONFIG_FILE = os.path.join(CYBERLAB_DIR, "ui_config.json")
 PLAYBOOKS_JOB_DIR = os.path.join(CYBERLAB_DIR, "playbooks")
 BATCH_PLAYBOOK_KEY = "batch"
+CLEAN_HOSTS_KEY = "clean_hosts"
+ANSIBLE_TERMINAL_CACHE = "ansible"
 DEPLOY_LOG = os.path.join(CYBERLAB_DIR, "deploy.log")
 DEPLOY_STATUS_FILE = os.path.join(CYBERLAB_DIR, "deploy.status.json")
 DEPLOY_EXIT_FILE = os.path.join(CYBERLAB_DIR, "deploy.exit")
@@ -1175,16 +1177,53 @@ def render_terminal_cached(cache_key: str, placeholder, *, force: bool = False, 
     render_terminal(placeholder, **kwargs)
 
 
-def playbook_show_terminal(pb_file: str) -> bool:
-    key = playbook_job_key(pb_file)
-    status = read_playbook_status(key)
-    pinned = pb_file in st.session_state.get("pb_show_terminal", set())
-    return (
-        pinned
-        or playbook_has_output(pb_file)
-        or is_playbook_job_running(key)
-        or status.get("state") in ("running", "success", "error", "stopped")
-    )
+def set_ansible_terminal_focus(key: str, title: str):
+    st.session_state.ansible_terminal_key = key
+    st.session_state.ansible_terminal_title = title
+    st.session_state.pop(f"term_cache_{ANSIBLE_TERMINAL_CACHE}", None)
+
+
+def is_ansible_busy() -> bool:
+    if is_deploy_job_running():
+        return True
+    if is_playbook_job_running(CLEAN_HOSTS_KEY):
+        return True
+    if is_playbook_job_running(BATCH_PLAYBOOK_KEY):
+        return True
+    return any(is_playbook_job_running(playbook_job_key(pb_file)) for pb_file, _, _ in PLAYBOOKS)
+
+
+def resolve_ansible_terminal() -> tuple[str, dict, str]:
+    candidates: list[tuple[str, str]] = [
+        (CLEAN_HOSTS_KEY, "cyberlab@ansible — clean ssh keys"),
+        (BATCH_PLAYBOOK_KEY, "cyberlab@ansible — batch"),
+    ]
+    candidates += [
+        (playbook_job_key(pb_file), f"cyberlab@ansible — {pb_file}")
+        for pb_file, _, _ in PLAYBOOKS
+    ]
+
+    for key, title in candidates:
+        if is_playbook_job_running(key):
+            return read_playbook_log(key), read_playbook_status(key), title
+
+    for key, title in candidates:
+        status = read_playbook_status(key)
+        paths = playbook_job_paths(key)
+        if status.get("state") in ("running", "success", "error", "stopped") and file_exists(paths["log"]):
+            return read_playbook_log(key), status, title
+
+    key = st.session_state.get("ansible_terminal_key", "")
+    if key:
+        paths = playbook_job_paths(key)
+        if file_exists(paths["log"]):
+            return (
+                read_playbook_log(key),
+                read_playbook_status(key),
+                st.session_state.get("ansible_terminal_title", "cyberlab@ansible"),
+            )
+
+    return "", {"state": "idle", "footer": "ready"}, "cyberlab@ansible — zsh"
 
 
 def read_deploy_status() -> dict:
@@ -1609,13 +1648,6 @@ def stop_playbook_job(key: str) -> bool:
         st.session_state.playbook_status[pb_file] = ("stopped", "stopped")
     st.session_state.pop(f"term_cache_pb_{key}", None)
     return True
-
-
-def run_clean_known_hosts(placeholder):
-    if not file_exists(CLEAN_HOSTS_SCRIPT):
-        return 1, f"Script not found: {CLEAN_HOSTS_SCRIPT}"
-    os.chmod(CLEAN_HOSTS_SCRIPT, 0o755)
-    return run_command(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, placeholder)
 
 
 def check_tool(name: str) -> str | None:
@@ -2605,17 +2637,25 @@ def page_deploy():
             queue_deploy(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, "SSH keys cleared", "Failed to clear SSH keys")
 
 
-def _playbooks_tab():
+def _ansible_terminal_fragment():
     if sync_all_playbooks_from_disk():
-        clear_terminal_caches()
+        st.session_state.pop(f"term_cache_{ANSIBLE_TERMINAL_CACHE}", None)
+    text, status, title = resolve_ansible_terminal()
+    live = is_ansible_busy()
+    render_terminal_cached(
+        ANSIBLE_TERMINAL_CACHE,
+        st.empty(),
+        force=live,
+        text=text,
+        state=status.get("state", "idle"),
+        footer=status.get("footer", "ready"),
+        title=title,
+        term_id="ansible",
+    )
 
-    jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
 
-    if jobs_busy:
-        st.caption("Playbook running on server — safe to refresh or reconnect; output updates automatically.")
-
-    if "pb_show_terminal" not in st.session_state:
-        st.session_state.pb_show_terminal = set()
+def _playbooks_tab():
+    jobs_busy = is_ansible_busy()
 
     for i, (pb_file, pb_desc, color) in enumerate(PLAYBOOKS):
         key = playbook_job_key(pb_file)
@@ -2649,37 +2689,15 @@ def _playbooks_tab():
                             f"{pb_desc} failed",
                             pb_file=pb_file,
                         ):
-                            st.session_state.pb_show_terminal.add(pb_file)
-                            st.session_state.pop(f"term_cache_pb_{key}", None)
+                            set_ansible_terminal_focus(key, f"cyberlab@ansible — {pb_file}")
                             st.rerun()
                         else:
                             st.warning("A playbook is already running.")
 
-            if playbook_show_terminal(pb_file):
-                status = read_playbook_status(key)
-                log_text = read_playbook_log(key) or st.session_state.playbook_outputs.get(pb_file, "")
-                live = is_playbook_job_running(key) or status.get("state") == "running"
-                render_terminal_cached(
-                    f"pb_{key}",
-                    st.empty(),
-                    force=live,
-                    text=log_text,
-                    state=status.get("state", "idle"),
-                    footer=status.get("footer", "ready"),
-                    title=f"cyberlab@ansible — {pb_file}",
-                    extra_class="term-in-card",
-                    term_id=f"pb:{pb_file}",
-                )
-
 
 def _batch_playbooks_tab():
-    if sync_all_playbooks_from_disk():
-        clear_terminal_caches()
-
-    batch_status = read_playbook_status(BATCH_PLAYBOOK_KEY)
-    batch_log = read_playbook_log(BATCH_PLAYBOOK_KEY)
     batch_running = is_playbook_job_running(BATCH_PLAYBOOK_KEY)
-    jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
+    jobs_busy = is_ansible_busy()
 
     section("batch execution")
     clean_first = st.checkbox("Clear SSH keys before running", value=True)
@@ -2693,21 +2711,6 @@ def _batch_playbooks_tab():
         run_all = st.button(
             "Execute All", type="primary", use_container_width=True,
             disabled=jobs_busy,
-        )
-
-    if batch_log or batch_running:
-        if batch_running:
-            st.caption("Batch job running on server — safe to refresh or reconnect.")
-        render_terminal_cached(
-            "pb_batch",
-            st.empty(),
-            force=batch_running,
-            text=batch_log,
-            state=batch_status.get("state", "idle"),
-            footer=batch_status.get("footer", "ready"),
-            title="cyberlab@ansible — batch",
-            extra_class="term-in-card",
-            term_id="pb:batch",
         )
 
     if not batch_running and run_all:
@@ -2725,13 +2728,10 @@ def _batch_playbooks_tab():
                 st.error(f"Script not found: {CLEAN_HOSTS_SCRIPT}")
                 return
             os.chmod(CLEAN_HOSTS_SCRIPT, 0o755)
-            rc, _ = run_command(f'"{CLEAN_HOSTS_SCRIPT}"', BASE_DIR, st.empty())
-            if rc != 0:
-                st.error("Failed to clear SSH keys. Stopping.")
-                return
-            st.success("SSH keys cleared")
 
         parts = []
+        if clean_first:
+            parts.append(f'"{CLEAN_HOSTS_SCRIPT}"')
         for pb in pb_files:
             parts.append(f'echo "" && echo "=== {pb} ==="')
             parts.append(ansible_playbook_cmd(pb))
@@ -2740,6 +2740,7 @@ def _batch_playbooks_tab():
             BATCH_PLAYBOOK_KEY, batch_cmd, ANSIBLE_DIR,
             "All playbooks complete", "Batch failed", running_label="batch",
         ):
+            set_ansible_terminal_focus(BATCH_PLAYBOOK_KEY, "cyberlab@ansible — batch")
             st.rerun()
         else:
             st.warning("A playbook job is already running.")
@@ -2759,8 +2760,8 @@ def page_ansible():
         st.session_state.playbook_status = {}
 
     sync_all_playbooks_from_disk()
+    ansible_jobs_busy = is_ansible_busy()
 
-    ansible_jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
     section("run summary")
     stats_panel = (
         st.fragment(run_every=timedelta(seconds=3))(_ansible_stats_panel)
@@ -2769,15 +2770,38 @@ def page_ansible():
     )
     stats_panel()
 
+    section("output")
+    if ansible_jobs_busy:
+        st.caption("Job running on server — safe to refresh or reconnect; output updates automatically.")
+    ansible_terminal = (
+        st.fragment(run_every=timedelta(seconds=3))(_ansible_terminal_fragment)
+        if ansible_jobs_busy
+        else st.fragment(_ansible_terminal_fragment)
+    )
+    ansible_terminal()
+
     section("ssh")
     st.caption("Clear stale SSH host keys before connecting to redeployed Linux VMs.")
     if st.button(
         "Clear SSH keys", key="ansible_clean_hosts",
-        disabled=is_any_playbook_job_running() or is_deploy_job_running(),
+        disabled=ansible_jobs_busy,
     ):
-        out = st.empty()
-        rc, _ = run_clean_known_hosts(out)
-        st.success("SSH keys cleared") if rc == 0 else st.error("Failed to clear SSH keys")
+        if not file_exists(CLEAN_HOSTS_SCRIPT):
+            st.error(f"Script not found: {CLEAN_HOSTS_SCRIPT}")
+        else:
+            os.chmod(CLEAN_HOSTS_SCRIPT, 0o755)
+            if start_playbook_job(
+                CLEAN_HOSTS_KEY,
+                f'"{CLEAN_HOSTS_SCRIPT}"',
+                BASE_DIR,
+                "SSH keys cleared",
+                "Failed to clear SSH keys",
+                running_label="clean ssh keys",
+            ):
+                set_ansible_terminal_focus(CLEAN_HOSTS_KEY, "cyberlab@ansible — clean ssh keys")
+                st.rerun()
+            else:
+                st.warning("Another job is already running.")
 
     tab1, tab2 = st.tabs(["Playbooks", "Run All"])
 
@@ -2827,4 +2851,4 @@ PAGES = {
     "Ansible Playbooks": page_ansible,
 }
 
-PAGES[page]()
+_ = PAGES[page]()
