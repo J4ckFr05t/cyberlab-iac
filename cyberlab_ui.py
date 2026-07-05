@@ -32,12 +32,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TERRAFORM_DIR = os.path.join(BASE_DIR, "terraform")
 ANSIBLE_DIR = os.path.join(BASE_DIR, "ansible")
 CYBERLAB_DIR = os.path.join(BASE_DIR, ".cyberlab")
+UI_CONFIG_FILE = os.path.join(CYBERLAB_DIR, "ui_config.json")
 PLAYBOOKS_JOB_DIR = os.path.join(CYBERLAB_DIR, "playbooks")
 BATCH_PLAYBOOK_KEY = "batch"
 DEPLOY_LOG = os.path.join(CYBERLAB_DIR, "deploy.log")
 DEPLOY_STATUS_FILE = os.path.join(CYBERLAB_DIR, "deploy.status.json")
 DEPLOY_EXIT_FILE = os.path.join(CYBERLAB_DIR, "deploy.exit")
 CLEAN_HOSTS_SCRIPT = os.path.join(BASE_DIR, "scripts", "clean_known_hosts.sh")
+ROUTER_VM = "PF-01-RTR"
+DC_VM = "DC-01-SRV"
 
 TEMPLATES = [
     "ubuntu-server-template",
@@ -689,6 +692,213 @@ div[data-testid="stForm"] {
     50% { opacity: 0; }
 }
 
+.topo-wrap {
+    margin: 1rem 0 1.5rem 0;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.topo-stack {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+}
+
+.topo-wan {
+    background: rgba(56, 173, 255, 0.1);
+    border: 1px solid rgba(56, 173, 255, 0.35);
+    border-radius: 8px;
+    padding: 12px 24px;
+    text-align: center;
+    min-width: 200px;
+}
+
+.topo-wan-label {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #38adff;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.topo-wan-ip {
+    font-size: 0.78rem;
+    color: #c9d1d9;
+    margin-top: 4px;
+}
+
+.topo-vline {
+    width: 2px;
+    height: 28px;
+    background: linear-gradient(180deg, rgba(56, 173, 255, 0.5), rgba(63, 185, 80, 0.5));
+}
+
+.topo-router {
+    background: rgba(63, 185, 80, 0.1);
+    border: 1px solid rgba(63, 185, 80, 0.45);
+    border-radius: 8px;
+    padding: 14px 22px;
+    text-align: center;
+    min-width: 220px;
+}
+
+.topo-router-name {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #3fb950;
+    margin-bottom: 6px;
+}
+
+.topo-router-iface {
+    font-size: 0.7rem;
+    color: #8b949e;
+    line-height: 1.6;
+}
+
+.topo-router-iface code {
+    color: #a5d6ff;
+    font-size: 0.68rem;
+}
+
+.topo-lan-zone {
+    width: 100%;
+    margin-top: 0;
+    border: 1px dashed rgba(63, 185, 80, 0.35);
+    border-radius: 10px;
+    padding: 18px 16px 16px;
+    background: rgba(22, 27, 34, 0.5);
+    box-sizing: border-box;
+}
+
+.topo-zone-label {
+    text-align: center;
+    font-size: 0.65rem;
+    color: #6e7681;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    margin-bottom: 16px;
+}
+
+.topo-dc {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin: 0 auto 12px;
+    max-width: 280px;
+    background: rgba(88, 166, 255, 0.1);
+    border: 1px solid rgba(88, 166, 255, 0.4);
+    border-radius: 8px;
+    padding: 12px 18px;
+    text-align: center;
+}
+
+.topo-dc-badge {
+    display: inline-block;
+    font-size: 0.58rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    color: #58a6ff;
+    background: rgba(88, 166, 255, 0.15);
+    border: 1px solid rgba(88, 166, 255, 0.35);
+    border-radius: 4px;
+    padding: 2px 8px;
+    margin-bottom: 6px;
+}
+
+.topo-dc-name {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: #e6edf3;
+}
+
+.topo-dc-role {
+    font-size: 0.62rem;
+    color: #58a6ff;
+    margin-top: 2px;
+}
+
+.topo-dc-ip {
+    font-size: 0.68rem;
+    color: #8b949e;
+    margin-top: 4px;
+}
+
+.topo-dc-ip code {
+    color: #a5d6ff;
+}
+
+.topo-join {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin: 8px 0 14px;
+    font-size: 0.6rem;
+    color: #484f58;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+.topo-join::before,
+.topo-join::after {
+    content: "";
+    flex: 1;
+    max-width: 120px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(88, 166, 255, 0.35), transparent);
+}
+
+.topo-members {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+}
+
+.topo-member {
+    position: relative;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 12px;
+    text-align: center;
+}
+
+.topo-member::before {
+    content: "";
+    position: absolute;
+    top: -14px;
+    left: 50%;
+    width: 1px;
+    height: 14px;
+    background: rgba(88, 166, 255, 0.25);
+}
+
+.topo-member-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: #c9d1d9;
+    word-break: break-word;
+}
+
+.topo-member-ip {
+    font-size: 0.65rem;
+    color: #6e7681;
+    margin-top: 3px;
+}
+
+.topo-member-ip code {
+    color: #8b949e;
+    font-size: 0.62rem;
+}
+
+.topo-member-join {
+    font-size: 0.55rem;
+    color: #484f58;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
 code { font-family: 'JetBrains Mono', monospace !important; }
 </style>
 """
@@ -710,6 +920,146 @@ def subprocess_env() -> dict[str, str]:
 
 def ensure_cyberlab_dir():
     os.makedirs(CYBERLAB_DIR, exist_ok=True)
+
+
+def read_ui_config() -> dict:
+    if not file_exists(UI_CONFIG_FILE):
+        return {}
+    try:
+        with open(UI_CONFIG_FILE) as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def write_ui_config(config: dict):
+    ensure_cyberlab_dir()
+    with open(UI_CONFIG_FILE, "w") as f:
+        json.dump(config, f, indent=4)
+
+
+def default_router_ips() -> dict[str, str]:
+    return {"lan": "172.16.10.1/24", "wan": ""}
+
+
+def get_router_ips(config: dict | None = None) -> dict[str, str]:
+    cfg = config if config is not None else read_ui_config()
+    defaults = default_router_ips()
+    stored = cfg.get("router_ips", {})
+    return {
+        "lan": stored.get("lan", defaults["lan"]),
+        "wan": stored.get("wan", defaults["wan"]),
+    }
+
+
+def parse_disk_size_gb(size: str) -> float:
+    if not size:
+        return 0.0
+    match = re.match(r"^(\d+(?:\.\d+)?)\s*([GMTK]?)(?:i?B)?$", size.strip(), re.I)
+    if not match:
+        return 0.0
+    value = float(match.group(1))
+    unit = match.group(2).upper()
+    multipliers = {"": 1.0, "K": 1 / 1024 / 1024, "M": 1 / 1024, "G": 1.0, "T": 1024.0}
+    return value * multipliers.get(unit, 1.0)
+
+
+def total_disk_gb(vms: list) -> float:
+    total = 0.0
+    for vm in vms:
+        for disk in vm.get("disks", []):
+            if disk.get("type") == "disk":
+                total += parse_disk_size_gb(disk.get("size", ""))
+    return total
+
+
+def format_disk_gb(gb: float) -> str:
+    if gb >= 1024:
+        return f"{gb / 1024:.1f}T"
+    if gb == int(gb):
+        return f"{int(gb)}G"
+    return f"{gb:.1f}G"
+
+
+def vm_topology_ip(vm: dict, router_ips: dict[str, str]) -> str:
+    if vm.get("name") == ROUTER_VM:
+        lan = html.escape(router_ips.get("lan") or "—")
+        wan = html.escape(router_ips.get("wan") or "—")
+        return f'LAN <code>{lan}</code><br>WAN <code>{wan}</code>'
+    ci = vm.get("cloudinit", {})
+    if ci.get("enabled") and ci.get("ipconfig"):
+        ip = html.escape(ci["ipconfig"][0].get("ip", "") or "—")
+        return f"<code>{ip}</code>"
+    return "—"
+
+
+def vm_short_ip(vm: dict) -> str:
+    ci = vm.get("cloudinit", {})
+    if ci.get("enabled") and ci.get("ipconfig"):
+        ip = ci["ipconfig"][0].get("ip", "")
+        return ip.split("/")[0] if ip else ""
+    return ""
+
+
+def lan_network_label(router_ips: dict[str, str]) -> str:
+    lan = router_ips.get("lan", "172.16.10.1/24")
+    if "/" in lan:
+        host, mask = lan.split("/", 1)
+        prefix = host.rsplit(".", 1)[0]
+        return f"{prefix}.0/{mask}"
+    return "172.16.10.0/24"
+
+
+def render_topology_graph(vms: list, router_ips: dict[str, str]) -> str:
+    dc = next((v for v in vms if v.get("name") == DC_VM), None)
+    members = [v for v in vms if v.get("name") not in (ROUTER_VM, DC_VM)]
+
+    lan = html.escape(router_ips.get("lan") or "—")
+    wan = html.escape(router_ips.get("wan") or "—")
+    lan_net = html.escape(lan_network_label(router_ips))
+
+    member_nodes = ""
+    for vm in members:
+        name = html.escape(vm["name"])
+        ip = html.escape(vm_short_ip(vm) or "—")
+        member_nodes += (
+            f'<div class="topo-member">'
+            f'<div class="topo-member-name">{name}</div>'
+            f'<div class="topo-member-ip"><code>{ip}</code></div>'
+            f'<div class="topo-member-join">joined to {html.escape(DC_VM)}</div>'
+            f'</div>'
+        )
+
+    dc_block = ""
+    if dc:
+        dc_ip = html.escape(vm_short_ip(dc) or "—")
+        dc_block = f'''<div class="topo-dc">
+            <span class="topo-dc-badge">DC</span>
+            <div class="topo-dc-name">{html.escape(DC_VM)}</div>
+            <div class="topo-dc-role">Domain Controller</div>
+            <div class="topo-dc-ip"><code>{dc_ip}</code></div>
+        </div>'''
+
+    return f'''<div class="topo-wrap">
+<div class="topo-stack">
+  <div class="topo-wan">
+    <div class="topo-wan-label">WAN · vmbr0</div>
+    <div class="topo-wan-ip"><code>{wan}</code></div>
+  </div>
+  <div class="topo-vline"></div>
+  <div class="topo-router">
+    <div class="topo-router-name">{html.escape(ROUTER_VM)}</div>
+    <div class="topo-router-iface">WAN <code>{wan}</code><br>LAN <code>{lan}</code></div>
+  </div>
+  <div class="topo-vline"></div>
+  <div class="topo-lan-zone">
+    <div class="topo-zone-label">LAN · vmbr1 · {lan_net}</div>
+    {dc_block}
+    <div class="topo-join">domain joined</div>
+    <div class="topo-members">{member_nodes}</div>
+  </div>
+</div>
+</div>'''
 
 
 def process_running(pid: int | None) -> bool:
@@ -1424,7 +1774,7 @@ def page_dashboard():
             data = json.load(f)
         vms = data.get("vms", [])
 
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     with col1:
         st.markdown(f'<div class="metric-big">{len(vms)}</div><div class="metric-label">VMs Defined</div>', unsafe_allow_html=True)
     with col2:
@@ -1432,20 +1782,22 @@ def page_dashboard():
     with col3:
         total_ram = sum(v.get("memory", 0) for v in vms)
         st.markdown(f'<div class="metric-big">{total_ram // 1024}G</div><div class="metric-label">Total RAM</div>', unsafe_allow_html=True)
+    with col4:
+        total_disk = format_disk_gb(total_disk_gb(vms))
+        st.markdown(f'<div class="metric-big">{total_disk}</div><div class="metric-label">Total Disk</div>', unsafe_allow_html=True)
 
     if vms:
         section("lab topology")
+        router_ips = get_router_ips()
+        st.markdown(render_topology_graph(vms, router_ips), unsafe_allow_html=True)
         rows = ""
         for vm in vms:
             deps = vm.get("depends_on", [])
             tn = 0 if not deps else (1 if len(deps) == 1 else 2)
             ct = "linked" if not vm.get("full_clone", True) else "full"
             disk = next((d.get("size", "") for d in vm.get("disks", []) if d.get("type") == "disk"), "")
-            ip = ""
-            ci = vm.get("cloudinit", {})
-            if ci.get("enabled") and ci.get("ipconfig"):
-                ip = ci["ipconfig"][0].get("ip", "")
-            rows += f'<tr><td><span class="tier-badge tier-{tn}">T{tn}</span></td><td><strong>{vm["name"]}</strong></td><td>{vm["vmid"]}</td><td>{vm.get("clone","")}</td><td>{vm.get("cpu",{}).get("cores","")}c / {vm.get("memory","")}M</td><td>{disk}</td><td class="clone-{ct}">{ct}</td><td><code>{ip}</code></td></tr>'
+            ip = vm_topology_ip(vm, router_ips)
+            rows += f'<tr><td><span class="tier-badge tier-{tn}">T{tn}</span></td><td><strong>{vm["name"]}</strong></td><td>{vm["vmid"]}</td><td>{vm.get("clone","")}</td><td>{vm.get("cpu",{}).get("cores","")}c / {vm.get("memory","")}M</td><td>{disk}</td><td class="clone-{ct}">{ct}</td><td>{ip}</td></tr>'
         st.markdown(f'<table class="vm-table"><thead><tr><th>Tier</th><th>Name</th><th>VMID</th><th>Template</th><th>CPU/RAM</th><th>Disk</th><th>Clone</th><th>IP</th></tr></thead><tbody>{rows}</tbody></table>', unsafe_allow_html=True)
 
 
@@ -1557,6 +1909,98 @@ def _sshkeys_to_text(keys) -> str:
     return "\n".join(keys)
 
 
+def sanitize_disk(disk: dict) -> dict:
+    out: dict = {"slot": disk["slot"], "type": disk["type"], "storage": disk["storage"]}
+    if disk["type"] != "disk":
+        return out
+    if disk.get("size"):
+        out["size"] = disk["size"]
+    if disk.get("iothread"):
+        out["iothread"] = True
+    if disk.get("discard"):
+        out["discard"] = True
+    if disk.get("cache"):
+        out["cache"] = disk["cache"]
+    return out
+
+
+def sanitize_ipconfig_entry(entry: dict) -> dict:
+    out: dict = {}
+    if entry.get("interface"):
+        out["interface"] = entry["interface"]
+    if entry.get("ip"):
+        out["ip"] = entry["ip"]
+    if entry.get("gateway"):
+        out["gateway"] = entry["gateway"]
+    return out
+
+
+def sanitize_cloudinit(ci: dict) -> dict:
+    out: dict = {"enabled": True}
+    if ci.get("nameserver"):
+        out["nameserver"] = ci["nameserver"]
+    if ci.get("searchdomain"):
+        out["searchdomain"] = ci["searchdomain"]
+    keys = ci.get("sshkeys") or []
+    if keys:
+        out["sshkeys"] = keys
+    ipconfig = [sanitize_ipconfig_entry(e) for e in ci.get("ipconfig", []) if e.get("ip")]
+    if ipconfig:
+        out["ipconfig"] = ipconfig
+    return out
+
+
+def sanitize_vm(vm: dict) -> dict:
+    out: dict = {
+        "name": vm["name"],
+        "vmid": int(vm["vmid"]),
+        "target_node": vm["target_node"],
+        "clone": vm["clone"],
+        "full_clone": bool(vm["full_clone"]),
+    }
+    if vm.get("onboot"):
+        out["onboot"] = True
+    tags = vm.get("tags") or []
+    if tags:
+        out["tags"] = tags
+    out["cpu"] = {
+        "cores": int(vm["cpu"]["cores"]),
+        "sockets": int(vm["cpu"]["sockets"]),
+        "type": vm["cpu"]["type"],
+    }
+    if vm.get("bios") == "ovmf":
+        out["bios"] = "ovmf"
+        out["machine"] = vm.get("machine", "q35")
+        out["efi_storage"] = vm.get("efi_storage", "Internal")
+    out["memory"] = int(vm["memory"])
+    if vm.get("balloon") is not None:
+        out["balloon"] = int(vm["balloon"])
+    if vm.get("serial"):
+        out["serial"] = {"id": int(vm["serial"]["id"]), "type": vm["serial"]["type"]}
+    out["scsihw"] = vm["scsihw"]
+    out["bootdisk"] = vm["bootdisk"]
+    out["disks"] = [sanitize_disk(d) for d in vm.get("disks", [])]
+    out["networks"] = [
+        {
+            "id": int(n["id"]),
+            "model": n["model"],
+            "bridge": n["bridge"],
+            "firewall": bool(n.get("firewall", True)),
+        }
+        for n in vm.get("networks", [])
+    ]
+    ci = vm.get("cloudinit")
+    if ci and ci.get("enabled"):
+        out["cloudinit"] = sanitize_cloudinit(ci)
+    agent = int(vm.get("agent", 0))
+    if agent:
+        out["agent"] = agent
+    deps = vm.get("depends_on") or []
+    if deps:
+        out["depends_on"] = deps
+    return out
+
+
 def page_vm_editor():
     st.markdown(hero("Virtual Machines"), unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Edit VM definitions for Terraform provisioning</div>', unsafe_allow_html=True)
@@ -1575,6 +2019,7 @@ def page_vm_editor():
         data = json.load(f)
     vms = data.get("vms", [])
     all_names = [v["name"] for v in vms]
+    router_ips = get_router_ips()
 
     for i, vm in enumerate(vms):
         deps = vm.get("depends_on", [])
@@ -1589,6 +2034,7 @@ def page_vm_editor():
                 vm["target_node"] = st.text_input("Node", vm.get("target_node", "proxmox"), key=f"node_{i}")
                 tags_text = st.text_input("Tags (comma-separated)", ", ".join(vm.get("tags", [])), key=f"tags_{i}")
                 vm["tags"] = [t.strip() for t in tags_text.split(",") if t.strip()]
+                vm["onboot"] = st.checkbox("On boot", value=vm.get("onboot", False), key=f"onboot_{i}")
             with col2:
                 cpu = vm.get("cpu", {})
                 cpu["cores"] = st.number_input("Cores", value=cpu.get("cores", 1), min_value=1, key=f"cores_{i}")
@@ -1604,27 +2050,33 @@ def page_vm_editor():
                     format_func=lambda x: "Full" if x else "Linked",
                     key=f"fc_{i}",
                 )
-                vm["onboot"] = st.checkbox("Autostart", value=vm.get("onboot", False), key=f"onboot_{i}")
                 vm["scsihw"] = st.text_input("SCSI HW", vm.get("scsihw", "virtio-scsi-single"), key=f"scsihw_{i}")
                 vm["bootdisk"] = st.text_input("Boot disk", vm.get("bootdisk", "scsi0"), key=f"bootdisk_{i}")
-                vm["agent"] = st.number_input("QEMU agent", value=vm.get("agent", 0), min_value=0, max_value=1, key=f"agent_{i}")
+                vm["agent"] = 1 if st.checkbox(
+                    "QEMU agent", value=bool(vm.get("agent", 0)), key=f"agent_{i}",
+                ) else 0
 
             other_names = [n for j, n in enumerate(all_names) if j != i]
-            vm["depends_on"] = st.multiselect(
+            deps = st.multiselect(
                 "Depends on",
                 options=other_names,
                 default=[d for d in vm.get("depends_on", []) if d in other_names],
                 key=f"deps_{i}",
             )
+            if deps:
+                vm["depends_on"] = deps
+            else:
+                vm.pop("depends_on", None)
 
             section("firmware & serial")
-            uefi = st.checkbox("UEFI (OVMF)", value=vm.get("bios") == "ovmf", key=f"uefi_{i}")
-            fw1, fw2, fw3 = st.columns(3)
+            fw1, fw2, fw3, fw4 = st.columns(4, vertical_alignment="bottom")
+            with fw1:
+                uefi = st.checkbox("UEFI (OVMF)", value=vm.get("bios") == "ovmf", key=f"uefi_{i}")
             if uefi:
                 vm["bios"] = "ovmf"
-                with fw1:
-                    vm["machine"] = st.text_input("Machine", vm.get("machine", "q35"), key=f"machine_{i}")
                 with fw2:
+                    vm["machine"] = st.text_input("Machine", vm.get("machine", "q35"), key=f"machine_{i}")
+                with fw3:
                     vm["efi_storage"] = st.text_input("EFI storage", vm.get("efi_storage", "Internal"), key=f"efi_{i}")
             else:
                 vm.pop("bios", None)
@@ -1632,7 +2084,7 @@ def page_vm_editor():
                 vm.pop("efi_storage", None)
 
             has_serial = vm.get("serial") is not None
-            with fw3:
+            with fw4:
                 use_serial = st.checkbox("Serial console", value=has_serial, key=f"serial_en_{i}")
             if use_serial:
                 serial = vm.get("serial", {"id": 0, "type": "socket"})
@@ -1647,29 +2099,45 @@ def page_vm_editor():
 
             section("disks")
             for di, disk in enumerate(vm.get("disks", [])):
-                dc1, dc2, dc3, dc4 = st.columns(4)
+                dc1, dc2, dc3, dc4, dc5, dc6, dc7 = st.columns(7, vertical_alignment="bottom")
                 with dc1:
                     disk["slot"] = st.text_input("Slot", disk.get("slot", ""), key=f"disk_slot_{i}_{di}")
+                with dc2:
                     disk["type"] = st.selectbox(
                         "Type", ["disk", "cloudinit"],
                         index=0 if disk.get("type", "disk") == "disk" else 1,
                         key=f"disk_type_{i}_{di}",
                     )
-                with dc2:
-                    disk["storage"] = st.text_input("Storage", disk.get("storage", ""), key=f"disk_storage_{i}_{di}")
-                    if disk.get("type") == "disk":
-                        disk["size"] = st.text_input("Size", disk.get("size", ""), key=f"disk_size_{i}_{di}")
                 with dc3:
-                    if disk.get("type") == "disk":
-                        disk["cache"] = st.text_input("Cache", disk.get("cache", ""), key=f"disk_cache_{i}_{di}")
-                        disk["iothread"] = st.checkbox("IO thread", value=disk.get("iothread", False), key=f"disk_iothread_{i}_{di}")
+                    disk["storage"] = st.text_input("Storage", disk.get("storage", ""), key=f"disk_storage_{i}_{di}")
                 with dc4:
-                    if disk.get("type") == "disk":
+                    if disk["type"] == "disk":
+                        disk["size"] = st.text_input("Size", disk.get("size", ""), key=f"disk_size_{i}_{di}")
+                    else:
+                        disk.pop("size", None)
+                        disk.pop("cache", None)
+                        disk.pop("iothread", None)
+                        disk.pop("discard", None)
+                with dc5:
+                    if disk["type"] == "disk":
+                        cache = disk.get("cache", "")
+                        disk["cache"] = st.text_input("Cache", cache, key=f"disk_cache_{i}_{di}")
+                        if not disk["cache"]:
+                            disk.pop("cache", None)
+                with dc6:
+                    if disk["type"] == "disk":
+                        disk["iothread"] = st.checkbox("IO thread", value=disk.get("iothread", False), key=f"disk_iothread_{i}_{di}")
+                        if not disk["iothread"]:
+                            disk.pop("iothread", None)
+                with dc7:
+                    if disk["type"] == "disk":
                         disk["discard"] = st.checkbox("Discard (TRIM)", value=disk.get("discard", False), key=f"disk_discard_{i}_{di}")
+                        if not disk["discard"]:
+                            disk.pop("discard", None)
 
             section("networks")
             for ni, net in enumerate(vm.get("networks", [])):
-                nc1, nc2, nc3, nc4 = st.columns(4)
+                nc1, nc2, nc3, nc4 = st.columns(4, vertical_alignment="bottom")
                 with nc1:
                     net["id"] = st.number_input("Net ID", value=net.get("id", ni), min_value=0, key=f"net_id_{i}_{ni}")
                 with nc2:
@@ -1698,24 +2166,55 @@ def page_vm_editor():
                         "Gateway", ci["ipconfig"][0].get("gateway", ""), key=f"gw_{i}",
                     )
                 with c2:
-                    ci["nameserver"] = st.text_input("DNS", ci.get("nameserver", ""), key=f"ns_{i}")
-                    ci["searchdomain"] = st.text_input("Domain", ci.get("searchdomain", ""), key=f"sd_{i}")
+                    ns = st.text_input("DNS", ci.get("nameserver", ""), key=f"ns_{i}")
+                    ci["nameserver"] = ns or None
+                    if not ci["nameserver"]:
+                        ci.pop("nameserver", None)
+                    sd = st.text_input("Domain", ci.get("searchdomain", ""), key=f"sd_{i}")
+                    ci["searchdomain"] = sd or None
+                    if not ci["searchdomain"]:
+                        ci.pop("searchdomain", None)
                 ssh_text = st.text_area(
                     "SSH keys (one per line)",
                     value=_sshkeys_to_text(ci.get("sshkeys")),
                     key=f"sshkeys_{i}",
                     height=120,
                 )
-                ci["sshkeys"] = _lines_to_list(ssh_text)
+                keys = _lines_to_list(ssh_text)
+                if keys:
+                    ci["sshkeys"] = keys
+                else:
+                    ci.pop("sshkeys", None)
+                gw = ci["ipconfig"][0].get("gateway", "")
+                if not gw:
+                    ci["ipconfig"][0].pop("gateway", None)
                 vm["cloudinit"] = ci
             else:
                 vm.pop("cloudinit", None)
 
-    if st.button("Save vms.json", type="primary", use_container_width=True):
-        data["vms"] = vms
+            if vm["name"] == ROUTER_VM:
+                section("router interfaces (template)")
+                st.caption("Configured in pfSense template — stored locally, not in vms.json.")
+                r1, r2 = st.columns(2)
+                with r1:
+                    router_ips["lan"] = st.text_input(
+                        "LAN IP (vmbr1)", router_ips.get("lan", "172.16.10.1/24"), key=f"router_lan_{i}",
+                    )
+                with r2:
+                    router_ips["wan"] = st.text_input(
+                        "WAN IP (vmbr0)", router_ips.get("wan", ""), key=f"router_wan_{i}",
+                        placeholder="e.g. dhcp or 203.0.113.1/24",
+                    )
+
+    if st.button("Save", type="primary", use_container_width=True):
+        data["vms"] = [sanitize_vm(vm) for vm in vms]
         with open(vms_path, "w") as f:
             json.dump(data, f, indent=4)
+        ui_cfg = read_ui_config()
+        ui_cfg["router_ips"] = router_ips
+        write_ui_config(ui_cfg)
         st.success("Saved")
+        st.rerun()
 
 
 def _decrypt_vault(vault_path: str, vault_pass_path: str) -> dict | None:
