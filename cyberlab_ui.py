@@ -1545,6 +1545,18 @@ def page_terraform_config():
             st.rerun()
 
 
+def _lines_to_list(text: str) -> list[str]:
+    return [line.strip() for line in text.splitlines() if line.strip()]
+
+
+def _sshkeys_to_text(keys) -> str:
+    if not keys:
+        return ""
+    if isinstance(keys, str):
+        return keys
+    return "\n".join(keys)
+
+
 def page_vm_editor():
     st.markdown(hero("Virtual Machines"), unsafe_allow_html=True)
     st.markdown('<div class="hero-sub">Edit VM definitions for Terraform provisioning</div>', unsafe_allow_html=True)
@@ -1562,6 +1574,7 @@ def page_vm_editor():
     with open(vms_path) as f:
         data = json.load(f)
     vms = data.get("vms", [])
+    all_names = [v["name"] for v in vms]
 
     for i, vm in enumerate(vms):
         deps = vm.get("depends_on", [])
@@ -1574,31 +1587,129 @@ def page_vm_editor():
                 vm["vmid"] = st.number_input("VMID", value=vm["vmid"], key=f"vmid_{i}")
                 vm["clone"] = st.text_input("Template", vm.get("clone", ""), key=f"clone_{i}")
                 vm["target_node"] = st.text_input("Node", vm.get("target_node", "proxmox"), key=f"node_{i}")
+                tags_text = st.text_input("Tags (comma-separated)", ", ".join(vm.get("tags", [])), key=f"tags_{i}")
+                vm["tags"] = [t.strip() for t in tags_text.split(",") if t.strip()]
             with col2:
                 cpu = vm.get("cpu", {})
                 cpu["cores"] = st.number_input("Cores", value=cpu.get("cores", 1), min_value=1, key=f"cores_{i}")
                 cpu["sockets"] = st.number_input("Sockets", value=cpu.get("sockets", 1), min_value=1, key=f"sockets_{i}")
+                cpu["type"] = st.text_input("CPU type", cpu.get("type", "host"), key=f"cpu_type_{i}")
                 vm["cpu"] = cpu
                 vm["memory"] = st.number_input("RAM (MB)", value=vm.get("memory", 1024), step=512, key=f"mem_{i}")
                 vm["balloon"] = st.number_input("Balloon (MB)", value=vm.get("balloon", vm.get("memory", 1024)), step=512, key=f"balloon_{i}")
             with col3:
-                vm["full_clone"] = st.selectbox("Clone", [True, False], index=0 if vm.get("full_clone", True) else 1, format_func=lambda x: "Full" if x else "Linked", key=f"fc_{i}")
+                vm["full_clone"] = st.selectbox(
+                    "Clone", [True, False],
+                    index=0 if vm.get("full_clone", True) else 1,
+                    format_func=lambda x: "Full" if x else "Linked",
+                    key=f"fc_{i}",
+                )
                 vm["onboot"] = st.checkbox("Autostart", value=vm.get("onboot", False), key=f"onboot_{i}")
-                for d in vm.get("disks", []):
-                    if d.get("type") == "disk":
-                        d["size"] = st.text_input("Disk", d.get("size", "32G"), key=f"disk_{i}")
-                        break
+                vm["scsihw"] = st.text_input("SCSI HW", vm.get("scsihw", "virtio-scsi-single"), key=f"scsihw_{i}")
+                vm["bootdisk"] = st.text_input("Boot disk", vm.get("bootdisk", "scsi0"), key=f"bootdisk_{i}")
+                vm["agent"] = st.number_input("QEMU agent", value=vm.get("agent", 0), min_value=0, max_value=1, key=f"agent_{i}")
+
+            other_names = [n for j, n in enumerate(all_names) if j != i]
+            vm["depends_on"] = st.multiselect(
+                "Depends on",
+                options=other_names,
+                default=[d for d in vm.get("depends_on", []) if d in other_names],
+                key=f"deps_{i}",
+            )
+
+            section("firmware & serial")
+            uefi = st.checkbox("UEFI (OVMF)", value=vm.get("bios") == "ovmf", key=f"uefi_{i}")
+            fw1, fw2, fw3 = st.columns(3)
+            if uefi:
+                vm["bios"] = "ovmf"
+                with fw1:
+                    vm["machine"] = st.text_input("Machine", vm.get("machine", "q35"), key=f"machine_{i}")
+                with fw2:
+                    vm["efi_storage"] = st.text_input("EFI storage", vm.get("efi_storage", "Internal"), key=f"efi_{i}")
+            else:
+                vm.pop("bios", None)
+                vm.pop("machine", None)
+                vm.pop("efi_storage", None)
+
+            has_serial = vm.get("serial") is not None
+            with fw3:
+                use_serial = st.checkbox("Serial console", value=has_serial, key=f"serial_en_{i}")
+            if use_serial:
+                serial = vm.get("serial", {"id": 0, "type": "socket"})
+                s1, s2 = st.columns(2)
+                with s1:
+                    serial["id"] = st.number_input("Serial ID", value=serial.get("id", 0), min_value=0, key=f"serial_id_{i}")
+                with s2:
+                    serial["type"] = st.text_input("Serial type", serial.get("type", "socket"), key=f"serial_type_{i}")
+                vm["serial"] = serial
+            else:
+                vm.pop("serial", None)
+
+            section("disks")
+            for di, disk in enumerate(vm.get("disks", [])):
+                dc1, dc2, dc3, dc4 = st.columns(4)
+                with dc1:
+                    disk["slot"] = st.text_input("Slot", disk.get("slot", ""), key=f"disk_slot_{i}_{di}")
+                    disk["type"] = st.selectbox(
+                        "Type", ["disk", "cloudinit"],
+                        index=0 if disk.get("type", "disk") == "disk" else 1,
+                        key=f"disk_type_{i}_{di}",
+                    )
+                with dc2:
+                    disk["storage"] = st.text_input("Storage", disk.get("storage", ""), key=f"disk_storage_{i}_{di}")
+                    if disk.get("type") == "disk":
+                        disk["size"] = st.text_input("Size", disk.get("size", ""), key=f"disk_size_{i}_{di}")
+                with dc3:
+                    if disk.get("type") == "disk":
+                        disk["cache"] = st.text_input("Cache", disk.get("cache", ""), key=f"disk_cache_{i}_{di}")
+                        disk["iothread"] = st.checkbox("IO thread", value=disk.get("iothread", False), key=f"disk_iothread_{i}_{di}")
+                with dc4:
+                    if disk.get("type") == "disk":
+                        disk["discard"] = st.checkbox("Discard (TRIM)", value=disk.get("discard", False), key=f"disk_discard_{i}_{di}")
+
+            section("networks")
+            for ni, net in enumerate(vm.get("networks", [])):
+                nc1, nc2, nc3, nc4 = st.columns(4)
+                with nc1:
+                    net["id"] = st.number_input("Net ID", value=net.get("id", ni), min_value=0, key=f"net_id_{i}_{ni}")
+                with nc2:
+                    net["model"] = st.text_input("Model", net.get("model", "virtio"), key=f"net_model_{i}_{ni}")
+                with nc3:
+                    net["bridge"] = st.text_input("Bridge", net.get("bridge", "vmbr1"), key=f"net_bridge_{i}_{ni}")
+                with nc4:
+                    net["firewall"] = st.checkbox("Firewall", value=net.get("firewall", True), key=f"net_fw_{i}_{ni}")
+
             ci = vm.get("cloudinit", {})
-            if ci.get("enabled"):
+            ci_enabled = st.checkbox("Cloud-init", value=ci.get("enabled", False), key=f"ci_en_{i}")
+            if ci_enabled:
+                ci["enabled"] = True
                 section("cloud-init")
                 c1, c2 = st.columns(2)
                 with c1:
-                    if ci.get("ipconfig"):
-                        ci["ipconfig"][0]["ip"] = st.text_input("IP/CIDR", ci["ipconfig"][0].get("ip", ""), key=f"ip_{i}")
-                        ci["ipconfig"][0]["gateway"] = st.text_input("Gateway", ci["ipconfig"][0].get("gateway", ""), key=f"gw_{i}")
+                    if not ci.get("ipconfig"):
+                        ci["ipconfig"] = [{"interface": "net0", "ip": "", "gateway": ""}]
+                    ci["ipconfig"][0]["interface"] = st.text_input(
+                        "Interface", ci["ipconfig"][0].get("interface", "net0"), key=f"ci_iface_{i}",
+                    )
+                    ci["ipconfig"][0]["ip"] = st.text_input(
+                        "IP/CIDR", ci["ipconfig"][0].get("ip", ""), key=f"ip_{i}",
+                    )
+                    ci["ipconfig"][0]["gateway"] = st.text_input(
+                        "Gateway", ci["ipconfig"][0].get("gateway", ""), key=f"gw_{i}",
+                    )
                 with c2:
                     ci["nameserver"] = st.text_input("DNS", ci.get("nameserver", ""), key=f"ns_{i}")
                     ci["searchdomain"] = st.text_input("Domain", ci.get("searchdomain", ""), key=f"sd_{i}")
+                ssh_text = st.text_area(
+                    "SSH keys (one per line)",
+                    value=_sshkeys_to_text(ci.get("sshkeys")),
+                    key=f"sshkeys_{i}",
+                    height=120,
+                )
+                ci["sshkeys"] = _lines_to_list(ssh_text)
+                vm["cloudinit"] = ci
+            else:
+                vm.pop("cloudinit", None)
 
     if st.button("Save vms.json", type="primary", use_container_width=True):
         data["vms"] = vms
