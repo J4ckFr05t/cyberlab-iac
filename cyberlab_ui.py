@@ -46,6 +46,24 @@ DEPLOY_EXIT_FILE = os.path.join(CYBERLAB_DIR, "deploy.exit")
 CLEAN_HOSTS_SCRIPT = os.path.join(BASE_DIR, "scripts", "clean_known_hosts.sh")
 ROUTER_VM = "PF-01-RTR"
 DC_VM = "DC-01-SRV"
+FLEET_VM = "FLEET-01-SRV"
+SIEM_VM = "SIEM-01-SRV"
+XDR_VM = "XDR-01-SRV"
+
+TOPO_VM_ROLES = {
+    ROUTER_VM: "Gateway Router",
+    DC_VM: "Domain Controller",
+    SIEM_VM: "Elasticsearch SIEM",
+    FLEET_VM: "Elastic Fleet Server",
+    XDR_VM: "Wazuh Manager · XDR",
+    "SOC-01-SRV": "SOC · TheHive",
+    "LIN-01-WS": "Linux Workstation",
+    "WIN-01-WS": "Windows Workstation",
+}
+
+TOPO_LOG_SOURCES = (DC_VM, "LIN-01-WS", "WIN-01-WS", XDR_VM, "SOC-01-SRV")
+TOPO_WAZUH_AGENTS = (DC_VM, FLEET_VM, "LIN-01-WS", SIEM_VM, "SOC-01-SRV", "WIN-01-WS")
+TOPO_WORKSTATIONS = ("LIN-01-WS", "WIN-01-WS")
 
 TEMPLATES = [
     "ubuntu-server-template",
@@ -852,7 +870,7 @@ div[data-testid="stForm"] {
     margin-top: 0;
     border: 1px dashed rgba(63, 185, 80, 0.35);
     border-radius: 10px;
-    padding: 18px 16px 16px;
+    padding: 18px 16px 14px;
     background: rgba(22, 27, 34, 0.5);
     box-sizing: border-box;
 }
@@ -866,124 +884,139 @@ div[data-testid="stForm"] {
     margin-bottom: 16px;
 }
 
-.topo-dc {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    margin: 0 auto 12px;
-    max-width: 280px;
-    background: rgba(88, 166, 255, 0.1);
-    border: 1px solid rgba(88, 166, 255, 0.4);
-    border-radius: 8px;
-    padding: 12px 18px;
+.topo-lane {
+    padding: 12px 0;
+}
+
+.topo-lane + .topo-lane {
+    border-top: 1px solid rgba(48, 54, 61, 0.55);
+}
+
+.topo-lane-title {
+    font-size: 0.58rem;
+    color: #484f58;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
     text-align: center;
 }
 
-.topo-dc-badge {
-    display: inline-block;
-    font-size: 0.58rem;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    color: #58a6ff;
-    background: rgba(88, 166, 255, 0.15);
-    border: 1px solid rgba(88, 166, 255, 0.35);
-    border-radius: 4px;
-    padding: 2px 8px;
-    margin-bottom: 6px;
+.topo-domain {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 10px 16px;
 }
 
-.topo-dc-name {
-    font-size: 0.82rem;
+.topo-domain-ws {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+
+.topo-domain-hub {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+}
+
+.topo-domain-link {
+    font-size: 0.55rem;
+    color: #484f58;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.topo-pipeline {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.topo-pipeline-src {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    max-width: 380px;
+    text-align: center;
+}
+
+.topo-pipeline-label {
+    font-size: 0.52rem;
+    color: #484f58;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.topo-pipeline-hosts {
+    font-size: 0.6rem;
+    color: #8b949e;
+    line-height: 1.5;
+}
+
+.topo-node {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 8px 12px;
+    text-align: center;
+    min-width: 108px;
+}
+
+.topo-node-name {
+    font-size: 0.72rem;
     font-weight: 600;
     color: #e6edf3;
 }
 
-.topo-dc-role {
-    font-size: 0.62rem;
-    color: #58a6ff;
-    margin-top: 2px;
-}
-
-.topo-dc-ip {
-    font-size: 0.68rem;
-    color: #8b949e;
-    margin-top: 4px;
-}
-
-.topo-dc-ip code {
-    color: #a5d6ff;
-}
-
-.topo-join {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 10px;
-    margin: 8px 0 14px;
-    font-size: 0.6rem;
-    color: #484f58;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-}
-
-.topo-join::before,
-.topo-join::after {
-    content: "";
-    flex: 1;
-    max-width: 120px;
-    height: 1px;
-    background: linear-gradient(90deg, transparent, rgba(88, 166, 255, 0.35), transparent);
-}
-
-.topo-members {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-    gap: 10px;
-}
-
-.topo-member {
-    position: relative;
-    background: var(--bg-card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
-    text-align: center;
-}
-
-.topo-member::before {
-    content: "";
-    position: absolute;
-    top: -14px;
-    left: 50%;
-    width: 1px;
-    height: 14px;
-    background: rgba(88, 166, 255, 0.25);
-}
-
-.topo-member-name {
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: #c9d1d9;
-    word-break: break-word;
-}
-
-.topo-member-ip {
-    font-size: 0.65rem;
+.topo-node-meta {
+    font-size: 0.58rem;
     color: #6e7681;
     margin-top: 3px;
+    line-height: 1.35;
 }
 
-.topo-member-ip code {
+.topo-node-meta code {
     color: #8b949e;
-    font-size: 0.62rem;
+    font-size: 0.56rem;
 }
 
-.topo-member-join {
-    font-size: 0.55rem;
+.topo-node.dc {
+    border-color: rgba(88, 166, 255, 0.45);
+    background: rgba(88, 166, 255, 0.08);
+}
+
+.topo-node.fleet {
+    border-color: rgba(210, 168, 255, 0.5);
+    background: rgba(210, 168, 255, 0.06);
+}
+
+.topo-node.siem {
+    border-color: rgba(210, 168, 255, 0.55);
+    background: rgba(210, 168, 255, 0.1);
+}
+
+.topo-node.xdr {
+    border-color: rgba(240, 136, 62, 0.55);
+    background: rgba(240, 136, 62, 0.08);
+}
+
+.topo-node.ws {
+    min-width: 96px;
+}
+
+.topo-arrow {
+    font-size: 0.56rem;
     color: #484f58;
-    margin-top: 4px;
     text-transform: uppercase;
     letter-spacing: 0.06em;
+    white-space: nowrap;
 }
 
 code { font-family: 'JetBrains Mono', monospace !important; }
@@ -1097,35 +1130,104 @@ def lan_network_label(router_ips: dict[str, str]) -> str:
     return "172.16.10.0/24"
 
 
+def topo_vm_by_name(vms: list) -> dict[str, dict]:
+    return {vm["name"]: vm for vm in vms if vm.get("name")}
+
+
+def topo_role_label(name: str) -> str:
+    return TOPO_VM_ROLES.get(name, "Domain Member")
+
+
+def render_topo_node(name: str, vm_map: dict[str, dict], css_class: str = "") -> str:
+    vm = vm_map.get(name)
+    if not vm:
+        return ""
+    ip = html.escape(vm_short_ip(vm) or "—")
+    role = html.escape(topo_role_label(name))
+    cls = f"topo-node {css_class}".strip()
+    return (
+        f'<div class="{cls}">'
+        f'<div class="topo-node-name">{html.escape(name)}</div>'
+        f'<div class="topo-node-meta">{role}<br><code>{ip}</code></div>'
+        f'</div>'
+    )
+
+
+def render_topo_host_list(names: tuple[str, ...], vm_map: dict[str, dict]) -> str:
+    hosts = [html.escape(name) for name in names if name in vm_map]
+    if not hosts:
+        return ""
+    return " · ".join(hosts)
+
+
+def render_topo_pipeline_src(label: str, names: tuple[str, ...], vm_map: dict[str, dict]) -> str:
+    hosts = render_topo_host_list(names, vm_map)
+    if not hosts:
+        return ""
+    return (
+        f'<div class="topo-pipeline-src">'
+        f'<div class="topo-pipeline-label">{html.escape(label)}</div>'
+        f'<div class="topo-pipeline-hosts">{hosts}</div>'
+        f'</div>'
+    )
+
+
 def render_topology_graph(vms: list, router_ips: dict[str, str]) -> str:
-    dc = next((v for v in vms if v.get("name") == DC_VM), None)
-    members = [v for v in vms if v.get("name") not in (ROUTER_VM, DC_VM)]
+    vm_map = topo_vm_by_name(vms)
 
     lan = html.escape(router_ips.get("lan") or "—")
     wan = html.escape(router_ips.get("wan") or "—")
     lan_net = html.escape(lan_network_label(router_ips))
 
-    member_nodes = ""
-    for vm in members:
-        name = html.escape(vm["name"])
-        ip = html.escape(vm_short_ip(vm) or "—")
-        member_nodes += (
-            f'<div class="topo-member">'
-            f'<div class="topo-member-name">{name}</div>'
-            f'<div class="topo-member-ip"><code>{ip}</code></div>'
-            f'<div class="topo-member-join">joined to {html.escape(DC_VM)}</div>'
-            f'</div>'
-        )
+    workstations = "".join(
+        render_topo_node(name, vm_map, "ws")
+        for name in TOPO_WORKSTATIONS
+        if name in vm_map
+    )
+    dc_node = render_topo_node(DC_VM, vm_map, "dc")
 
-    dc_block = ""
-    if dc:
-        dc_ip = html.escape(vm_short_ip(dc) or "—")
-        dc_block = f'''<div class="topo-dc">
-            <span class="topo-dc-badge">DC</span>
-            <div class="topo-dc-name">{html.escape(DC_VM)}</div>
-            <div class="topo-dc-role">Domain Controller</div>
-            <div class="topo-dc-ip"><code>{dc_ip}</code></div>
-        </div>'''
+    elastic_agents = render_topo_pipeline_src("elastic agents", TOPO_LOG_SOURCES, vm_map)
+    fleet_node = render_topo_node(FLEET_VM, vm_map, "fleet")
+    siem_node = render_topo_node(SIEM_VM, vm_map, "siem")
+    xdr_node = render_topo_node(XDR_VM, vm_map, "xdr")
+    wazuh_agents = render_topo_pipeline_src("wazuh agents", TOPO_WAZUH_AGENTS, vm_map)
+
+    domain_lane = ""
+    if dc_node or workstations:
+        domain_lane = f'''<div class="topo-lane">
+  <div class="topo-lane-title">Active Directory</div>
+  <div class="topo-domain">
+    <div class="topo-domain-ws">{workstations}</div>
+    <div class="topo-domain-hub">
+      <div class="topo-domain-link">domain joined ↓</div>
+      {dc_node}
+    </div>
+  </div>
+</div>'''
+
+    siem_lane = ""
+    if elastic_agents and (fleet_node or siem_node):
+        siem_lane = f'''<div class="topo-lane">
+  <div class="topo-lane-title">Log pipeline · Elastic Stack</div>
+  <div class="topo-pipeline">
+    <div class="topo-pipeline-src">{elastic_agents}</div>
+    <span class="topo-arrow">logs →</span>
+    {fleet_node}
+    <span class="topo-arrow">ingest →</span>
+    {siem_node}
+  </div>
+</div>'''
+
+    xdr_lane = ""
+    if xdr_node and wazuh_agents:
+        xdr_lane = f'''<div class="topo-lane">
+  <div class="topo-lane-title">Endpoint protection · Wazuh XDR</div>
+  <div class="topo-pipeline">
+    {xdr_node}
+    <span class="topo-arrow">manages →</span>
+    <div class="topo-pipeline-src">{wazuh_agents}</div>
+  </div>
+</div>'''
 
     return f'''<div class="topo-wrap">
 <div class="topo-stack">
@@ -1141,9 +1243,9 @@ def render_topology_graph(vms: list, router_ips: dict[str, str]) -> str:
   <div class="topo-vline"></div>
   <div class="topo-lan-zone">
     <div class="topo-zone-label">LAN · vmbr1 · {lan_net}</div>
-    {dc_block}
-    <div class="topo-join">domain joined</div>
-    <div class="topo-members">{member_nodes}</div>
+    {domain_lane}
+    {siem_lane}
+    {xdr_lane}
   </div>
 </div>
 </div>'''
