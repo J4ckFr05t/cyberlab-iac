@@ -344,9 +344,7 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     width: 100% !important;
     margin: 0 !important;
     padding: 0 10px !important;
-    border: none !important;
     border-radius: 0 !important;
-    background: var(--bg-elevated) !important;
     font-size: 0.72rem !important;
     display: inline-flex !important;
     align-items: center !important;
@@ -354,34 +352,17 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     box-sizing: border-box !important;
 }
 
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button:not([kind="primary"]):not([data-testid="baseButton-primary"]) {
+    border: none !important;
+    background: var(--bg-elevated) !important;
+}
+
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner):hover {
     border-color: rgba(63, 185, 80, 0.35) !important;
 }
 
-.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button:hover {
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button:hover:not([data-testid="baseButton-primary"]):not([kind="primary"]) {
     background: rgba(255, 255, 255, 0.06) !important;
-}
-
-.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button[kind="primary"] {
-    background: #da3633 !important;
-    border-color: #da3633 !important;
-    color: #ffffff !important;
-}
-
-.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button[kind="primary"]:hover {
-    background: #b62324 !important;
-    border-color: #b62324 !important;
-}
-
-.stApp .st-key-batch_stop div[data-testid="stButton"] > button {
-    background: #da3633 !important;
-    border-color: #da3633 !important;
-    color: #ffffff !important;
-}
-
-.stApp .st-key-batch_stop div[data-testid="stButton"] > button:hover {
-    background: #b62324 !important;
-    border-color: #b62324 !important;
 }
 
 .pb-dot {
@@ -559,7 +540,9 @@ div[data-testid="stForm"] {
 }
 
 .stApp div[data-testid="stButton"] > button[kind="primary"],
-.stApp div.stButton > button[kind="primary"] {
+.stApp div.stButton > button[kind="primary"],
+.stApp div[data-testid="stButton"] > button[data-testid="baseButton-primary"],
+.stApp div.stButton > button[data-testid="baseButton-primary"] {
     background: var(--accent) !important;
     color: #ffffff !important;
     border: 1px solid var(--accent) !important;
@@ -567,7 +550,9 @@ div[data-testid="stForm"] {
 }
 
 .stApp div[data-testid="stButton"] > button[kind="primary"]:hover,
-.stApp div.stButton > button[kind="primary"]:hover {
+.stApp div.stButton > button[kind="primary"]:hover,
+.stApp div[data-testid="stButton"] > button[data-testid="baseButton-primary"]:hover,
+.stApp div.stButton > button[data-testid="baseButton-primary"]:hover {
     background: var(--accent-dim) !important;
     border-color: var(--accent-dim) !important;
 }
@@ -589,6 +574,40 @@ div[data-testid="stForm"] {
     background: rgba(218, 54, 51, 0.35) !important;
     border-color: rgba(218, 54, 51, 0.35) !important;
     color: rgba(255, 255, 255, 0.6) !important;
+}
+
+.stApp [class*="st-key-run_"] div[data-testid="stButton"] > button,
+.stApp [class*="st-key-run_"] div[data-testid="stButton"] > button[data-testid="baseButton-primary"] {
+    background: var(--accent) !important;
+    border: 1px solid var(--accent) !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+.stApp [class*="st-key-run_"] div[data-testid="stButton"] > button:hover:not(:disabled),
+.stApp [class*="st-key-run_"] div[data-testid="stButton"] > button[data-testid="baseButton-primary"]:hover:not(:disabled) {
+    background: var(--accent-dim) !important;
+    border-color: var(--accent-dim) !important;
+    color: #ffffff !important;
+}
+
+.stApp [class*="st-key-stop_"] div[data-testid="stButton"] > button,
+.stApp [class*="st-key-stop_"] div[data-testid="stButton"] > button[data-testid="baseButton-primary"],
+.stApp .st-key-batch_stop div[data-testid="stButton"] > button,
+.stApp .st-key-batch_stop div[data-testid="stButton"] > button[data-testid="baseButton-primary"] {
+    background: #da3633 !important;
+    border: 1px solid #da3633 !important;
+    color: #ffffff !important;
+    font-weight: 600 !important;
+}
+
+.stApp [class*="st-key-stop_"] div[data-testid="stButton"] > button:hover:not(:disabled),
+.stApp [class*="st-key-stop_"] div[data-testid="stButton"] > button[data-testid="baseButton-primary"]:hover:not(:disabled),
+.stApp .st-key-batch_stop div[data-testid="stButton"] > button:hover:not(:disabled),
+.stApp .st-key-batch_stop div[data-testid="stButton"] > button[data-testid="baseButton-primary"]:hover:not(:disabled) {
+    background: #b62324 !important;
+    border-color: #b62324 !important;
+    color: #ffffff !important;
 }
 
 .term-window {
@@ -2679,7 +2698,7 @@ def _playbooks_tab():
                             st.rerun()
                 else:
                     if st.button(
-                        "Run", key=f"run_{pb_file}", use_container_width=True,
+                        "Run", key=f"run_{pb_file}", type="primary", use_container_width=True,
                         disabled=jobs_busy,
                     ):
                         cmd = ansible_playbook_cmd(pb_file)
