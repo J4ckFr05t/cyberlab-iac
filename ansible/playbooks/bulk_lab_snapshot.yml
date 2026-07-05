@@ -4,7 +4,7 @@
   gather_facts: no
   connection: local
   vars_files:
-    - ../inventory/group_vars/proxmox.yml
+    - ../inventory/group_vars/proxmox_hosts.yml
   vars:
     terraform_tfvars: "{{ playbook_dir }}/../../terraform/terraform.tfvars"
   tasks:
@@ -27,7 +27,14 @@
 
     - name: Parse proxmox_api_url from terraform.tfvars
       set_fact:
-        proxmox_api_url: "{{ (tfvars_raw.content | b64decode) | regex_search('proxmox_api_url\\s*=\\s*\"([^\"]+)\"', '\\1') }}"
+        proxmox_api_url: >-
+          {{
+            ((tfvars_raw.content | b64decode).splitlines()
+              | select('search', 'proxmox_api_url')
+              | first
+              | default(''))
+            | regex_replace('.*"([^"]+)".*', '\1')
+          }}
 
     - name: Fail when proxmox_api_url is missing
       fail:
@@ -36,7 +43,7 @@
 
     - name: Extract Proxmox host from API URL
       set_fact:
-        proxmox_host: "{{ proxmox_api_url | regex_replace('^https?://([^:/]+).*', '\\1') }}"
+        proxmox_host: "{{ proxmox_api_url | regex_replace('^https?://', '') | regex_replace('[:/].*', '') }}"
 
     - name: Show Proxmox snapshot target
       debug:
@@ -49,8 +56,8 @@
 
     - name: Register Proxmox host for snapshot
       add_host:
-        name: proxmox
-        groups: proxmox
+        name: pve
+        groups: proxmox_hosts
         ansible_host: "{{ proxmox_host }}"
         ansible_connection: ssh
         ansible_user: "{{ proxmox_ssh_user | default('root') }}"
@@ -59,10 +66,10 @@
         proxmox_bulk_snapshot_script: "{{ proxmox_bulk_snapshot_script }}"
 
 - name: Bulk snapshot lab VMs on Proxmox
-  hosts: proxmox
+  hosts: proxmox_hosts
   gather_facts: no
   vars_files:
-    - ../inventory/group_vars/proxmox.yml
+    - ../inventory/group_vars/proxmox_hosts.yml
     - ../inventory/group_vars/secret_vault.yml
   vars:
     ansible_user: "{{ proxmox_ssh_user | default('root') }}"
