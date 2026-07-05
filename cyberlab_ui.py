@@ -8,6 +8,7 @@ if sys.platform == "darwin":
 
 import html
 import re
+import signal
 import subprocess
 import json
 import shutil
@@ -359,6 +360,28 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     background: rgba(255, 255, 255, 0.06) !important;
 }
 
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button[kind="primary"] {
+    background: #da3633 !important;
+    border-color: #da3633 !important;
+    color: #ffffff !important;
+}
+
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button[kind="primary"]:hover {
+    background: #b62324 !important;
+    border-color: #b62324 !important;
+}
+
+.stApp .st-key-batch_stop div[data-testid="stButton"] > button {
+    background: #da3633 !important;
+    border-color: #da3633 !important;
+    color: #ffffff !important;
+}
+
+.stApp .st-key-batch_stop div[data-testid="stButton"] > button:hover {
+    background: #b62324 !important;
+    border-color: #b62324 !important;
+}
+
 .pb-dot {
     width: 10px;
     height: 10px;
@@ -437,6 +460,12 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     color: #f85149;
     border-color: rgba(248, 81, 73, 0.35);
     background: rgba(248, 81, 73, 0.08);
+}
+
+.pb-state.stopped {
+    color: #d29922;
+    border-color: rgba(210, 153, 34, 0.35);
+    background: rgba(210, 153, 34, 0.08);
 }
 
 .pb-state.running {
@@ -1130,7 +1159,7 @@ def append_completion_log(log_path: str, rc: int, ok_msg: str, err_msg: str):
         f.write(line)
 
 
-def render_terminal_cached(cache_key: str, placeholder, **kwargs):
+def render_terminal_cached(cache_key: str, placeholder, *, force: bool = False, **kwargs):
     sig = (
         kwargs.get("text", ""),
         kwargs.get("state"),
@@ -1140,10 +1169,22 @@ def render_terminal_cached(cache_key: str, placeholder, **kwargs):
         kwargs.get("term_id"),
     )
     state_key = f"term_cache_{cache_key}"
-    if st.session_state.get(state_key) == sig:
+    if not force and st.session_state.get(state_key) == sig:
         return
     st.session_state[state_key] = sig
     render_terminal(placeholder, **kwargs)
+
+
+def playbook_show_terminal(pb_file: str) -> bool:
+    key = playbook_job_key(pb_file)
+    status = read_playbook_status(key)
+    pinned = pb_file in st.session_state.get("pb_show_terminal", set())
+    return (
+        pinned
+        or playbook_has_output(pb_file)
+        or is_playbook_job_running(key)
+        or status.get("state") in ("running", "success", "error", "stopped")
+    )
 
 
 def read_deploy_status() -> dict:
@@ -1333,7 +1374,10 @@ def is_playbook_job_running(key: str) -> bool:
     status = read_playbook_status(key)
     if status.get("state") != "running":
         return False
-    return process_running(status.get("pid"))
+    if process_running(status.get("pid")):
+        return True
+    paths = playbook_job_paths(key)
+    return not file_exists(paths["exit"])
 
 
 def is_any_playbook_job_running() -> bool:
@@ -1350,6 +1394,8 @@ def poll_playbook_job(key: str) -> dict:
     paths = playbook_job_paths(key)
     rc = read_exit_code(paths["exit"])
     if rc is None and process_running(status.get("pid")):
+        return status
+    if rc is None and not file_exists(paths["exit"]):
         return status
     if rc is None:
         rc = 1
@@ -1413,6 +1459,8 @@ def playbook_run_state(pb_file: str) -> str:
     state = read_playbook_status(key).get("state", "idle")
     if state == "running" or is_playbook_job_running(key):
         return "running"
+    if state == "stopped":
+        return "stopped"
     if state in ("success", "error"):
         return state
     return "pending"
@@ -1424,7 +1472,7 @@ def get_playbook_run_stats() -> dict:
         state = playbook_run_state(pb_file)
         if state == "success":
             passed += 1
-        elif state == "error":
+        elif state in ("error", "stopped"):
             failed += 1
         elif state == "running":
             running += 1
@@ -1513,6 +1561,52 @@ def start_playbook_job(
     if pb_file:
         st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
         st.session_state.playbook_status[pb_file] = ("running", f"running: {label}…")
+    st.session_state.pop(f"term_cache_pb_{key}", None)
+    return True
+
+
+def stop_playbook_job(key: str) -> bool:
+    status = read_playbook_status(key)
+    if status.get("state") != "running":
+        return False
+
+    paths = playbook_job_paths(key)
+    pid = status.get("pid")
+    if pid:
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGTERM)
+        except (OSError, ProcessLookupError):
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except (OSError, ProcessLookupError):
+                pass
+
+    time.sleep(0.3)
+    if pid and process_running(pid):
+        try:
+            os.killpg(os.getpgid(pid), signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except (OSError, ProcessLookupError):
+                pass
+
+    with open(paths["exit"], "w") as f:
+        f.write("130")
+    append_completion_log(paths["log"], 130, "", "Stopped by user")
+    write_playbook_status(
+        key,
+        "stopped",
+        "stopped",
+        cmd=status.get("cmd"),
+        ok_msg=status.get("ok_msg", ""),
+        err_msg="Stopped by user",
+        pb_file=status.get("pb_file"),
+    )
+    pb_file = status.get("pb_file")
+    if pb_file:
+        st.session_state.playbook_outputs[pb_file] = read_playbook_log(key)
+        st.session_state.playbook_status[pb_file] = ("stopped", "stopped")
     st.session_state.pop(f"term_cache_pb_{key}", None)
     return True
 
@@ -1753,6 +1847,7 @@ def pb_state_html(state: str = "pending") -> str:
     state_labels = {
         "success": ("passed", "passed"),
         "error": ("failed", "failed"),
+        "stopped": ("stopped", "stopped"),
         "running": ("running", "running"),
         "pending": ("pending", "pending"),
     }
@@ -2513,12 +2608,14 @@ def page_deploy():
 def _playbooks_tab():
     if sync_all_playbooks_from_disk():
         clear_terminal_caches()
-        st.rerun()
 
     jobs_busy = is_any_playbook_job_running() or is_deploy_job_running()
 
     if jobs_busy:
         st.caption("Playbook running on server — safe to refresh or reconnect; output updates automatically.")
+
+    if "pb_show_terminal" not in st.session_state:
+        st.session_state.pb_show_terminal = set()
 
     for i, (pb_file, pb_desc, color) in enumerate(PLAYBOOKS):
         key = playbook_job_key(pb_file)
@@ -2533,29 +2630,39 @@ def _playbooks_tab():
             with status_col:
                 st.markdown(pb_state_html(state), unsafe_allow_html=True)
             with run_col:
-                run_btn = st.button(
-                    "Run", key=f"run_{pb_file}", use_container_width=True,
-                    disabled=jobs_busy and not is_playbook_job_running(key),
-                )
-
-            if run_btn:
-                cmd = ansible_playbook_cmd(pb_file)
-                if start_playbook_job(
-                    key, cmd, ANSIBLE_DIR,
-                    f"{pb_desc} completed successfully",
-                    f"{pb_desc} failed",
-                    pb_file=pb_file,
-                ):
-                    st.rerun()
+                running = is_playbook_job_running(key)
+                if running:
+                    if st.button(
+                        "Stop", key=f"stop_{pb_file}", type="primary", use_container_width=True,
+                    ):
+                        if stop_playbook_job(key):
+                            st.rerun()
                 else:
-                    st.warning("A playbook is already running.")
+                    if st.button(
+                        "Run", key=f"run_{pb_file}", use_container_width=True,
+                        disabled=jobs_busy,
+                    ):
+                        cmd = ansible_playbook_cmd(pb_file)
+                        if start_playbook_job(
+                            key, cmd, ANSIBLE_DIR,
+                            f"{pb_desc} completed successfully",
+                            f"{pb_desc} failed",
+                            pb_file=pb_file,
+                        ):
+                            st.session_state.pb_show_terminal.add(pb_file)
+                            st.session_state.pop(f"term_cache_pb_{key}", None)
+                            st.rerun()
+                        else:
+                            st.warning("A playbook is already running.")
 
-            if playbook_has_output(pb_file) or is_playbook_job_running(key):
+            if playbook_show_terminal(pb_file):
                 status = read_playbook_status(key)
                 log_text = read_playbook_log(key) or st.session_state.playbook_outputs.get(pb_file, "")
+                live = is_playbook_job_running(key) or status.get("state") == "running"
                 render_terminal_cached(
                     f"pb_{key}",
                     st.empty(),
+                    force=live,
                     text=log_text,
                     state=status.get("state", "idle"),
                     footer=status.get("footer", "ready"),
@@ -2568,7 +2675,6 @@ def _playbooks_tab():
 def _batch_playbooks_tab():
     if sync_all_playbooks_from_disk():
         clear_terminal_caches()
-        st.rerun()
 
     batch_status = read_playbook_status(BATCH_PLAYBOOK_KEY)
     batch_log = read_playbook_log(BATCH_PLAYBOOK_KEY)
@@ -2578,10 +2684,16 @@ def _batch_playbooks_tab():
     section("batch execution")
     clean_first = st.checkbox("Clear SSH keys before running", value=True)
     exclude = st.multiselect("Exclude", options=[d for _, d, _ in PLAYBOOKS])
-    run_all = st.button(
-        "Execute All", type="primary", use_container_width=True,
-        disabled=jobs_busy and not batch_running,
-    )
+    run_all = False
+    if batch_running:
+        if st.button("Stop", type="primary", key="batch_stop", use_container_width=True):
+            if stop_playbook_job(BATCH_PLAYBOOK_KEY):
+                st.rerun()
+    else:
+        run_all = st.button(
+            "Execute All", type="primary", use_container_width=True,
+            disabled=jobs_busy,
+        )
 
     if batch_log or batch_running:
         if batch_running:
@@ -2589,6 +2701,7 @@ def _batch_playbooks_tab():
         render_terminal_cached(
             "pb_batch",
             st.empty(),
+            force=batch_running,
             text=batch_log,
             state=batch_status.get("state", "idle"),
             footer=batch_status.get("footer", "ready"),
@@ -2597,7 +2710,7 @@ def _batch_playbooks_tab():
             term_id="pb:batch",
         )
 
-    if run_all:
+    if not batch_running and run_all:
         if jobs_busy and not batch_running:
             st.warning("Another job is already running.")
             return
@@ -2669,11 +2782,7 @@ def page_ansible():
     tab1, tab2 = st.tabs(["Playbooks", "Run All"])
 
     with tab1:
-        playbooks_tab = (
-            st.fragment(run_every=timedelta(seconds=3))(_playbooks_tab)
-            if ansible_jobs_busy
-            else st.fragment(_playbooks_tab)
-        )
+        playbooks_tab = st.fragment(run_every=timedelta(seconds=3))(_playbooks_tab)
         playbooks_tab()
 
     with tab2:
