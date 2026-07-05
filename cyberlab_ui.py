@@ -244,8 +244,9 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 12px 18px;
+    padding: 8px 18px;
     box-sizing: border-box;
+    min-height: 2.75rem;
 }
 
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) {
@@ -262,7 +263,7 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
 
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] {
     gap: 0 !important;
-    align-items: stretch !important;
+    align-items: center !important;
 }
 
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"] {
@@ -285,12 +286,38 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
     align-items: center !important;
 }
 
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: 72px !important;
+    align-self: stretch !important;
+    border-left: 1px solid var(--border) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) > div[data-testid="stVerticalBlock"] {
+    width: 100% !important;
+    height: 100% !important;
+    justify-content: center !important;
+    align-items: center !important;
+}
+
+.stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:nth-child(2) [data-testid="stMarkdownContainer"] {
+    margin: 0 !important;
+    padding: 0 10px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child {
     flex: 0 0 72px !important;
     width: 72px !important;
     min-width: 72px !important;
     max-width: 72px !important;
-    border-left: 1px solid var(--border) !important;
+    align-self: stretch !important;
 }
 
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child > div[data-testid="stVerticalBlock"] {
@@ -307,11 +334,11 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
 }
 
 .stApp div[data-testid="stVerticalBlockBorderWrapper"]:has(.pb-card-inner) [data-testid="stHorizontalBlock"] > div[data-testid="column"]:last-child div[data-testid="stButton"] > button {
-    height: auto !important;
+    height: 2rem !important;
     min-height: 2rem !important;
     width: 100% !important;
     margin: 0 !important;
-    padding: 8px 10px !important;
+    padding: 0 10px !important;
     border: none !important;
     border-radius: 0 !important;
     background: var(--bg-elevated) !important;
@@ -339,10 +366,21 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
 
 .pb-info { flex: 1; min-width: 0; }
 
-.pb-card-inner .pb-state {
-    margin-left: auto;
-    align-self: center;
-    flex-shrink: 0;
+.pb-state {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.58rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    height: 2rem;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    box-sizing: border-box;
+    line-height: 1;
 }
 
 .pb-name {
@@ -386,17 +424,6 @@ section[data-testid="stMain"], section[data-testid="stMain"] > div {
 .metric-big.metric-fail { color: #f85149; }
 .metric-big.metric-warn { color: #d29922; }
 .metric-big.metric-muted { color: #484f58; }
-
-.pb-state {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 0.58rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    padding: 3px 8px;
-    border-radius: 999px;
-    border: 1px solid var(--border);
-    white-space: nowrap;
-}
 
 .pb-state.passed {
     color: #3fb950;
@@ -1720,7 +1747,7 @@ def section(title: str):
     st.markdown(f'<div class="section-header">{title}</div>', unsafe_allow_html=True)
 
 
-def pb_card_html(idx: int, name: str, filename: str, color: str, state: str = "pending") -> str:
+def pb_state_html(state: str = "pending") -> str:
     state_labels = {
         "success": ("passed", "passed"),
         "error": ("failed", "failed"),
@@ -1728,6 +1755,10 @@ def pb_card_html(idx: int, name: str, filename: str, color: str, state: str = "p
         "pending": ("pending", "pending"),
     }
     label, css = state_labels.get(state, ("pending", "pending"))
+    return f'<span class="pb-state {css}">{label}</span>'
+
+
+def pb_card_html(idx: int, name: str, filename: str, color: str) -> str:
     return f'''<div class="pb-card-inner">
         <div class="pb-idx">{idx:02d}</div>
         <div class="pb-dot" style="background:{color};"></div>
@@ -1735,7 +1766,6 @@ def pb_card_html(idx: int, name: str, filename: str, color: str, state: str = "p
             <div class="pb-name">{name}</div>
             <div class="pb-file">playbooks/{filename}</div>
         </div>
-        <span class="pb-state {css}">{label}</span>
     </div>'''
 
 
@@ -2491,12 +2521,15 @@ def _playbooks_tab():
     for i, (pb_file, pb_desc, color) in enumerate(PLAYBOOKS):
         key = playbook_job_key(pb_file)
         with st.container(border=True):
-            card_col, run_col = st.columns([6, 1], gap="small", vertical_alignment="center")
+            card_col, status_col, run_col = st.columns([6, 1, 1], gap="small", vertical_alignment="center")
+            state = playbook_run_state(pb_file)
             with card_col:
                 st.markdown(
-                    pb_card_html(i + 1, pb_desc, pb_file, color, playbook_run_state(pb_file)),
+                    pb_card_html(i + 1, pb_desc, pb_file, color),
                     unsafe_allow_html=True,
                 )
+            with status_col:
+                st.markdown(pb_state_html(state), unsafe_allow_html=True)
             with run_col:
                 run_btn = st.button(
                     "Run", key=f"run_{pb_file}", use_container_width=True,
