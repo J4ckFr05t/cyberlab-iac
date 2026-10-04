@@ -31,12 +31,12 @@ locals {
 
 # --- TIER 0 RESOURCES ---
 resource "proxmox_vm_qemu" "tier_0" {
-  for_each    = local.vms_tier_0
-  name        = each.value.name
-  target_node = each.value.target_node
-  vmid        = each.value.vmid
-  clone       = each.value.clone
-  full_clone  = each.value.full_clone
+  for_each           = local.vms_tier_0
+  name               = each.value.name
+  target_node        = each.value.target_node
+  vmid               = each.value.vmid
+  clone              = each.value.clone
+  full_clone         = each.value.full_clone
   start_at_node_boot = try(each.value.onboot, false)
 
   cpu {
@@ -53,7 +53,7 @@ resource "proxmox_vm_qemu" "tier_0" {
   os_type  = try(each.value.os_type, null)
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
-  tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
+  tags     = try(length(each.value.tags) > 0 ? lower(join(";", each.value.tags)) : null, null)
   
   # Suppress IPv6 warning as per user request
   skip_ipv6 = true
@@ -76,7 +76,10 @@ resource "proxmox_vm_qemu" "tier_0" {
   }
 
   dynamic "disk" {
-    for_each = each.value.disks
+    for_each = concat(
+      [for d in each.value.disks : d if d.type == "cloudinit"],
+      [for d in each.value.disks : d if d.type != "cloudinit"]
+    )
     content {
       slot     = disk.value.slot
       size     = disk.value.type == "disk" ? try(disk.value.size, null) : null
@@ -110,25 +113,33 @@ resource "proxmox_vm_qemu" "tier_0" {
       "ip=${each.value.cloudinit.ipconfig[1].ip}"
   ) : null
 
-  ciuser     = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
-  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
-  nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  ciuser       = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
+  cipassword   = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
+  nameserver   = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
+  sshkeys      = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
 
   timeouts {
     create = "40m"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      disk,
+      startup_shutdown,
+      bootdisk,
+    ]
   }
 }
 
 # --- TIER 1 RESOURCES (Depend on Tier 0) ---
 resource "proxmox_vm_qemu" "tier_1" {
-  for_each    = local.vms_tier_1
-  name        = each.value.name
-  target_node = each.value.target_node
-  vmid        = each.value.vmid
-  clone       = each.value.clone
-  full_clone  = each.value.full_clone
+  for_each           = local.vms_tier_1
+  name               = each.value.name
+  target_node        = each.value.target_node
+  vmid               = each.value.vmid
+  clone              = each.value.clone
+  full_clone         = each.value.full_clone
   start_at_node_boot = try(each.value.onboot, false)
 
   cpu {
@@ -145,7 +156,7 @@ resource "proxmox_vm_qemu" "tier_1" {
   os_type  = try(each.value.os_type, null)
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
-  tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
+  tags     = try(length(each.value.tags) > 0 ? lower(join(";", each.value.tags)) : null, null)
 
   # Suppress IPv6 warning as per user request
   skip_ipv6 = true
@@ -168,7 +179,10 @@ resource "proxmox_vm_qemu" "tier_1" {
   }
 
   dynamic "disk" {
-    for_each = each.value.disks
+    for_each = concat(
+      [for d in each.value.disks : d if d.type == "cloudinit"],
+      [for d in each.value.disks : d if d.type != "cloudinit"]
+    )
     content {
       slot     = disk.value.slot
       size     = disk.value.type == "disk" ? try(disk.value.size, null) : null
@@ -202,14 +216,22 @@ resource "proxmox_vm_qemu" "tier_1" {
       "ip=${each.value.cloudinit.ipconfig[1].ip}"
   ) : null
 
-  ciuser     = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
-  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
-  nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  ciuser       = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
+  cipassword   = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
+  nameserver   = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
+  sshkeys      = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
 
   timeouts {
     create = "40m"
+  }
+
+  lifecycle {
+    ignore_changes = [
+      disk,
+      startup_shutdown,
+      bootdisk,
+    ]
   }
 
   depends_on = [proxmox_vm_qemu.tier_0]
@@ -217,12 +239,12 @@ resource "proxmox_vm_qemu" "tier_1" {
 
 # --- TIER 2 RESOURCES (Depend on Tier 1) ---
 resource "proxmox_vm_qemu" "tier_2" {
-  for_each    = local.vms_tier_2
-  name        = each.value.name
-  target_node = each.value.target_node
-  vmid        = each.value.vmid
-  clone       = each.value.clone
-  full_clone  = each.value.full_clone
+  for_each           = local.vms_tier_2
+  name               = each.value.name
+  target_node        = each.value.target_node
+  vmid               = each.value.vmid
+  clone              = each.value.clone
+  full_clone         = each.value.full_clone
   start_at_node_boot = try(each.value.onboot, false)
 
   cpu {
@@ -239,7 +261,7 @@ resource "proxmox_vm_qemu" "tier_2" {
   os_type  = try(each.value.os_type, null)
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
-  tags     = try(length(each.value.tags) > 0 ? join(";", each.value.tags) : null, null)
+  tags     = try(length(each.value.tags) > 0 ? lower(join(";", each.value.tags)) : null, null)
 
   # Suppress IPv6 warning as per user request
   skip_ipv6 = true
@@ -262,7 +284,10 @@ resource "proxmox_vm_qemu" "tier_2" {
   }
 
   dynamic "disk" {
-    for_each = each.value.disks
+    for_each = concat(
+      [for d in each.value.disks : d if d.type == "cloudinit"],
+      [for d in each.value.disks : d if d.type != "cloudinit"]
+    )
     content {
       slot     = disk.value.slot
       size     = disk.value.type == "disk" ? try(disk.value.size, null) : null
@@ -296,15 +321,22 @@ resource "proxmox_vm_qemu" "tier_2" {
       "ip=${each.value.cloudinit.ipconfig[1].ip}"
   ) : null
 
-  ciuser     = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
-  cipassword = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
-  nameserver = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
+  ciuser       = try(each.value.cloudinit.enabled, false) ? lookup(local.template_usernames, each.value.clone, "sysadmin") : null
+  cipassword   = try(each.value.cloudinit.enabled, false) ? try(var.template_passwords[each.value.clone], null) : null
+  nameserver   = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.nameserver, null) : null
   searchdomain = try(each.value.cloudinit.enabled, false) ? try(each.value.cloudinit.searchdomain, null) : null
-  sshkeys    = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
+  sshkeys      = try(each.value.cloudinit.enabled, false) && try(each.value.cloudinit.sshkeys, null) != null ? try(join("\n", each.value.cloudinit.sshkeys), "${each.value.cloudinit.sshkeys}\n") : null
 
   timeouts {
     create = "40m"
   }
 
+  lifecycle {
+    ignore_changes = [
+      disk,
+      startup_shutdown,
+      bootdisk,
+    ]
+  }
+
   depends_on = [proxmox_vm_qemu.tier_1]
-}
