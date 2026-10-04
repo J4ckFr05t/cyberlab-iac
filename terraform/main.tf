@@ -2,7 +2,7 @@
 locals {
   vm_config = jsondecode(file("${path.module}/vms.json"))
   vms       = { for vm in local.vm_config.vms : vm.name => vm }
-  
+
   # Map templates to their default usernames
   template_usernames = {
     "ubuntu-server-template"  = "sysadmin"
@@ -12,7 +12,7 @@ locals {
   }
 
   # Split VMs based on dependency tiers
-  
+
   # Tier 0: No dependencies (e.g., Router)
   vms_tier_0 = {
     for k, v in local.vms : k => v if try(v.depends_on, null) == null || length(try(v.depends_on, [])) == 0
@@ -54,7 +54,7 @@ resource "proxmox_vm_qemu" "tier_0" {
   bios     = try(each.value.bios, "seabios")
   machine  = try(each.value.machine, "pc")
   tags     = try(length(each.value.tags) > 0 ? lower(join(";", each.value.tags)) : null, null)
-  
+
   # Suppress IPv6 warning as per user request
   skip_ipv6 = true
 
@@ -102,14 +102,14 @@ resource "proxmox_vm_qemu" "tier_0" {
   }
 
   ipconfig0 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 0 ? (
-    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ? 
-      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" : 
+    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ?
+      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" :
       "ip=${each.value.cloudinit.ipconfig[0].ip}"
   ) : null
 
   ipconfig1 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 1 ? (
-    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ? 
-      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" : 
+    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ?
+      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" :
       "ip=${each.value.cloudinit.ipconfig[1].ip}"
   ) : null
 
@@ -205,14 +205,14 @@ resource "proxmox_vm_qemu" "tier_1" {
   }
 
   ipconfig0 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 0 ? (
-    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ? 
-      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" : 
+    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ?
+      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" :
       "ip=${each.value.cloudinit.ipconfig[0].ip}"
   ) : null
 
   ipconfig1 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 1 ? (
-    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ? 
-      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" : 
+    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ?
+      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" :
       "ip=${each.value.cloudinit.ipconfig[1].ip}"
   ) : null
 
@@ -310,14 +310,14 @@ resource "proxmox_vm_qemu" "tier_2" {
   }
 
   ipconfig0 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 0 ? (
-    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ? 
-      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" : 
+    try(each.value.cloudinit.ipconfig[0].gateway, null) != null ?
+      "ip=${each.value.cloudinit.ipconfig[0].ip},gw=${each.value.cloudinit.ipconfig[0].gateway}" :
       "ip=${each.value.cloudinit.ipconfig[0].ip}"
   ) : null
 
   ipconfig1 = try(each.value.cloudinit.enabled, false) && length(try(each.value.cloudinit.ipconfig, [])) > 1 ? (
-    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ? 
-      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" : 
+    try(each.value.cloudinit.ipconfig[1].gateway, null) != null ?
+      "ip=${each.value.cloudinit.ipconfig[1].ip},gw=${each.value.cloudinit.ipconfig[1].gateway}" :
       "ip=${each.value.cloudinit.ipconfig[1].ip}"
   ) : null
 
@@ -340,3 +340,4 @@ resource "proxmox_vm_qemu" "tier_2" {
   }
 
   depends_on = [proxmox_vm_qemu.tier_1]
+}
