@@ -74,13 +74,13 @@
   ignore_errors: yes
 
 - name: Check whether Paperclip config is still loopback-only
-  shell: "grep -c '127.0.0.1' {{ paperclip_home }}/.paperclip/instances/default/config.json || true"
+  shell: "grep -c -E '127.0.0.1|\"bind\": \"loopback\"' {{ paperclip_home }}/.paperclip/instances/default/config.json || true"
   register: paperclip_config_loopback
   changed_when: false
   failed_when: false
 
 - name: Expose Paperclip on the lab network by binding to all interfaces
-  shell: "sed -i 's/\"host\": \"127.0.0.1\"/\"host\": \"0.0.0.0\"/; s/\"bind\": \"127.0.0.1\"/\"bind\": \"0.0.0.0\"/; s/\"listen\": \"127.0.0.1\"/\"listen\": \"0.0.0.0\"/; s/\"hostname\": \"localhost\"/\"hostname\": \"0.0.0.0\"/; s/\"bindAddress\": \"127.0.0.1\"/\"bindAddress\": \"0.0.0.0\"/; s/\"address\": \"127.0.0.1\"/\"address\": \"0.0.0.0\"/' {{ paperclip_home }}/.paperclip/instances/default/config.json"
+  shell: "sed -i 's/\"bind\": \"loopback\"/\"bind\": \"0.0.0.0\"/; s/\"deploymentMode\": \"local_trusted\"/\"deploymentMode\": \"private\"/; s/\"host\": \"127.0.0.1\"/\"host\": \"0.0.0.0\"/; s/\"bind\": \"127.0.0.1\"/\"bind\": \"0.0.0.0\"/; s/\"listen\": \"127.0.0.1\"/\"listen\": \"0.0.0.0\"/; s/\"hostname\": \"localhost\"/\"hostname\": \"0.0.0.0\"/; s/\"bindAddress\": \"127.0.0.1\"/\"bindAddress\": \"0.0.0.0\"/; s/\"address\": \"127.0.0.1\"/\"address\": \"0.0.0.0\"/' {{ paperclip_home }}/.paperclip/instances/default/config.json"
   args:
     executable: /bin/bash
   register: paperclip_bind_fix
