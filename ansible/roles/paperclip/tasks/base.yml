@@ -27,11 +27,16 @@
     name: AISOC-01-SRV
   become: yes
 
+- name: Create Paperclip group
+  group:
+    name: "{{ paperclip_group }}"
+    state: present
+  become: yes
+
 - name: Create dedicated Paperclip service user
   user:
     name: "{{ paperclip_user }}"
     group: "{{ paperclip_group }}"
-    create_group: yes
     home: "{{ paperclip_home }}"
     shell: /bin/bash
     system: no
