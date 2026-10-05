@@ -1,6 +1,6 @@
 ---
 - name: Verify Paperclip service reports healthy
-  command: "sudo -u {{ paperclip_user }} -H paperclipai service status"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service status"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_status

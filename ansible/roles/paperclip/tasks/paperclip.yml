@@ -1,6 +1,6 @@
 ---
 - name: Check if Paperclip is already installed
-  command: "sudo -u {{ paperclip_user }} -H paperclipai --version"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai --version"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_version
@@ -8,19 +8,19 @@
   failed_when: false
 
 - name: Run Paperclip managed installer
-  command: "sudo -u {{ paperclip_user }} -H npx --yes paperclipai install"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npx --yes paperclipai install"
   args:
     chdir: "{{ paperclip_home }}"
   when: paperclip_version.rc != 0
 
 - name: Initialize database and default config
-  command: "sudo -u {{ paperclip_user }} -H paperclipai onboard --yes"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai onboard --yes"
   args:
     chdir: "{{ paperclip_home }}"
   when: paperclip_version.rc != 0
 
 - name: Check Paperclip service status
-  command: "sudo -u {{ paperclip_user }} -H paperclipai service status"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service status"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_service_status
@@ -28,13 +28,13 @@
   failed_when: false
 
 - name: Register Paperclip as an always-on background service
-  command: "sudo -u {{ paperclip_user }} -H paperclipai service install"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service install"
   args:
     chdir: "{{ paperclip_home }}"
   when: paperclip_service_status.rc != 0
 
 - name: Ensure Paperclip service is started
-  command: "sudo -u {{ paperclip_user }} -H paperclipai service start"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service start"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_service_start
