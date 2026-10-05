@@ -73,20 +73,20 @@
   when: paperclip_port_open.rc != 0
   ignore_errors: yes
 
-- name: Check whether Paperclip config is still loopback-only
-  shell: "grep -c -E '127.0.0.1|\"bind\": \"loopback\"' {{ paperclip_home }}/.paperclip/instances/default/config.json || true"
-  register: paperclip_config_loopback
+- name: Check whether Paperclip config needs restoring to loopback
+  shell: "grep -c -E '\"bind\": \"0.0.0.0\"|\"deploymentMode\": \"private\"' {{ paperclip_home }}/.paperclip/instances/default/config.json || true"
+  register: paperclip_config_external
   changed_when: false
   failed_when: false
 
-- name: Expose Paperclip on the lab network by binding to all interfaces
-  shell: "sed -i 's/\"bind\": \"loopback\"/\"bind\": \"0.0.0.0\"/; s/\"deploymentMode\": \"local_trusted\"/\"deploymentMode\": \"private\"/; s/\"host\": \"127.0.0.1\"/\"host\": \"0.0.0.0\"/; s/\"bind\": \"127.0.0.1\"/\"bind\": \"0.0.0.0\"/; s/\"listen\": \"127.0.0.1\"/\"listen\": \"0.0.0.0\"/; s/\"hostname\": \"localhost\"/\"hostname\": \"0.0.0.0\"/; s/\"bindAddress\": \"127.0.0.1\"/\"bindAddress\": \"0.0.0.0\"/; s/\"address\": \"127.0.0.1\"/\"address\": \"0.0.0.0\"/' {{ paperclip_home }}/.paperclip/instances/default/config.json"
+- name: Restore Paperclip config to loopback local_trusted mode
+  shell: "sed -i 's/\"bind\": \"0.0.0.0\"/\"bind\": \"loopback\"/; s/\"deploymentMode\": \"private\"/\"deploymentMode\": \"local_trusted\"/' {{ paperclip_home }}/.paperclip/instances/default/config.json"
   args:
     executable: /bin/bash
-  register: paperclip_bind_fix
-  when: paperclip_config_loopback.stdout | int > 0
+  when: paperclip_config_external.stdout | int > 0
+  changed_when: true
 
-- name: Restart Paperclip server to apply bind change
+- name: Restart Paperclip server to apply config restore
   shell: |
     pkill -f '[d]ist/index.js run' || true
     sleep 3
@@ -94,11 +94,41 @@
   args:
     chdir: "{{ paperclip_home }}"
     executable: /bin/bash
-  when: paperclip_config_loopback.stdout | int > 0
+  when: paperclip_config_external.stdout | int > 0
   changed_when: true
+
+- name: Install nginx
+  apt:
+    name: nginx
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Configure nginx to reverse-proxy Paperclip on the LAN interface
+  template:
+    src: paperclip_nginx.conf.j2
+    dest: /etc/nginx/sites-available/paperclip
+    mode: '0644'
+  become: yes
+  notify: Reload nginx
+
+- name: Enable paperclip nginx site
+  file:
+    src: /etc/nginx/sites-available/paperclip
+    dest: /etc/nginx/sites-enabled/paperclip
+    state: link
+  become: yes
+  notify: Reload nginx
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+  become: yes
+  notify: Reload nginx
 
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
   wait_for:
     port: "{{ paperclip_port }}"
-    host: 0.0.0.0
+    host: 127.0.0.1
     timeout: 120
