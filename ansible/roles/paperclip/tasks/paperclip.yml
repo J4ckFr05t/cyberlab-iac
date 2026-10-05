@@ -70,7 +70,7 @@
   args:
     chdir: "{{ paperclip_home }}"
     executable: /bin/bash
-  when: paperclip_port_open.failed is defined and paperclip_port_open.failed
+  when: paperclip_port_open is failed
   ignore_errors: yes
 
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
