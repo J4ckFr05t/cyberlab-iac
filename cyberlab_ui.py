@@ -83,6 +83,7 @@ PLAYBOOKS = [
     ("setup_thehive.yml", "TheHive & SOC Manager", "#f778ba"),
     ("wazuh_thehive_integration.yml", "Wazuh-TheHive Integration", "#f778ba"),
     ("suricata_setup.yml", "Suricata IDS on SOC-01", "#ff7b72"),
+    ("setup_paperclip.yml", "Paperclip on AISOC-01", "#79c0ff"),
 ]
 
 PLAYBOOK_TITLES = {pb_file: desc for pb_file, desc, _ in PLAYBOOKS}
