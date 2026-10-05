@@ -4,6 +4,8 @@
 
 - name: List existing Paperclip companies
   command: "sudo -u {{ paperclip_user }} -H paperclipai company list"
+  args:
+    chdir: "{{ paperclip_home }}"
   register: paperclip_companies
   changed_when: false
   failed_when: false
@@ -13,10 +15,14 @@
     sudo -u {{ paperclip_user }} -H paperclipai company create
     --name "{{ paperclip_company_name }}"
     --goal "{{ paperclip_goal_title }}"
+  args:
+    chdir: "{{ paperclip_home }}"
   when: paperclip_company_name not in (paperclip_companies.stdout | default(''))
 
 - name: Create departments
   command: "sudo -u {{ paperclip_user }} -H paperclipai department create --name \"{{ item }}\""
+  args:
+    chdir: "{{ paperclip_home }}"
   loop:
     - Executive Office
     - Security Operations
@@ -28,6 +34,8 @@
 
 - name: List existing agents
   command: "sudo -u {{ paperclip_user }} -H paperclipai agent list"
+  args:
+    chdir: "{{ paperclip_home }}"
   register: paperclip_agents
   changed_when: false
   failed_when: false
@@ -40,6 +48,8 @@
     --role "{{ item.role }}"
     --mission "{{ item.mission }}"
     --reports-to "{{ item.reports_to | default('') }}"
+  args:
+    chdir: "{{ paperclip_home }}"
   loop:
     - { name: "Morgan", title: "Chief Executive Officer", role: "CEO / Executive Security Decision Maker", mission: "Own the overall FrostSec security mission and coordinate the organization." }
     - { name: "Alex", title: "SOC Director", role: "Security Operations Manager", mission: "Manage day-to-day security operations and coordinate investigations.", reports_to: "Morgan" }

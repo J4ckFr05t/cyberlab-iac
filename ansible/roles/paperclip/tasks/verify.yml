@@ -1,6 +1,8 @@
 ---
 - name: Verify Paperclip service reports healthy
   command: "sudo -u {{ paperclip_user }} -H paperclipai service status"
+  args:
+    chdir: "{{ paperclip_home }}"
   register: paperclip_status
   changed_when: false
   failed_when: paperclip_status.rc != 0
