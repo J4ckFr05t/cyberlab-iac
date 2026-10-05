@@ -59,17 +59,17 @@
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     paperclipai agent create -C "{{ paperclip_company_id }}" --json
-    --payload-json '{"name": "{{ item.name }}", "title": "{{ item.title }}", "role": "{{ item.role }}", "reportsTo": "{{ item.reports_to | default('') }}"}'
+    --payload-json '{"name": "{{ item.name }}", "title": "{{ item.title }}", "role": "{{ item.role }}"}'
   args:
     chdir: "{{ paperclip_home }}"
   loop:
-    - { name: "Morgan", title: "Chief Executive Officer", role: "CEO / Executive Security Decision Maker" }
-    - { name: "Alex", title: "SOC Director", role: "Security Operations Manager", reports_to: "Morgan" }
-    - { name: "Sam", title: "Security Operations Analyst", role: "SOC Analyst", reports_to: "Alex" }
-    - { name: "Jordan", title: "Threat Hunter", role: "Threat Hunter / Security Analyst", reports_to: "Alex" }
-    - { name: "Riley", title: "Incident Response Analyst", role: "Incident Responder", reports_to: "Alex" }
-    - { name: "Taylor", title: "Detection & Security Engineer", role: "Detection Engineer", reports_to: "Morgan" }
-    - { name: "Casey", title: "Threat Intelligence Analyst", role: "Threat Intelligence Analyst", reports_to: "Morgan" }
+    - { name: "Morgan", title: "Chief Executive Officer", role: "ceo" }
+    - { name: "Alex", title: "SOC Director", role: "security" }
+    - { name: "Sam", title: "Security Operations Analyst", role: "security" }
+    - { name: "Jordan", title: "Threat Hunter", role: "security" }
+    - { name: "Riley", title: "Incident Response Analyst", role: "security" }
+    - { name: "Taylor", title: "Detection & Security Engineer", role: "engineer" }
+    - { name: "Casey", title: "Threat Intelligence Analyst", role: "researcher" }
   when: item.name not in (paperclip_agents.stdout | default(''))
   register: paperclip_agent_create
   failed_when: false
