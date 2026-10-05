@@ -58,11 +58,11 @@
   failed_when: false
 
 - name: Check whether Paperclip is already listening on port {{ paperclip_port }}
-  wait_for:
-    port: "{{ paperclip_port }}"
-    host: 127.0.0.1
-    timeout: 2
+  shell: "timeout 2 bash -c '</dev/tcp/127.0.0.1/{{ paperclip_port }}'"
+  args:
+    executable: /bin/bash
   register: paperclip_port_open
+  changed_when: false
   failed_when: false
 
 - name: Start Paperclip server in background (fallback when no systemd user manager)
@@ -70,7 +70,7 @@
   args:
     chdir: "{{ paperclip_home }}"
     executable: /bin/bash
-  when: paperclip_port_open is failed
+  when: paperclip_port_open.rc != 0
   ignore_errors: yes
 
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
