@@ -13,12 +13,26 @@
     chdir: "{{ paperclip_home }}"
   when: paperclip_version.rc != 0
 
+- name: Check for existing Paperclip config
+  stat:
+    path: "{{ paperclip_home }}/.paperclip/instances/default/config.json"
+  register: paperclip_config
+
 - name: Initialize database and default config
-  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai onboard --yes"
+  # NOTE: `paperclipai onboard` starts the server in the FOREGROUND.
+  # We run it with a timeout; once config + doctor have completed the
+  # server it spawns is killed by the timeout, which is fine -- the
+  # service start below brings Paperclip back up properly.
+  # rc 124 = killed by timeout (expected on first run).
+  shell: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin timeout 45 paperclipai onboard --yes; rc=$?; [ $rc -eq 124 ] && exit 0 || exit $rc"
   args:
     chdir: "{{ paperclip_home }}"
+    executable: /bin/bash
   register: paperclip_onboard
-  changed_when: "'error' not in paperclip_onboard.stderr"
+  failed_when: paperclip_onboard.rc not in [0, 124]
+  changed_when: paperclip_onboard.rc == 0
+  when: not paperclip_config.stat.exists
+  ignore_errors: yes
 
 - name: Check Paperclip service status
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service status"
@@ -33,6 +47,7 @@
   args:
     chdir: "{{ paperclip_home }}"
   when: paperclip_service_status.rc != 0
+  ignore_errors: yes  # falls back gracefully when no systemd user manager exists
 
 - name: Ensure Paperclip service is started
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service start"
@@ -41,6 +56,22 @@
   register: paperclip_service_start
   changed_when: "'started' in paperclip_service_start.stdout"
   failed_when: false
+
+- name: Check whether Paperclip is already listening on port {{ paperclip_port }}
+  wait_for:
+    port: "{{ paperclip_port }}"
+    host: 127.0.0.1
+    timeout: 2
+  register: paperclip_port_open
+  failed_when: false
+
+- name: Start Paperclip server in background (fallback when no systemd user manager)
+  shell: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin nohup paperclipai run >> {{ paperclip_home }}/.paperclip/instances/default/logs/ansible-run.log 2>&1 &"
+  args:
+    chdir: "{{ paperclip_home }}"
+    executable: /bin/bash
+  when: paperclip_port_open.failed is defined and paperclip_port_open.failed
+  ignore_errors: yes
 
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
   wait_for:
