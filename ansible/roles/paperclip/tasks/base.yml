@@ -1,0 +1,51 @@
+---
+- name: Update package metadata
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+  become: yes
+
+- name: Install required system packages
+  apt:
+    name:
+      - curl
+      - gnupg
+      - ca-certificates
+      - jq
+      - ufw
+      - python3
+    state: present
+  become: yes
+
+- name: Configure timezone
+  timezone:
+    name: UTC
+  become: yes
+
+- name: Configure hostname
+  hostname:
+    name: AISOC-01-SRV
+  become: yes
+
+- name: Create dedicated Paperclip service user
+  user:
+    name: "{{ paperclip_user }}"
+    group: "{{ paperclip_group }}"
+    create_group: yes
+    home: "{{ paperclip_home }}"
+    shell: /bin/bash
+    system: no
+    state: present
+  become: yes
+
+- name: Ensure Paperclip directories exist
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ paperclip_user }}"
+    group: "{{ paperclip_group }}"
+    mode: "0750"
+  loop:
+    - "{{ paperclip_home }}"
+    - "{{ paperclip_home }}/.paperclip"
+  become: yes

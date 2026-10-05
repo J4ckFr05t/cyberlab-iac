@@ -1,0 +1,69 @@
+---
+# Bootstrap the FrostSec Security Operations organization.
+# Idempotent: skips creation when the company already exists.
+
+- name: List existing Paperclip companies
+  command: paperclipai company list
+  become: yes
+  become_user: "{{ paperclip_user }}"
+  register: paperclip_companies
+  changed_when: false
+  failed_when: false
+
+- name: Create company
+  command: >
+    paperclipai company create
+    --name "{{ paperclip_company_name }}"
+    --goal "{{ paperclip_goal_title }}"
+  become: yes
+  become_user: "{{ paperclip_user }}"
+  when: paperclip_company_name not in (paperclip_companies.stdout | default(''))
+
+- name: Create departments
+  command: paperclipai department create --name "{{ item }}"
+  become: yes
+  become_user: "{{ paperclip_user }}"
+  loop:
+    - Executive Office
+    - Security Operations
+    - Security Engineering
+    - Threat Intelligence
+  register: paperclip_departments
+  failed_when: false
+  changed_when: paperclip_departments.rc == 0
+
+# NOTE: Agent definitions (Morgan, Alex, Sam, Jordan, Riley, Taylor, Casey)
+# follow the same guard pattern as departments:
+#   1. paperclipai agent list
+#   2. create only when the agent name is absent
+# Final agent flags should be confirmed with `paperclipai agent --help` on the target.
+- name: List existing agents
+  command: paperclipai agent list
+  become: yes
+  become_user: "{{ paperclip_user }}"
+  register: paperclip_agents
+  changed_when: false
+  failed_when: false
+
+- name: Create AI employees
+  command: >
+    paperclipai agent create
+    --name "{{ item.name }}"
+    --title "{{ item.title }}"
+    --role "{{ item.role }}"
+    --mission "{{ item.mission }}"
+    --reports-to "{{ item.reports_to | default('') }}"
+  become: yes
+  become_user: "{{ paperclip_user }}"
+  loop:
+    - { name: "Morgan", title: "Chief Executive Officer", role: "CEO / Executive Security Decision Maker", mission: "Own the overall FrostSec security mission and coordinate the organization." }
+    - { name: "Alex", title: "SOC Director", role: "Security Operations Manager", mission: "Manage day-to-day security operations and coordinate investigations.", reports_to: "Morgan" }
+    - { name: "Sam", title: "Security Operations Analyst", role: "SOC Analyst", mission: "Monitor telemetry, triage alerts, investigate suspicious activity.", reports_to: "Alex" }
+    - { name: "Jordan", title: "Threat Hunter", role: "Threat Hunter / Security Analyst", mission: "Proactively identify malicious behavior not caught by existing controls.", reports_to: "Alex" }
+    - { name: "Riley", title: "Incident Response Analyst", role: "Incident Responder", mission: "Investigate confirmed incidents, scope impact, recommend containment.", reports_to: "Alex" }
+    - { name: "Taylor", title: "Detection & Security Engineer", role: "Detection Engineer", mission: "Develop and tune detections from observed threats and ATT&CK.", reports_to: "Morgan" }
+    - { name: "Casey", title: "Threat Intelligence Analyst", role: "Threat Intelligence Analyst", mission: "Collect and operationalize threat intelligence for the SOC.", reports_to: "Morgan" }
+  when: item.name not in (paperclip_agents.stdout | default(''))
+  # NOTE: Adapter/runtime (e.g. claude for Claude subscription auth, or opencode)
+  # is configured per-agent after creation, once `paperclipai agent --help`
+  # flags are confirmed on the target. See paperclip_agent_adapter default.

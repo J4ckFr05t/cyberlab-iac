@@ -1,0 +1,15 @@
+---
+- name: Install Paperclip prerequisites
+  import_tasks: base.yml
+
+- name: Install Node.js
+  import_tasks: node.yml
+
+- name: Install and configure Paperclip
+  import_tasks: paperclip.yml
+
+- name: Bootstrap FrostSec organization
+  import_tasks: org.yml
+
+- name: Verify Paperclip deployment
+  import_tasks: verify.yml

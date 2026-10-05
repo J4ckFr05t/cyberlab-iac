@@ -1,0 +1,28 @@
+---
+- name: Check installed Node.js major version
+  command: node --version
+  register: node_version
+  changed_when: false
+  failed_when: false
+  become: yes
+
+- name: Install NodeSource setup script for Node.js {{ node_major_version }}.x
+  shell: "curl -fsSL https://deb.nodesource.com/setup_{{ node_major_version }}.x | bash -"
+  args:
+    creates: /etc/apt/sources.list.d/nodesource.list
+  become: yes
+  when: node_version.rc != 0 or (node_version.stdout | regex_search('v(\\d+)', '\\1') | int) < 24
+
+- name: Install Node.js
+  apt:
+    name: nodejs
+    state: present
+    update_cache: yes
+  become: yes
+
+- name: Verify Node.js >= 24
+  command: node --version
+  register: node_check
+  changed_when: false
+  become: yes
+  failed_when: (node_check.stdout | regex_search('v(\\d+)', '\\1') | int) < 24

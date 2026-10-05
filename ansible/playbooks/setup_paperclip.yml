@@ -1,0 +1,24 @@
+---
+- name: Setup Paperclip on AISOC-01-SRV
+  hosts: AISOC-01-SRV
+  become: yes
+  gather_facts: yes
+
+  vars_files:
+    - ../inventory/group_vars/all.yml
+    - ../inventory/group_vars/linux.yml
+    - ../inventory/group_vars/secret_vault.yml
+
+  roles:
+    - role: paperclip
+      tags: [paperclip]
+
+  post_tasks:
+    - name: Display completion message
+      debug:
+        msg:
+          - "Paperclip setup completed on {{ inventory_hostname }}"
+          - "Web/API: http://{{ hostvars['AISOC-01-SRV']['ansible_host'] }}:3100"
+          - "Service user: paperclip (non-root)"
+          - "Run 'paperclipai doctor' on the target for a full health report"
+      tags: [always]

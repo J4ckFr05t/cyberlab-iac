@@ -1,0 +1,19 @@
+---
+# Defaults for Paperclip setup
+paperclip_user: paperclip
+paperclip_group: paperclip
+paperclip_home: "/home/{{ paperclip_user }}"
+paperclip_port: 3100
+paperclip_company_name: "FrostSec Security Operations"
+paperclip_company_issue_prefix: "FSOC"
+paperclip_goal_title: "Build a controlled autonomous security operations capability"
+node_major_version: "24"
+# Agent execution adapter / model runtime. Options per your setup:
+#   - claude   (Claude Code, uses your Claude subscription auth - no API key needed)
+#   - opencode (opencode CLI)
+#   - codex    (Codex CLI)
+# Exact CLI flags must be confirmed on-target with `paperclipai agent --help`.
+paperclip_agent_adapter: "claude"
+paperclip_agent_model: ""
+# Model provider API keys (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY) are added
+# post-install via `paperclipai secret`, not through this role.
