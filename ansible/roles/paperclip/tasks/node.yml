@@ -11,7 +11,7 @@
   args:
     creates: /etc/apt/sources.list.d/nodesource.list
   become: yes
-  when: node_version.rc != 0 or (node_version.stdout | regex_search('v(\\d+)', '\\1') | int) < 24
+  when: node_version.rc != 0 or (node_version.stdout | regex_search('[0-9]+') | int) < 24
 
 - name: Install Node.js
   apt:
@@ -25,4 +25,4 @@
   register: node_check
   changed_when: false
   become: yes
-  failed_when: (node_check.stdout | regex_search('v(\\d+)', '\\1') | int) < 24
+  failed_when: (node_check.stdout | regex_search('[0-9]+') | int) < 24
