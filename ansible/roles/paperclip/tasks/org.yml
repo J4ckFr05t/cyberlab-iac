@@ -2,8 +2,8 @@
 # Bootstrap the FrostSec Security Operations organization.
 # Idempotent: skips creation when the company/agent already exists.
 
-- name: List existing Paperclip companies
-  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai company list"
+- name: List existing Paperclip companies (JSON)
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai company list --json"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_companies
@@ -12,28 +12,43 @@
 
 - name: Create company
   command: >
-    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai company create
-    --name "{{ paperclip_company_name }}"
-    --goal "{{ paperclip_goal_title }}"
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai company create --json
+    --payload-json '{"name": "{{ paperclip_company_name }}", "issuePrefix": "{{ paperclip_company_issue_prefix }}"}'
   args:
     chdir: "{{ paperclip_home }}"
   when: paperclip_company_name not in (paperclip_companies.stdout | default(''))
 
-- name: Create departments
-  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai department create --name \"{{ item }}\""
+- name: Re-list companies to resolve company ID
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai company list --json"
   args:
     chdir: "{{ paperclip_home }}"
-  loop:
-    - Executive Office
-    - Security Operations
-    - Security Engineering
-    - Threat Intelligence
-  register: paperclip_departments
+  register: paperclip_companies_after
+  changed_when: false
   failed_when: false
-  changed_when: paperclip_departments.rc == 0
+
+- name: Set company ID fact
+  set_fact:
+    paperclip_company_id: >-
+      {{ (paperclip_companies_after.stdout | from_json |
+          selectattr('name', 'equalto', paperclip_company_name) | list | first).id
+         | default((paperclip_companies_after.stdout | from_json | first).id) }}
+
+- name: Create goal
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai goal create -C "{{ paperclip_company_id }}"
+    --title "{{ paperclip_goal_title }}"
+    --description "Build a controlled autonomous security operations capability that continuously monitors the lab, investigates suspicious activity, and improves defensive capabilities."
+    --level company
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: paperclip_goal
+  failed_when: false
+  changed_when: paperclip_goal.rc == 0
 
 - name: List existing agents
-  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list"
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_agents
@@ -42,22 +57,22 @@
 
 - name: Create AI employees
   command: >
-    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent create
-    --name "{{ item.name }}"
-    --title "{{ item.title }}"
-    --role "{{ item.role }}"
-    --mission "{{ item.mission }}"
-    --reports-to "{{ item.reports_to | default('') }}"
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai agent create -C "{{ paperclip_company_id }}" --json
+    --payload-json '{"name": "{{ item.name }}", "title": "{{ item.title }}", "role": "{{ item.role }}", "reportsTo": "{{ item.reports_to | default('') }}"}'
   args:
     chdir: "{{ paperclip_home }}"
   loop:
-    - { name: "Morgan", title: "Chief Executive Officer", role: "CEO / Executive Security Decision Maker", mission: "Own the overall FrostSec security mission and coordinate the organization." }
-    - { name: "Alex", title: "SOC Director", role: "Security Operations Manager", mission: "Manage day-to-day security operations and coordinate investigations.", reports_to: "Morgan" }
-    - { name: "Sam", title: "Security Operations Analyst", role: "SOC Analyst", mission: "Monitor telemetry, triage alerts, investigate suspicious activity.", reports_to: "Alex" }
-    - { name: "Jordan", title: "Threat Hunter", role: "Threat Hunter / Security Analyst", mission: "Proactively identify malicious behavior not caught by existing controls.", reports_to: "Alex" }
-    - { name: "Riley", title: "Incident Response Analyst", role: "Incident Responder", mission: "Investigate confirmed incidents, scope impact, recommend containment.", reports_to: "Alex" }
-    - { name: "Taylor", title: "Detection & Security Engineer", role: "Detection Engineer", mission: "Develop and tune detections from observed threats and ATT&CK.", reports_to: "Morgan" }
-    - { name: "Casey", title: "Threat Intelligence Analyst", role: "Threat Intelligence Analyst", mission: "Collect and operationalize threat intelligence for the SOC.", reports_to: "Morgan" }
+    - { name: "Morgan", title: "Chief Executive Officer", role: "CEO / Executive Security Decision Maker" }
+    - { name: "Alex", title: "SOC Director", role: "Security Operations Manager", reports_to: "Morgan" }
+    - { name: "Sam", title: "Security Operations Analyst", role: "SOC Analyst", reports_to: "Alex" }
+    - { name: "Jordan", title: "Threat Hunter", role: "Threat Hunter / Security Analyst", reports_to: "Alex" }
+    - { name: "Riley", title: "Incident Response Analyst", role: "Incident Responder", reports_to: "Alex" }
+    - { name: "Taylor", title: "Detection & Security Engineer", role: "Detection Engineer", reports_to: "Morgan" }
+    - { name: "Casey", title: "Threat Intelligence Analyst", role: "Threat Intelligence Analyst", reports_to: "Morgan" }
   when: item.name not in (paperclip_agents.stdout | default(''))
+  register: paperclip_agent_create
+  failed_when: false
+  changed_when: paperclip_agent_create.rc == 0
   # NOTE: Adapter/runtime (claude / opencode / codex) is configured per-agent
   # after creation, once `paperclipai agent --help` flags are confirmed.

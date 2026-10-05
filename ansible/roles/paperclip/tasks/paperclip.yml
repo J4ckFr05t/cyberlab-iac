@@ -17,7 +17,8 @@
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai onboard --yes"
   args:
     chdir: "{{ paperclip_home }}"
-  when: paperclip_version.rc != 0
+  register: paperclip_onboard
+  changed_when: "'error' not in paperclip_onboard.stderr"
 
 - name: Check Paperclip service status
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai service status"
@@ -40,3 +41,9 @@
   register: paperclip_service_start
   changed_when: "'started' in paperclip_service_start.stdout"
   failed_when: false
+
+- name: Wait for Paperclip API to listen on port {{ paperclip_port }}
+  wait_for:
+    port: "{{ paperclip_port }}"
+    host: 127.0.0.1
+    timeout: 120
