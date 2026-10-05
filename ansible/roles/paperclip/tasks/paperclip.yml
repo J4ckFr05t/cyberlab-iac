@@ -73,8 +73,32 @@
   when: paperclip_port_open.rc != 0
   ignore_errors: yes
 
+- name: Check whether Paperclip config is still loopback-only
+  shell: "grep -c '127.0.0.1' {{ paperclip_home }}/.paperclip/instances/default/config.json || true"
+  register: paperclip_config_loopback
+  changed_when: false
+  failed_when: false
+
+- name: Expose Paperclip on the lab network by binding to all interfaces
+  shell: "sed -i 's/\"host\": \"127.0.0.1\"/\"host\": \"0.0.0.0\"/; s/\"bind\": \"127.0.0.1\"/\"bind\": \"0.0.0.0\"/; s/\"listen\": \"127.0.0.1\"/\"listen\": \"0.0.0.0\"/; s/\"hostname\": \"localhost\"/\"hostname\": \"0.0.0.0\"/; s/\"bindAddress\": \"127.0.0.1\"/\"bindAddress\": \"0.0.0.0\"/; s/\"address\": \"127.0.0.1\"/\"address\": \"0.0.0.0\"/' {{ paperclip_home }}/.paperclip/instances/default/config.json"
+  args:
+    executable: /bin/bash
+  register: paperclip_bind_fix
+  when: paperclip_config_loopback.stdout | int > 0
+
+- name: Restart Paperclip server to apply bind change
+  shell: |
+    pkill -f 'paperclipai run' || true
+    sleep 3
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin nohup paperclipai run >> {{ paperclip_home }}/.paperclip/instances/default/logs/ansible-run.log 2>&1 &
+  args:
+    chdir: "{{ paperclip_home }}"
+    executable: /bin/bash
+  when: paperclip_config_loopback.stdout | int > 0
+  changed_when: true
+
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
   wait_for:
     port: "{{ paperclip_port }}"
-    host: 127.0.0.1
+    host: 0.0.0.0
     timeout: 120
