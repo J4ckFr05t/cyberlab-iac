@@ -88,7 +88,7 @@
 
 - name: Restart Paperclip server to apply bind change
   shell: |
-    pkill -f 'paperclipai run' || true
+    pkill -f '[p]aperclipai run' || true
     sleep 3
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin nohup paperclipai run >> {{ paperclip_home }}/.paperclip/instances/default/logs/ansible-run.log 2>&1 &
   args:
