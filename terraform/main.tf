@@ -128,6 +128,7 @@ resource "proxmox_vm_qemu" "tier_0" {
       disk,
       startup_shutdown,
       bootdisk,
+      vm_state
     ]
   }
 }
@@ -231,6 +232,7 @@ resource "proxmox_vm_qemu" "tier_1" {
       disk,
       startup_shutdown,
       bootdisk,
+      vm_state
     ]
   }
 
@@ -336,6 +338,7 @@ resource "proxmox_vm_qemu" "tier_2" {
       disk,
       startup_shutdown,
       bootdisk,
+      vm_state
     ]
   }
 
