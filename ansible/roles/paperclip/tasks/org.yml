@@ -1,28 +1,22 @@
 ---
 # Bootstrap the FrostSec Security Operations organization.
-# Idempotent: skips creation when the company already exists.
+# Idempotent: skips creation when the company/agent already exists.
 
 - name: List existing Paperclip companies
-  command: paperclipai company list
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai company list"
   register: paperclip_companies
   changed_when: false
   failed_when: false
 
 - name: Create company
   command: >
-    paperclipai company create
+    sudo -u {{ paperclip_user }} -H paperclipai company create
     --name "{{ paperclip_company_name }}"
     --goal "{{ paperclip_goal_title }}"
-  become: yes
-  become_user: "{{ paperclip_user }}"
   when: paperclip_company_name not in (paperclip_companies.stdout | default(''))
 
 - name: Create departments
-  command: paperclipai department create --name "{{ item }}"
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai department create --name \"{{ item }}\""
   loop:
     - Executive Office
     - Security Operations
@@ -32,29 +26,20 @@
   failed_when: false
   changed_when: paperclip_departments.rc == 0
 
-# NOTE: Agent definitions (Morgan, Alex, Sam, Jordan, Riley, Taylor, Casey)
-# follow the same guard pattern as departments:
-#   1. paperclipai agent list
-#   2. create only when the agent name is absent
-# Final agent flags should be confirmed with `paperclipai agent --help` on the target.
 - name: List existing agents
-  command: paperclipai agent list
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai agent list"
   register: paperclip_agents
   changed_when: false
   failed_when: false
 
 - name: Create AI employees
   command: >
-    paperclipai agent create
+    sudo -u {{ paperclip_user }} -H paperclipai agent create
     --name "{{ item.name }}"
     --title "{{ item.title }}"
     --role "{{ item.role }}"
     --mission "{{ item.mission }}"
     --reports-to "{{ item.reports_to | default('') }}"
-  become: yes
-  become_user: "{{ paperclip_user }}"
   loop:
     - { name: "Morgan", title: "Chief Executive Officer", role: "CEO / Executive Security Decision Maker", mission: "Own the overall FrostSec security mission and coordinate the organization." }
     - { name: "Alex", title: "SOC Director", role: "Security Operations Manager", mission: "Manage day-to-day security operations and coordinate investigations.", reports_to: "Morgan" }
@@ -64,6 +49,5 @@
     - { name: "Taylor", title: "Detection & Security Engineer", role: "Detection Engineer", mission: "Develop and tune detections from observed threats and ATT&CK.", reports_to: "Morgan" }
     - { name: "Casey", title: "Threat Intelligence Analyst", role: "Threat Intelligence Analyst", mission: "Collect and operationalize threat intelligence for the SOC.", reports_to: "Morgan" }
   when: item.name not in (paperclip_agents.stdout | default(''))
-  # NOTE: Adapter/runtime (e.g. claude for Claude subscription auth, or opencode)
-  # is configured per-agent after creation, once `paperclipai agent --help`
-  # flags are confirmed on the target. See paperclip_agent_adapter default.
+  # NOTE: Adapter/runtime (claude / opencode / codex) is configured per-agent
+  # after creation, once `paperclipai agent --help` flags are confirmed.

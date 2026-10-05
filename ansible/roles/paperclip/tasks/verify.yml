@@ -1,8 +1,6 @@
 ---
 - name: Verify Paperclip service reports healthy
-  command: paperclipai service status
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai service status"
   register: paperclip_status
   changed_when: false
   failed_when: paperclip_status.rc != 0
@@ -12,20 +10,17 @@
     port: "{{ paperclip_port }}"
     host: 127.0.0.1
     timeout: 60
-  become: no
 
 - name: Verify Paperclip directories exist
   stat:
     path: "{{ paperclip_home }}/.paperclip"
   register: paperclip_dir
   failed_when: not paperclip_dir.stat.exists
-  become: yes
 
 - name: Verify Paperclip data directory ownership
   stat:
     path: "{{ paperclip_home }}"
   register: paperclip_home_stat
-  become: yes
   failed_when: paperclip_home_stat.stat.pw_name != paperclip_user
 
 - name: Paperclip health check
@@ -35,4 +30,3 @@
     status_code: [200, 404]
   register: paperclip_health
   failed_when: paperclip_health.status not in [200, 404]
-  become: no

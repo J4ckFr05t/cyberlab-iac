@@ -1,42 +1,30 @@
 ---
 - name: Check if Paperclip is already installed
-  command: paperclipai --version
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai --version"
   register: paperclip_version
   changed_when: false
   failed_when: false
 
 - name: Run Paperclip managed installer
-  command: npx --yes paperclipai install
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H npx --yes paperclipai install"
   when: paperclip_version.rc != 0
 
 - name: Initialize database and default config
-  command: paperclipai onboard --yes
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai onboard --yes"
   when: paperclip_version.rc != 0
 
 - name: Check Paperclip service status
-  command: paperclipai service status
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai service status"
   register: paperclip_service_status
   changed_when: false
   failed_when: false
 
 - name: Register Paperclip as an always-on background service
-  command: paperclipai service install
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai service install"
   when: paperclip_service_status.rc != 0
 
 - name: Ensure Paperclip service is started
-  command: paperclipai service start
-  become: yes
-  become_user: "{{ paperclip_user }}"
+  command: "sudo -u {{ paperclip_user }} -H paperclipai service start"
   register: paperclip_service_start
   changed_when: "'started' in paperclip_service_start.stdout"
   failed_when: false
