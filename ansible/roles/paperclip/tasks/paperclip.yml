@@ -97,6 +97,31 @@
   when: paperclip_config_external.stdout | int > 0
   changed_when: true
 
+- name: Check if hostname already allowed in Paperclip config
+  shell: "grep -c '{{ ansible_host }}' {{ paperclip_home }}/.paperclip/instances/default/config.json || true"
+  register: paperclip_allowed_host
+  changed_when: false
+  failed_when: false
+
+- name: Allow the lab hostname in Paperclip
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai allowed-hostname {{ ansible_host }}"
+  args:
+    chdir: "{{ paperclip_home }}"
+  when: paperclip_allowed_host.stdout | int == 0
+  register: paperclip_allowed_host_result
+  changed_when: paperclip_allowed_host_result.rc == 0
+
+- name: Restart Paperclip server to apply allowed hostname
+  shell: |
+    pkill -f '[d]ist/index.js run' || true
+    sleep 3
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin nohup paperclipai run >> {{ paperclip_home }}/.paperclip/instances/default/logs/ansible-run.log 2>&1 &
+  args:
+    chdir: "{{ paperclip_home }}"
+    executable: /bin/bash
+  when: paperclip_allowed_host.stdout | int == 0
+  changed_when: true
+
 - name: Install nginx
   apt:
     name: nginx

@@ -4,3 +4,12 @@
     name: nginx
     state: reloaded
   become: yes
+
+- name: Restart Paperclip server
+  shell: |
+    pkill -f '[d]ist/index.js run' || true
+    sleep 3
+    sudo -u paperclip -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin nohup paperclipai run >> /home/paperclip/.paperclip/instances/default/logs/ansible-run.log 2>&1 &
+  args:
+    chdir: /home/paperclip
+    executable: /bin/bash
