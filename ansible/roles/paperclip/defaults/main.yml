@@ -10,12 +10,11 @@ paperclip_goal_title: "Build a controlled autonomous security operations capabil
 paperclip_allowed_hostname: "frostsec.corp"
 node_major_version: "24"
 
-# Agent roster. `manager` is the agent's direct report-to; omit or set to
-# null for the top agent, which reports to the board operator.
-# Created in list order so managers always exist before their reports.
+# Agent roster. `manager` is the agent's direct report-to; null means the agent
+# reports to the board operator. The first agent listed is the top of the tree.
+# The role starts at SOC Director rather than a CEO layer.
 paperclip_agents:
-  - { name: "Morgan", title: "Chief Executive Officer", role: "ceo", manager: null }
-  - { name: "Alex", title: "SOC Director", role: "security", manager: "Morgan" }
+  - { name: "Alex", title: "SOC Director", role: "security", manager: null }
   - { name: "Sam", title: "Security Operations Analyst", role: "security", manager: "Alex" }
   - { name: "Jordan", title: "Threat Hunter", role: "security", manager: "Alex" }
   - { name: "Riley", title: "Incident Response Analyst", role: "security", manager: "Alex" }
