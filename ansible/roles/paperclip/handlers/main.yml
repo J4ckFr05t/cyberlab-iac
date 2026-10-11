@@ -13,3 +13,10 @@
   args:
     chdir: /home/paperclip
     executable: /bin/bash
+
+- name: Restart Paperclip systemd service
+  systemd:
+    name: paperclip
+    state: restarted
+    daemon_reload: yes
+  become: yes

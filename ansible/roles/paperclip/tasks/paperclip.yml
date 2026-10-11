@@ -152,6 +152,22 @@
   become: yes
   notify: Reload nginx
 
+- name: Deploy Paperclip systemd service
+  template:
+    src: paperclip.service.j2
+    dest: /etc/systemd/system/paperclip.service
+    mode: '0644'
+  become: yes
+  notify: Restart Paperclip systemd service
+
+- name: Enable and start Paperclip systemd service
+  systemd:
+    name: paperclip
+    enabled: yes
+    state: started
+    daemon_reload: yes
+  become: yes
+
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
   wait_for:
     port: "{{ paperclip_port }}"

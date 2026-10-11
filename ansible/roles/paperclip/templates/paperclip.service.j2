@@ -1,0 +1,19 @@
+[Unit]
+Description=Paperclip AI SOC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=paperclip
+Group=paperclip
+WorkingDirectory=/home/paperclip
+Environment=PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/home/paperclip/.local/bin/paperclipai run
+Restart=always
+RestartSec=10
+StandardOutput=append:/home/paperclip/.paperclip/instances/default/logs/ansible-run.log
+StandardError=append:/home/paperclip/.paperclip/instances/default/logs/ansible-run.log
+
+[Install]
+WantedBy=multi-user.target
