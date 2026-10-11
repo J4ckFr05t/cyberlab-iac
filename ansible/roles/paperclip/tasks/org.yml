@@ -1,5 +1,5 @@
 ---
-# Bootstrap the FrostSec Security Operations organization.
+# Bootstrap the FrostSec organization.
 # Idempotent: skips creation when the company/agent already exists.
 
 - name: List existing Paperclip companies (JSON)
@@ -74,5 +74,15 @@
   register: paperclip_agent_create
   failed_when: false
   changed_when: paperclip_agent_create.rc == 0
-  # NOTE: Adapter/runtime (claude / opencode / codex) is configured per-agent
-  # after creation, once `paperclipai agent --help` flags are confirmed.
+
+- name: Capture agents list for adapter configuration
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: paperclip_agents_result
+  changed_when: false
+  failed_when: false
+
+- name: Set agents list fact
+  set_fact:
+    paperclip_agents_list: "{{ paperclip_agents_result.stdout | default('[]') | from_json }}"

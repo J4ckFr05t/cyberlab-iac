@@ -168,6 +168,12 @@
     daemon_reload: yes
   become: yes
 
+- name: Set allowed hostname to {{ paperclip_allowed_hostname }}
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai allowed-hostname {{ paperclip_allowed_hostname }}"
+  args:
+    chdir: "{{ paperclip_home }}"
+  ignore_errors: yes
+
 - name: Wait for Paperclip API to listen on port {{ paperclip_port }}
   wait_for:
     port: "{{ paperclip_port }}"

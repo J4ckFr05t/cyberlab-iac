@@ -1,0 +1,40 @@
+---
+- name: Install Claude Code CLI
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm install -g @anthropic-ai/claude-code"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: claude_install
+  changed_when: "'added' in claude_install.stdout or 'changed' in claude_install.stdout"
+
+- name: Check Claude auth status
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin claude auth status"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: claude_auth_status
+  changed_when: false
+  failed_when: false
+
+- name: Print Claude manual auth command
+  debug:
+    msg: "Run: sudo -u {{ paperclip_user }} claude auth login"
+  when:
+    - paperclip_cli_auth | bool
+    - claude_auth_status.rc != 0
+    - not paperclip_anthropic_api_key
+
+- name: Warn about Claude Code free tier
+  debug:
+    msg: "WARNING: Claude Code requires Pro/Max or API key. Free tier does NOT include Claude Code."
+  when: not paperclip_anthropic_api_key
+
+- name: Configure agents with claude adapter
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai agent update {{ item.id }} --adapter-type claude_local
+  args:
+    chdir: "{{ paperclip_home }}"
+  loop: "{{ paperclip_agents_list }}"
+  when: paperclip_agents_list is defined
+  register: claude_agent_update
+  changed_when: claude_agent_update.rc == 0
+  failed_when: false

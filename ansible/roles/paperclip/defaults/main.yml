@@ -4,16 +4,19 @@ paperclip_user: paperclip
 paperclip_group: paperclip
 paperclip_home: "/home/{{ paperclip_user }}"
 paperclip_port: 3100
-paperclip_company_name: "FrostSec Security Operations"
-paperclip_company_issue_prefix: "FSOC"
+paperclip_company_name: "FrostSec"
+paperclip_company_issue_prefix: "SOC"
 paperclip_goal_title: "Build a controlled autonomous security operations capability"
+paperclip_allowed_hostname: "frostsec.corp"
 node_major_version: "24"
-# Agent execution adapter / model runtime. Options per your setup:
-#   - claude   (Claude Code, uses your Claude subscription auth - no API key needed)
-#   - opencode (opencode CLI)
-#   - codex    (Codex CLI)
-# Exact CLI flags must be confirmed on-target with `paperclipai agent --help`.
-paperclip_agent_adapter: "claude"
+# Agent execution adapter / model runtime:
+#   - opencode (opencode-ai CLI, free tier via GitHub OAuth - default)
+#   - claude   (@anthropic-ai/claude-code CLI, requires Pro/Max or API key)
+#   - codex    (@openai/codex CLI, free tier via ChatGPT device login)
+paperclip_agent_adapter: "opencode"
 paperclip_agent_model: ""
-# Model provider API keys (e.g. ANTHROPIC_API_KEY, OPENAI_API_KEY) are added
-# post-install via `paperclipai secret`, not through this role.
+# API key auth (takes priority over CLI login if set)
+paperclip_anthropic_api_key: ""
+paperclip_openai_api_key: ""
+# If no API key is set, print the manual CLI auth command
+paperclip_cli_auth: true

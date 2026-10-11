@@ -11,5 +11,8 @@
 - name: Bootstrap FrostSec organization
   import_tasks: org.yml
 
+- name: Configure agent adapter
+  import_tasks: adapter.yml
+
 - name: Verify Paperclip deployment
   import_tasks: verify.yml

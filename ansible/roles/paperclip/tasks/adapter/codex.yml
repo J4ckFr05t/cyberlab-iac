@@ -1,0 +1,35 @@
+---
+- name: Install Codex CLI
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm install -g @openai/codex"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: codex_install
+  changed_when: "'added' in codex_install.stdout or 'changed' in codex_install.stdout"
+
+- name: Check Codex auth status
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin codex auth status"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: codex_auth_status
+  changed_when: false
+  failed_when: false
+
+- name: Print Codex manual auth command
+  debug:
+    msg: "Run: sudo -u {{ paperclip_user }} codex auth login"
+  when:
+    - paperclip_cli_auth | bool
+    - codex_auth_status.rc != 0
+    - not paperclip_openai_api_key
+
+- name: Configure agents with codex adapter
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai agent update {{ item.id }} --adapter-type codex_local
+  args:
+    chdir: "{{ paperclip_home }}"
+  loop: "{{ paperclip_agents_list }}"
+  when: paperclip_agents_list is defined
+  register: codex_agent_update
+  changed_when: codex_agent_update.rc == 0
+  failed_when: false

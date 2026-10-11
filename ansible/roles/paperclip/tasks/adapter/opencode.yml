@@ -1,0 +1,35 @@
+---
+- name: Install opencode CLI
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm install -g opencode-ai"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: opencode_install
+  changed_when: "'added' in opencode_install.stdout or 'changed' in opencode_install.stdout"
+
+- name: Check opencode auth status
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin opencode auth status"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: opencode_auth_status
+  changed_when: false
+  failed_when: false
+
+- name: Print opencode manual auth command
+  debug:
+    msg: "Run: sudo -u {{ paperclip_user }} opencode auth login"
+  when:
+    - paperclip_cli_auth | bool
+    - opencode_auth_status.rc != 0
+    - not paperclip_anthropic_api_key
+
+- name: Configure agents with opencode adapter
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai agent update {{ item.id }} --adapter-type opencode_local
+  args:
+    chdir: "{{ paperclip_home }}"
+  loop: "{{ paperclip_agents_list }}"
+  when: paperclip_agents_list is defined
+  register: opencode_agent_update
+  changed_when: opencode_agent_update.rc == 0
+  failed_when: false
