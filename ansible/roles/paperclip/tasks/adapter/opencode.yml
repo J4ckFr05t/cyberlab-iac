@@ -12,21 +12,23 @@
   register: opencode_install
   changed_when: "'added' in opencode_install.stdout or 'changed' in opencode_install.stdout"
 
-- name: Check opencode auth status
-  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin opencode auth status"
+- name: Check opencode authentication
+  command: "sudo -u {{ paperclip_user }} env -i HOME={{ paperclip_home }} PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin opencode auth list"
   args:
     chdir: "{{ paperclip_home }}"
-  register: opencode_auth_status
+  register: opencode_auth
   changed_when: false
   failed_when: false
 
-- name: Print opencode manual auth command
+- name: Report opencode auth status
   debug:
-    msg: "Run: sudo -u {{ paperclip_user }} opencode auth login"
-  when:
-    - paperclip_cli_auth | bool
-    - opencode_auth_status.rc != 0
-    - not paperclip_anthropic_api_key
+    msg: >-
+      {% if opencode_auth.rc != 0 or 'opencode' not in opencode_auth.stdout %}
+      opencode is NOT authenticated. Create a key at https://opencode.ai/auth, then run:
+        sudo -u {{ paperclip_user }} env -i HOME={{ paperclip_home }} PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin sh -c 'cd {{ paperclip_home }} && opencode auth login --provider opencode'
+      {% else %}
+      opencode is authenticated.
+      {% endif %}
 
 - name: Configure agents with opencode adapter
   # opencode_local requires model in provider/model format; cwd must be absolute.

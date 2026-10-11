@@ -32,3 +32,26 @@
     status_code: [200, 404]
   register: paperclip_health
   failed_when: paperclip_health.status not in [200, 404]
+
+- name: List agents for adapter verification
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: paperclip_agents_check
+  changed_when: false
+
+- name: Report adapter configuration
+  debug:
+    msg: >-
+      {% for a in paperclip_agents_check.stdout | from_json %}
+      {{ a.name }}: adapterType={{ a.adapterType }} reportsTo={{ a.reportsTo | default('none', true) }}
+      {% endfor %}
+
+- name: Warn if agents are not on the selected adapter
+  debug:
+    msg: >-
+      Expected adapterType '{{ paperclip_agent_adapter }}_local' but found:
+      {{ paperclip_agents_check.stdout | from_json | map(attribute='adapterType') | unique | join(', ') }}
+  when: >-
+    (paperclip_agent_adapter ~ '_local')
+    not in (paperclip_agents_check.stdout | from_json | map(attribute='adapterType') | list)
