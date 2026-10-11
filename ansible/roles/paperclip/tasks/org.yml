@@ -34,26 +34,17 @@
           selectattr('name', 'equalto', paperclip_company_name) | list | first).id
          | default((paperclip_companies_after.stdout | from_json | first).id) }}
 
-- name: Rename default company to desired name
+- name: Update company name if needed
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    paperclipai company update {{ paperclip_company_id }} --name "{{ paperclip_company_name }}"
+    paperclipai company update {{ paperclip_company_id }} --payload-json '{"name": "{{ paperclip_company_name }}"}'
   args:
     chdir: "{{ paperclip_home }}"
-  when: paperclip_company_name != "Board"
-  register: paperclip_company_rename
-  changed_when: paperclip_company_rename.rc == 0
+  register: paperclip_company_update
+  changed_when: paperclip_company_update.rc == 0
   failed_when: false
 
-- name: Set domain to allowed hostname
-  command: >
-    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    paperclipai config set domain {{ paperclip_allowed_hostname }}
-  args:
-    chdir: "{{ paperclip_home }}"
-  register: paperclip_domain_set
-  changed_when: paperclip_domain_set.rc == 0
-  failed_when: false
+
 
 - name: Create goal
   command: >
@@ -77,26 +68,56 @@
   failed_when: false
 
 - name: Create AI employees
+  # Reporting lines are not set here: paperclipai wants an agent id, and ids are
+  # only known after creation. The hierarchy is applied by the repair task below.
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     paperclipai agent create -C "{{ paperclip_company_id }}" --json
     --payload-json '{"name": "{{ item.name }}", "title": "{{ item.title }}", "role": "{{ item.role }}"}'
   args:
     chdir: "{{ paperclip_home }}"
-  loop:
-    - { name: "Morgan", title: "Chief Executive Officer", role: "ceo" }
-    - { name: "Alex", title: "SOC Director", role: "security" }
-    - { name: "Sam", title: "Security Operations Analyst", role: "security" }
-    - { name: "Jordan", title: "Threat Hunter", role: "security" }
-    - { name: "Riley", title: "Incident Response Analyst", role: "security" }
-    - { name: "Taylor", title: "Detection & Security Engineer", role: "engineer" }
-    - { name: "Casey", title: "Threat Intelligence Analyst", role: "researcher" }
+  loop: "{{ paperclip_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
   when: item.name not in (paperclip_agents.stdout | default(''))
   register: paperclip_agent_create
   failed_when: false
   changed_when: paperclip_agent_create.rc == 0
 
-- name: Capture agents list for adapter configuration
+- name: Capture agents list for hierarchy fix
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: paperclip_agents_result
+  changed_when: false
+  failed_when: false
+
+- name: Set agents list fact
+  set_fact:
+    paperclip_all_agents: "{{ paperclip_agents_result.stdout | default('[]') | from_json }}"
+
+- name: Repair reporting hierarchy for existing agents
+  # Creation is idempotent, so agents created before the hierarchy was defined
+  # (or by hand in the UI) still report to the board. Point each one at its
+  # configured manager.
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai agent update {{ paperclip_all_agents | selectattr('name', 'equalto', item.name) | map(attribute='id') | first }}
+    --payload-json '{"reportsToAgentId": "{{ paperclip_all_agents | selectattr('name', 'equalto', item.manager) | map(attribute='id') | first }}"}'
+  loop: "{{ paperclip_agents }}"
+  loop_control:
+    label: "{{ item.name }} -> {{ item.manager | default('(board)') }}"
+  when:
+    - item.manager | default(none)
+    - paperclip_all_agents | selectattr('name', 'equalto', item.name) | list | length > 0
+    - paperclip_all_agents | selectattr('name', 'equalto', item.manager) | list | length > 0
+    - (paperclip_all_agents | selectattr('name', 'equalto', item.name) | list | first).reportsToAgentId | default(none)
+      != (paperclip_all_agents | selectattr('name', 'equalto', item.manager) | list | first).id
+  register: paperclip_agent_hierarchy_fix
+  changed_when: paperclip_agent_hierarchy_fix.rc == 0
+  failed_when: false
+
+- name: Refresh agents list for adapter configuration
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
   args:
     chdir: "{{ paperclip_home }}"

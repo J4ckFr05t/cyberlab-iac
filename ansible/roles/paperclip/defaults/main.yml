@@ -5,10 +5,23 @@ paperclip_group: paperclip
 paperclip_home: "/home/{{ paperclip_user }}"
 paperclip_port: 3100
 paperclip_company_name: "FrostSec"
-paperclip_company_issue_prefix: "SOC"
+paperclip_company_issue_prefix: "FRO"
 paperclip_goal_title: "Build a controlled autonomous security operations capability"
 paperclip_allowed_hostname: "frostsec.corp"
 node_major_version: "24"
+
+# Agent roster. `manager` is the agent's direct report-to; omit or set to
+# null for the top agent, which reports to the board operator.
+# Created in list order so managers always exist before their reports.
+paperclip_agents:
+  - { name: "Morgan", title: "Chief Executive Officer", role: "ceo", manager: null }
+  - { name: "Alex", title: "SOC Director", role: "security", manager: "Morgan" }
+  - { name: "Sam", title: "Security Operations Analyst", role: "security", manager: "Alex" }
+  - { name: "Jordan", title: "Threat Hunter", role: "security", manager: "Alex" }
+  - { name: "Riley", title: "Incident Response Analyst", role: "security", manager: "Alex" }
+  - { name: "Taylor", title: "Detection & Security Engineer", role: "engineer", manager: "Alex" }
+  - { name: "Casey", title: "Threat Intelligence Analyst", role: "researcher", manager: "Alex" }
+
 # Agent execution adapter / model runtime:
 #   - opencode (opencode-ai CLI, free tier via GitHub OAuth - default)
 #   - claude   (@anthropic-ai/claude-code CLI, requires Pro/Max or API key)
