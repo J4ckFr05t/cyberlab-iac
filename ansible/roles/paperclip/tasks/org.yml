@@ -34,6 +34,27 @@
           selectattr('name', 'equalto', paperclip_company_name) | list | first).id
          | default((paperclip_companies_after.stdout | from_json | first).id) }}
 
+- name: Rename default company to desired name
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai company update {{ paperclip_company_id }} --name "{{ paperclip_company_name }}"
+  args:
+    chdir: "{{ paperclip_home }}"
+  when: paperclip_company_name != "Board"
+  register: paperclip_company_rename
+  changed_when: paperclip_company_rename.rc == 0
+  failed_when: false
+
+- name: Set domain to allowed hostname
+  command: >
+    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+    paperclipai config set domain {{ paperclip_allowed_hostname }}
+  args:
+    chdir: "{{ paperclip_home }}"
+  register: paperclip_domain_set
+  changed_when: paperclip_domain_set.rc == 0
+  failed_when: false
+
 - name: Create goal
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
