@@ -1,4 +1,10 @@
 ---
+- name: Set npm prefix to user-writable directory
+  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm config set prefix /home/paperclip/.local"
+  args:
+    chdir: "{{ paperclip_home }}"
+  changed_when: false
+
 - name: Install Codex CLI
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin npm install -g @openai/codex"
   args:
