@@ -27,7 +27,10 @@ paperclip_agents:
 #   - claude   (@anthropic-ai/claude-code CLI, requires Pro/Max or API key)
 #   - codex    (@openai/codex CLI, free tier via ChatGPT device login)
 paperclip_agent_adapter: "opencode"
-paperclip_agent_model: ""
+# Model for the opencode adapter. Required by opencode_local, in
+# provider/model format. Verify available ids with:
+#   sudo -u paperclip sh -c 'cd /home/paperclip && opencode models'
+paperclip_opencode_model: "opencode/nemotron-3.5-lightning-free"
 # API key auth (takes priority over CLI login if set)
 paperclip_anthropic_api_key: ""
 paperclip_openai_api_key: ""

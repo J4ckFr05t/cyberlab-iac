@@ -29,13 +29,16 @@
     - not paperclip_anthropic_api_key
 
 - name: Configure agents with opencode adapter
+  # opencode_local requires model in provider/model format; cwd must be absolute.
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    paperclipai agent update {{ item.id }} --adapter-type opencode_local
+    paperclipai agent update {{ paperclip_agent_ids[item.name] }}
+    --payload-json '{"adapterType": "opencode_local",
+      "adapterConfig": {"cwd": "{{ paperclip_home }}", "model": "{{ paperclip_opencode_model }}"}}'
   args:
     chdir: "{{ paperclip_home }}"
-  loop: "{{ paperclip_agents_list }}"
-  when: paperclip_agents_list is defined
+  loop: "{{ paperclip_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
   register: opencode_agent_update
   changed_when: opencode_agent_update.rc == 0
-  failed_when: false

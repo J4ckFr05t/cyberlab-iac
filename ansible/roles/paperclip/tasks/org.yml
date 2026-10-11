@@ -31,20 +31,7 @@
   set_fact:
     paperclip_company_id: >-
       {{ (paperclip_companies_after.stdout | from_json |
-          selectattr('name', 'equalto', paperclip_company_name) | list | first).id
-         | default((paperclip_companies_after.stdout | from_json | first).id) }}
-
-- name: Update company name if needed
-  command: >
-    sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    paperclipai company update {{ paperclip_company_id }} --payload-json '{"name": "{{ paperclip_company_name }}"}'
-  args:
-    chdir: "{{ paperclip_home }}"
-  register: paperclip_company_update
-  changed_when: paperclip_company_update.rc == 0
-  failed_when: false
-
-
+          selectattr('name', 'equalto', paperclip_company_name) | list | first).id }}
 
 - name: Create goal
   command: >
@@ -68,8 +55,8 @@
   failed_when: false
 
 - name: Create AI employees
-  # Reporting lines are not set here: paperclipai wants an agent id, and ids are
-  # only known after creation. The hierarchy is applied by the repair task below.
+  # Reporting lines are applied by the next task: reportsTo needs an agent id,
+  # and ids only exist after every agent has been created.
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     paperclipai agent create -C "{{ paperclip_company_id }}" --json
@@ -81,50 +68,30 @@
     label: "{{ item.name }}"
   when: item.name not in (paperclip_agents_existing.stdout | default(''))
   register: paperclip_agent_create
-  failed_when: false
   changed_when: paperclip_agent_create.rc == 0
 
-- name: Capture agents list for hierarchy fix
+- name: Read agents back
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
   args:
     chdir: "{{ paperclip_home }}"
   register: paperclip_agents_result
   changed_when: false
-  failed_when: false
 
-- name: Set agents list fact
+- name: Build agent id lookup
   set_fact:
-    paperclip_all_agents: "{{ paperclip_agents_result.stdout | default('[]') | from_json }}"
+    paperclip_agent_ids: >-
+      {{ paperclip_agents_result.stdout | from_json | items2dict(key_name='name', value_name='id') }}
 
-- name: Repair reporting hierarchy for existing agents
-  # Creation is idempotent, so agents created before the hierarchy was defined
-  # (or by hand in the UI) still report to the board. Point each one at its
-  # configured manager.
+- name: Apply reporting hierarchy
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    paperclipai agent update {{ paperclip_all_agents | selectattr('name', 'equalto', item.name) | map(attribute='id') | first }}
-    --payload-json '{"reportsToAgentId": "{{ paperclip_all_agents | selectattr('name', 'equalto', item.manager) | map(attribute='id') | first }}"}'
+    paperclipai agent update {{ paperclip_agent_ids[item.name] }}
+    --payload-json '{"reportsTo": "{{ paperclip_agent_ids[item.manager] }}"}'
+  args:
+    chdir: "{{ paperclip_home }}"
   loop: "{{ paperclip_agents }}"
   loop_control:
     label: "{{ item.name }} -> {{ item.manager | default('(board)') }}"
-  when:
-    - item.manager | default(none)
-    - paperclip_all_agents | selectattr('name', 'equalto', item.name) | list | length > 0
-    - paperclip_all_agents | selectattr('name', 'equalto', item.manager) | list | length > 0
-    - (paperclip_all_agents | selectattr('name', 'equalto', item.name) | list | first).reportsToAgentId | default(none)
-      != (paperclip_all_agents | selectattr('name', 'equalto', item.manager) | list | first).id
-  register: paperclip_agent_hierarchy_fix
-  changed_when: paperclip_agent_hierarchy_fix.rc == 0
-  failed_when: false
-
-- name: Refresh agents list for adapter configuration
-  command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
-  args:
-    chdir: "{{ paperclip_home }}"
-  register: paperclip_agents_result
-  changed_when: false
-  failed_when: false
-
-- name: Set agents list fact
-  set_fact:
-    paperclip_agents_list: "{{ paperclip_agents_result.stdout | default('[]') | from_json }}"
+  when: item.manager is not none
+  register: paperclip_agent_hierarchy
+  changed_when: paperclip_agent_hierarchy.rc == 0

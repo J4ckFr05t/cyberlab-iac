@@ -31,11 +31,12 @@
 - name: Configure agents with codex adapter
   command: >
     sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-    paperclipai agent update {{ item.id }} --adapter-type codex_local
+    paperclipai agent update {{ paperclip_agent_ids[item.name] }}
+    --payload-json '{"adapterType": "codex_local", "adapterConfig": {"cwd": "{{ paperclip_home }}"}}'
   args:
     chdir: "{{ paperclip_home }}"
-  loop: "{{ paperclip_agents_list }}"
-  when: paperclip_agents_list is defined
+  loop: "{{ paperclip_agents }}"
+  loop_control:
+    label: "{{ item.name }}"
   register: codex_agent_update
   changed_when: codex_agent_update.rc == 0
-  failed_when: false
