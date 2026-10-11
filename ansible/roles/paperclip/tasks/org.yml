@@ -63,7 +63,7 @@
   command: "sudo -u {{ paperclip_user }} -H env PATH=/home/paperclip/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin paperclipai agent list -C {{ paperclip_company_id }} --json"
   args:
     chdir: "{{ paperclip_home }}"
-  register: paperclip_agents
+  register: paperclip_agents_existing
   changed_when: false
   failed_when: false
 
@@ -79,7 +79,7 @@
   loop: "{{ paperclip_agents }}"
   loop_control:
     label: "{{ item.name }}"
-  when: item.name not in (paperclip_agents.stdout | default(''))
+  when: item.name not in (paperclip_agents_existing.stdout | default(''))
   register: paperclip_agent_create
   failed_when: false
   changed_when: paperclip_agent_create.rc == 0
